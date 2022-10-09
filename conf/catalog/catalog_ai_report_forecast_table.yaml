@@ -1,0 +1,630 @@
+# ====================================
+# ----- ai_report_forecast_article
+# ====================================
+ai_report_forecast_article:
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      forecast_qty: "numeric( 24, 8 )"
+      forecast_value: "numeric( 24, 8 )"
+      forecast_week: "date not null"
+      forecast_month: "date not null"
+      run_date: "date not null"
+      status_flag: "varchar( 256 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+      forecast_week_sync: "date not null"
+    primary_key: ['article_code', 'dc_code', 'rdc_code', 'franchise_code', 'forecast_week', 'forecast_month']
+  update:
+    from_ai_forecast_article_to_ai_report_forecast_article:
+      parameter: [
+          'run_date',
+          'date_range_sla_month',
+          'forecast_end_period',
+          'date_range_sla_month_forecast'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_forecast_article                                 as arfa
+        (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.article_code
+            ,       aam.brand
+            ,       afm.dc_code
+            ,       afm.rdc_code
+            ,       afm.franchise_code
+            ,       afa.forecast_qty
+            ,       afa.forecast_value
+            ,       gsw.start_of_week                                                                           as forecast_week
+            ,       gsw.start_of_month                                                                          as forecast_month
+            ,       '{run_date}'::date                                                                          as run_date
+            ,       null                                                                                        as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                                   as cat_mch1_code_brand
+            ,       case when extract(month from gsw.start_of_week) <> extract(month from gsw.start_of_month)
+                              then gsw.start_of_month
+                              else gsw.start_of_week
+                         end                                                                                    as forecast_week_sync
+            from    {database_name}.{ai_schema_name}.ai_article_mapping_fc                                      as aamf
+            cross join	(	select	date_trunc('week', data_date)::date		                                    as start_of_week
+                            ,       date_trunc('month', data_date)::date		                                as start_of_month
+                            from	(	select	generate_series(date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                                ,               date_trunc('month', (date '{run_date}' + interval '1 month')) - interval '1 day' + interval '{forecast_end_period} month' + interval '{date_range_sla_month_forecast} month'
+                                                ,               interval '1 day'
+                                                )::date					                                        as data_date
+                                    ) as gsd
+                            group by 1,2
+                          ) as gsw
+            inner join  {database_name}.{ai_schema_name}.ai_article_master                                      as aam
+                on aamf.article_code	= aam.article_code
+            inner join  {database_name}.{ai_schema_name}.ai_franchise_master                                    as afm
+                on aamf.franchise_code	= afm.franchise_code
+            inner join  (   select  article_code
+                            ,       franchise_code
+                            ,       coalesce(sum(coalesce(forecast_qty_adjust, forecast_qty)), 0.0)             as forecast_qty
+                            ,       coalesce(sum(coalesce(forecast_value_adjust, forecast_value)), 0.0)         as forecast_value
+                            ,       forecast_week
+                            ,       forecast_month
+                            from    {database_name}.{ai_schema_name}.ai_forecast_article
+                            where   ( forecast_month between date_trunc('month', (date '{run_date}' + interval '{date_range_sla_month_forecast} month'))
+                                                     and     date_trunc('month', (date '{run_date}' + interval '{forecast_end_period} month' + interval '{date_range_sla_month_forecast} month'))
+                                    )
+                            group by 1,2,5,6
+                        ) as afa
+                on  aamf.article_code     =   afa.article_code
+                and aamf.franchise_code   =   afa.franchise_code
+                and gsw.start_of_week     =   afa.forecast_week
+                and gsw.start_of_month    =   afa.forecast_month
+            where   afm.franchise_priority = 1
+        )
+        on conflict( article_code, dc_code, rdc_code, franchise_code, forecast_week, forecast_month ) do update
+              set   cat_mch3_code                     =   excluded.cat_mch3_code
+              ,     cat_mch2_code                     =   excluded.cat_mch2_code
+              ,     cat_mch1_code                     =   excluded.cat_mch1_code
+              ,     brand                             =   excluded.brand
+              ,     forecast_qty                      =   excluded.forecast_qty
+              ,     forecast_value                    =   excluded.forecast_value
+              ,     status_flag                       =   excluded.status_flag
+              ,     cat_mch1_code_brand               =   excluded.cat_mch1_code_brand
+              ,     forecast_week_sync                =   excluded.forecast_week_sync
+        where (     round(arfa.forecast_qty, 3)       <>  round(excluded.forecast_qty, 3)
+                and excluded.forecast_qty             >   0
+              )
+        or    (     round(arfa.forecast_value, 3)     <>  round(excluded.forecast_value, 3)
+                and excluded.forecast_value           >   0
+              )
+        "
+#    vacuum:
+#      statement: "
+#        vacuum full {database_name}.{ai_schema_name}.ai_report_forecast_article;
+#        "
+# ====================================
+# ----- ai_report_forecast_article_weekly
+# ====================================
+ai_report_forecast_article_weekly:
+  version: '2021-09-15'
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      forecast_qty: "numeric( 24, 8 )"
+      forecast_value: "numeric( 24, 8 )"
+      forecast_week: "date not null"
+      run_date: "date not null"
+      status_flag: "varchar( 256 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+    primary_key: ['article_code', 'dc_code', 'rdc_code', 'franchise_code', 'forecast_week']
+  update:
+    from_ai_forecast_article_to_ai_report_forecast_article:
+      parameter: [
+          'run_date',
+          'date_range_sla_month',
+          'forecast_end_period',
+          'date_range_sla_month_forecast'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_forecast_article_weekly                            as arfa
+        (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.article_code
+            ,       aam.brand
+            ,       afm.dc_code
+            ,       afm.rdc_code
+            ,       afm.franchise_code
+            ,       afa.forecast_qty
+            ,       afa.forecast_value
+            ,       gsw.start_of_week                                                                             as forecast_week
+            ,       '{run_date}'::date                                                                            as run_date
+            ,       null                                                                                          as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                                     as cat_mch1_code_brand
+            from    {database_name}.{ai_schema_name}.ai_article_mapping_fc                                        as aamf
+            cross join	(	select	date_trunc('week', data_date)::date		                                      as start_of_week
+                              from	(	select	generate_series(date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                                ,               date_trunc('month', (date '{run_date}' + interval '1 month')) - interval '1 day' + interval '{forecast_end_period} month' + interval '{date_range_sla_month_forecast} month'
+                                                ,               interval '1 day'
+                                                )::date					                                          as data_date
+                                      ) as gsd
+                              group by 1
+                          ) as gsw
+            inner join  {database_name}.{ai_schema_name}.ai_article_master                                        as aam
+                on aamf.article_code	= aam.article_code
+            inner join  {database_name}.{ai_schema_name}.ai_franchise_master                                      as afm
+                on aamf.franchise_code	= afm.franchise_code
+            inner join  (   select  article_code
+                            ,       franchise_code
+                            ,       coalesce(sum(coalesce(forecast_qty_adjust, forecast_qty)), 0.0)               as forecast_qty
+                            ,       coalesce(sum(coalesce(forecast_value_adjust, forecast_value)), 0.0)           as forecast_value
+                            ,       forecast_week
+                            from    {database_name}.{ai_schema_name}.ai_forecast_article
+                            where   ( forecast_month between date_trunc('month', (date '{run_date}' + interval '{date_range_sla_month_forecast} month'))
+                                                     and     date_trunc('month', (date '{run_date}' + interval '{forecast_end_period} month' + interval '{date_range_sla_month_forecast} month'))
+                                    )
+                            group by 1,2,5
+                        ) as afa
+                on  aamf.article_code     =   afa.article_code
+                and aamf.franchise_code   =   afa.franchise_code
+                and gsw.start_of_week     =   afa.forecast_week
+            where   franchise_priority = 1
+        )
+        on conflict( article_code, dc_code, rdc_code, franchise_code, forecast_week ) do update
+              set   cat_mch3_code                     =   excluded.cat_mch3_code
+              ,     cat_mch2_code                     =   excluded.cat_mch2_code
+              ,     cat_mch1_code                     =   excluded.cat_mch1_code
+              ,     brand                             =   excluded.brand
+              ,     forecast_qty                      =   excluded.forecast_qty
+              ,     forecast_value                    =   excluded.forecast_value
+              ,     status_flag                       =   excluded.status_flag
+              ,     cat_mch1_code_brand               =   excluded.cat_mch1_code_brand
+        where (     round(arfa.forecast_qty, 3)       <>  round(excluded.forecast_qty, 3)
+                and excluded.forecast_qty             >   0
+              )
+        or    (     round(arfa.forecast_value, 3)     <>  round(excluded.forecast_value, 3)
+                and excluded.forecast_value           >   0
+              )
+        "
+# ====================================
+# ----- ai_report_forecast_article_monthly
+# ====================================
+ai_report_forecast_article_monthly:
+  version: '2021-09-15'
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      forecast_qty: "numeric( 24, 8 )"
+      forecast_value: "numeric( 24, 8 )"
+      forecast_month: "date not null"
+      run_date: "date not null"
+      status_flag: "varchar( 256 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+    primary_key: ['article_code', 'dc_code', 'rdc_code', 'franchise_code', 'forecast_month']
+  update:
+    from_ai_forecast_article_to_ai_report_forecast_article_monthly:
+      parameter: [
+          'run_date',
+          'date_range_sla_month',
+          'forecast_end_period',
+          'date_range_sla_month_forecast'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_forecast_article_monthly                           as arfam
+        (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.article_code
+            ,       aam.brand
+            ,       afm.dc_code
+            ,       afm.rdc_code
+            ,       afm.franchise_code
+            ,       afa.forecast_qty
+            ,       afa.forecast_value
+            ,       gsm.start_of_month                                                                            as forecast_month
+            ,       '{run_date}'::date                                                                            as run_date
+            ,       null                                                                                          as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                                     as cat_mch1_code_brand
+            from    {database_name}.{ai_schema_name}.ai_article_mapping_fc                                        as aamf
+            cross join	(	select	date_trunc('month', data_date)::date	                                      as start_of_month
+                              from	(	select	generate_series(date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                                ,               date_trunc('month', (date '{run_date}' + interval '1 month')) - interval '1 day' + interval '{forecast_end_period} month' + interval '{date_range_sla_month_forecast} month'
+                                                ,               interval '1 day'
+                                                )::date					                                          as data_date
+                                      ) as gsd
+                              group by 1
+                          ) as gsm
+            inner join  {database_name}.{ai_schema_name}.ai_article_master                                        as aam
+                on aamf.article_code	= aam.article_code
+            inner join  {database_name}.{ai_schema_name}.ai_franchise_master                                      as afm
+                on aamf.franchise_code	= afm.franchise_code
+            inner join  (   select  article_code
+                            ,       franchise_code
+                            ,       coalesce(sum(coalesce(forecast_qty_adjust, forecast_qty)), 0.0)               as forecast_qty
+                            ,       coalesce(sum(coalesce(forecast_value_adjust, forecast_value)), 0.0)           as forecast_value
+                            ,       forecast_month
+                            from  {database_name}.{ai_schema_name}.ai_forecast_article
+                            where ( forecast_month between date_trunc('month', (date '{run_date}' + interval '{date_range_sla_month_forecast} month'))
+                                                   and     date_trunc('month', (date '{run_date}' + interval '{forecast_end_period} month' + interval '{date_range_sla_month_forecast} month'))
+                                  )
+                            group by 1,2,5
+                        ) as afa
+                on  aamf.article_code     =   afa.article_code
+                and aamf.franchise_code   =   afa.franchise_code
+                and gsm.start_of_month    =   afa.forecast_month
+            where   franchise_priority = 1
+        )
+        on conflict( article_code, dc_code, rdc_code, franchise_code, forecast_month ) do update
+              set   cat_mch3_code                     =   excluded.cat_mch3_code
+              ,     cat_mch2_code                     =   excluded.cat_mch2_code
+              ,     cat_mch1_code                     =   excluded.cat_mch1_code
+              ,     brand                             =   excluded.brand
+              ,     forecast_qty                      =   excluded.forecast_qty
+              ,     forecast_value                    =   excluded.forecast_value
+              ,     status_flag                       =   excluded.status_flag
+              ,     cat_mch1_code_brand               =   excluded.cat_mch1_code_brand
+        where (     round(arfam.forecast_qty, 3)      <>  round(excluded.forecast_qty, 3)
+                and excluded.forecast_qty             >   0
+              )
+        or    (     round(arfam.forecast_value, 3)    <>  round(excluded.forecast_value, 3)
+                and excluded.forecast_value           >   0
+              )
+        "
+# ====================================
+# ----- ai_report_forecast_brand
+# ====================================
+ai_report_forecast_brand:
+  version: '2022-06-13'
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      brand: "varchar( 64 )"
+      actual_sales_qty: "numeric( 24, 8 )"
+      actual_sales_value: "numeric( 24, 8 )"
+      forecast_qty: "numeric( 24, 8 )"
+      forecast_value: "numeric( 24, 8 )"
+      sales_target_value: "numeric( 24, 8 )"
+      month: "integer not null"
+      year: "integer not null"
+      run_date: "date not null"
+      status_flag: "varchar( 256 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+    primary_key: ['cat_mch1_code_brand', 'month', 'year']
+  update:
+    from_all_to_ai_report_forecast_brand:
+      parameter: [
+          'run_date',
+          'date_range_sla_month',
+          'forecast_end_period',
+          'date_range_sla_month_forecast'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_forecast_brand                                     as arfb
+        (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.brand
+            ,       sum(coalesce(aasa.actual_sales_qty, 0.0))                                                     as actual_sales_qty
+            ,       sum(coalesce(aasa.actual_sales_value, 0.0))                                                   as actual_sales_value
+            ,       sum(coalesce(afa.forecast_qty, 0.0))                                                          as forecast_qty
+            ,       sum(coalesce(afa.forecast_value, 0.0))                                                        as forecast_value
+            ,       sum(coalesce(asta.sales_target_value, 0.0))                                                   as sales_target_value
+            ,       date_part('month',  gsw.start_of_month)                                                       as month
+            ,       date_part('year',   gsw.start_of_month)                                                       as year
+            ,       '{run_date}'::date                                                                            as run_date
+            ,       null                                                                                          as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                                     as cat_mch1_code_brand
+            from    {database_name}.{ai_schema_name}.ai_article_mapping_fc                                        as aamf
+            cross join  ( select	date_trunc('month', data_date)::date		                                  as start_of_month
+                          from	(	select	generate_series(date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                              ,               date_trunc('month', (date '{run_date}' + interval '1 month')) - interval '1 day' + interval '{forecast_end_period} month' + interval '{date_range_sla_month_forecast} month'
+                                              ,               interval '1 day'
+                                              )::date					                                          as data_date
+                                  ) as gsd
+                          group by 1
+                        ) as gsw
+            inner join  {database_name}.{ai_schema_name}.ai_article_master                                        as aam
+                  on aamf.article_code	= aam.article_code
+            inner join  {database_name}.{ai_schema_name}.ai_franchise_master                                      as afm
+                  on aamf.franchise_code	= afm.franchise_code
+            left join (   select  article_code
+                          ,       franchise_code
+                          ,       coalesce(sum(coalesce(forecast_qty_adjust, forecast_qty)), 0.0)                 as forecast_qty
+                          ,       coalesce(sum(coalesce(forecast_value_adjust, forecast_value)), 0.0)             as forecast_value
+                          ,       forecast_month
+                          from    {database_name}.{ai_schema_name}.ai_forecast_article
+                          where   ( forecast_month between date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                                   and     date_trunc('month', (date '{run_date}' + interval '{forecast_end_period} month'  + interval '{date_range_sla_month_forecast} month'))
+                                  )
+                          group by 1,2,5
+                        ) as afa
+                on  aamf.article_code     =   afa.article_code
+                and aamf.franchise_code   =   afa.franchise_code
+                and gsw.start_of_month    =   afa.forecast_month
+            left join (   select  article_code
+                          ,       franchise_code
+                          ,       sum(actual_sales_qty)						                                      as actual_sales_qty
+                          ,       sum(actual_sales_value)					                                      as actual_sales_value
+                          ,       start_of_month
+                          from  {database_name}.{ai_schema_name}.ai_actual_sales_article
+                          where   ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                                   and     date_trunc('month', (date '{run_date}' + interval '{forecast_end_period} month'  + interval '{date_range_sla_month_forecast} month'))
+                                  )
+                          group by 1,2,5
+                        ) as aasa
+                on  aamf.article_code     =   aasa.article_code
+                and aamf.franchise_code   =   aasa.franchise_code
+                and gsw.start_of_month    =   aasa.start_of_month
+            left join (   select  article_code
+                          ,       franchise_code
+                          ,       sum(sales_target_value)                                                         as sales_target_value
+                          ,       start_of_month
+                          from  {database_name}.{ai_schema_name}.ai_sales_target_article
+                          where   ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                                   and     date_trunc('month', (date '{run_date}' + interval '{forecast_end_period} month'  + interval '{date_range_sla_month_forecast} month'))
+                                  )
+                          group by 1,2,4
+                        ) as asta
+                on  aamf.article_code     =   asta.article_code
+                and aamf.franchise_code   =   asta.franchise_code
+                and gsw.start_of_month    =   asta.start_of_month
+            where   franchise_priority = 1
+            and   (     afa.forecast_value      is not null
+                    or  aasa.actual_sales_value is not null
+                    or  asta.sales_target_value is not null
+                  )
+            group by 1,2,3,4,10,11
+        )
+        on conflict( cat_mch1_code_brand, month, year ) do update
+              set   cat_mch3_code                       =   excluded.cat_mch3_code
+              ,     cat_mch2_code                       =   excluded.cat_mch2_code
+              ,     actual_sales_qty                    =   excluded.actual_sales_qty
+              ,     actual_sales_value                  =   excluded.actual_sales_value
+              ,     forecast_qty                        =   excluded.forecast_qty
+              ,     forecast_value                      =   excluded.forecast_value
+              ,     sales_target_value                  =   excluded.sales_target_value
+              ,     run_date                            =   excluded.run_date
+              ,     status_flag                         =   excluded.status_flag
+              ,     cat_mch1_code_brand                 =   excluded.cat_mch1_code_brand
+        where (     round(arfb.actual_sales_qty, 3)     <>  round(excluded.actual_sales_qty, 3)
+                and excluded.actual_sales_qty           >   0
+              )
+        or    (     round(arfb.actual_sales_value, 3)   <>  round(excluded.actual_sales_value, 3)
+                and excluded.actual_sales_value         >   0
+              )
+        or    (     round(arfb.forecast_qty, 3)         <>  round(excluded.forecast_qty, 3)
+                and excluded.forecast_qty               >   0
+              )
+        or    (     round(arfb.forecast_value, 3)       <>  round(excluded.forecast_value, 3)
+                and excluded.forecast_value             >   0
+              )
+        or    (     round(arfb.sales_target_value, 3)   <>  round(excluded.sales_target_value, 3)
+                and excluded.sales_target_value         >   0
+              )
+        "
+    from_ai_forecast_article_to_ai_report_forecast_brand:
+      parameter: [
+          'run_date',
+          'date_range_sla_month',
+          'forecast_end_period',
+          'date_range_sla_month_forecast'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_forecast_brand                                     as arfb
+        (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.brand
+            ,       0.0                                                                                           as actual_sales_qty
+            ,       0.0                                                                                           as actual_sales_value
+            ,       sum(coalesce(afa.forecast_qty, 0.0))                                                          as forecast_qty
+            ,       sum(coalesce(afa.forecast_value, 0.0))                                                        as forecast_value
+            ,       0.0                                                                                           as sales_target_value
+            ,       date_part('month',  gsw.start_of_month)                                                       as month
+            ,       date_part('year',   gsw.start_of_month)                                                       as year
+            ,       '{run_date}'::date                                                                            as run_date
+            ,       null                                                                                          as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                                     as cat_mch1_code_brand
+            from    {database_name}.{ai_schema_name}.ai_article_mapping_fc                                        as aamf
+            cross join  ( select	date_trunc('month', data_date)::date		                                  as start_of_month
+                          from	(	select	generate_series(date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                            ,               date_trunc('month', (date '{run_date}' + interval '1 month')) - interval '1 day' + interval '{forecast_end_period} month' + interval '{date_range_sla_month_forecast} month'
+                                            ,               interval '1 day'
+                                            )::date					                                              as data_date
+                                  ) as gsd
+                          group by 1
+                        ) as gsw
+            inner join  {database_name}.{ai_schema_name}.ai_article_master                                        as aam
+                  on aamf.article_code	= aam.article_code
+            inner join  {database_name}.{ai_schema_name}.ai_franchise_master                                      as afm
+                  on aamf.franchise_code	= afm.franchise_code
+            left join (   select  article_code
+                          ,       franchise_code
+                          ,       coalesce(sum(coalesce(forecast_qty_adjust, forecast_qty)), 0.0)                 as forecast_qty
+                          ,       coalesce(sum(coalesce(forecast_value_adjust, forecast_value)), 0.0)             as forecast_value
+                          ,       forecast_month
+                          from    {database_name}.{ai_schema_name}.ai_forecast_article
+                          where   ( forecast_month between date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                                   and     date_trunc('month', (date '{run_date}' + interval '{forecast_end_period} month'  + interval '{date_range_sla_month_forecast} month'))
+                                  )
+                          group by 1,2,5
+                        ) as afa
+                on  aamf.article_code     =   afa.article_code
+                and aamf.franchise_code   =   afa.franchise_code
+                and gsw.start_of_month    =   afa.forecast_month
+            where   franchise_priority    =   1
+            and     afa.forecast_value    is not null
+            group by 1,2,3,4,10,11
+        )
+        on conflict( cat_mch1_code_brand, month, year ) do update
+              set   cat_mch3_code                       =   excluded.cat_mch3_code
+              ,     cat_mch2_code                       =   excluded.cat_mch2_code
+              ,     forecast_qty                        =   excluded.forecast_qty
+              ,     forecast_value                      =   excluded.forecast_value
+              ,     run_date                            =   excluded.run_date
+              ,     status_flag                         =   excluded.status_flag
+              ,     cat_mch1_code_brand                 =   excluded.cat_mch1_code_brand
+        where (     round(arfb.forecast_qty, 3)         <>  round(excluded.forecast_qty, 3)
+                and excluded.forecast_qty               >   0
+              )
+        or    (     round(arfb.forecast_value, 3)       <>  round(excluded.forecast_value, 3)
+                and excluded.forecast_value             >   0
+              )
+        "
+    from_ai_sales_target_article_to_ai_report_forecast_brand:
+      parameter: [
+          'run_date',
+          'date_range_sla_month',
+          'forecast_end_period',
+          'date_range_sla_month_forecast'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_forecast_brand                                     as arfb
+        (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.brand
+            ,       0.0                                                                                           as actual_sales_qty
+            ,       0.0                                                                                           as actual_sales_value
+            ,       0.0                                                                                           as forecast_qty
+            ,       0.0                                                                                           as forecast_value
+            ,       sum(coalesce(asta.sales_target_value, 0.0))                                                   as sales_target_value
+            ,       date_part('month',  gsw.start_of_month)                                                       as month
+            ,       date_part('year',   gsw.start_of_month)                                                       as year
+            ,       '{run_date}'::date                                                                            as run_date
+            ,       null                                                                                          as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                                     as cat_mch1_code_brand
+            from    {database_name}.{ai_schema_name}.ai_article_mapping_fc                                        as aamf
+            cross join  ( select	date_trunc('month', data_date)::date		                                  as start_of_month
+                          from	(	select	generate_series(date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                            ,               date_trunc('month', (date '{run_date}' + interval '1 month')) - interval '1 day' + interval '{forecast_end_period} month' + interval '{date_range_sla_month_forecast} month'
+                                            ,               interval '1 day'
+                                            )::date					                                              as data_date
+                                  ) as gsd
+                          group by 1
+                        ) as gsw
+            inner join  {database_name}.{ai_schema_name}.ai_article_master                                        as aam
+                  on aamf.article_code	= aam.article_code
+            inner join  {database_name}.{ai_schema_name}.ai_franchise_master                                      as afm
+                  on aamf.franchise_code	= afm.franchise_code
+            left join (   select  article_code
+                          ,       franchise_code
+                          ,       sum(sales_target_value)                                                         as sales_target_value
+                          ,       start_of_month
+                          from  {database_name}.{ai_schema_name}.ai_sales_target_article
+                          where   ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                                   and     date_trunc('month', (date '{run_date}' + interval '{forecast_end_period} month'  + interval '{date_range_sla_month_forecast} month'))
+                                  )
+                          group by 1,2,4
+                        ) as asta
+                on  aamf.article_code       =   asta.article_code
+                and aamf.franchise_code     =   asta.franchise_code
+                and gsw.start_of_month      =   asta.start_of_month
+            where   franchise_priority      =   1
+            and     asta.sales_target_value is not null
+            group by 1,2,3,4,10,11
+        )
+        on conflict( cat_mch1_code_brand, month, year ) do update
+              set   cat_mch3_code                       =   excluded.cat_mch3_code
+              ,     cat_mch2_code                       =   excluded.cat_mch2_code
+              ,     sales_target_value                  =   excluded.sales_target_value
+              ,     run_date                            =   excluded.run_date
+              ,     status_flag                         =   excluded.status_flag
+              ,     cat_mch1_code_brand                 =   excluded.cat_mch1_code_brand
+        where (     round(arfb.sales_target_value, 3)   <>  round(excluded.sales_target_value, 3)
+                and excluded.sales_target_value         >   0
+              )
+        "
+    from_ai_actual_sales_article_to_ai_report_forecast_brand:
+      parameter: [
+          'run_date',
+          'date_range_sla_month',
+          'forecast_end_period',
+          'date_range_sla_month_forecast'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_forecast_brand                                     as arfb
+        (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.brand
+            ,       sum(coalesce(aasa.actual_sales_qty, 0.0))                                                     as actual_sales_qty
+            ,       sum(coalesce(aasa.actual_sales_value, 0.0))                                                   as actual_sales_value
+            ,       0.0                                                                                           as forecast_qty
+            ,       0.0                                                                                           as forecast_value
+            ,       0.0                                                                                           as sales_target_value
+            ,       date_part('month',  gsw.start_of_month)                                                       as month
+            ,       date_part('year',   gsw.start_of_month)                                                       as year
+            ,       '{run_date}'::date                                                                            as run_date
+            ,       null                                                                                          as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                                     as cat_mch1_code_brand
+            from    {database_name}.{ai_schema_name}.ai_article_mapping_fc                                        as aamf
+            cross join  ( select	date_trunc('month', data_date)::date		                                  as start_of_month
+                          from	(	select	generate_series(date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                            ,               date_trunc('month', (date '{run_date}' + interval '1 month')) - interval '1 day' + interval '{forecast_end_period} month' + interval '{date_range_sla_month_forecast} month'
+                                            ,               interval '1 day'
+                                            )::date					                                              as data_date
+                                  ) as gsd
+                          group by 1
+                        ) as gsw
+            inner join  {database_name}.{ai_schema_name}.ai_article_master                                        as aam
+                  on aamf.article_code	= aam.article_code
+            inner join  {database_name}.{ai_schema_name}.ai_franchise_master                                      as afm
+                  on aamf.franchise_code	= afm.franchise_code
+            left join (   select  article_code
+                          ,       franchise_code
+                          ,       sum(actual_sales_qty)						                                      as actual_sales_qty
+                          ,       sum(actual_sales_value)					                                      as actual_sales_value
+                          ,       start_of_month
+                          from  {database_name}.{ai_schema_name}.ai_actual_sales_article
+                          where   ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' + interval '{date_range_sla_month_forecast} month'))
+                                                   and     date_trunc('month', (date '{run_date}' + interval '{forecast_end_period} month'  + interval '{date_range_sla_month_forecast} month'))
+                                  )
+                          group by 1,2,5
+                        ) as aasa
+                on  aamf.article_code       =   aasa.article_code
+                and aamf.franchise_code     =   aasa.franchise_code
+                and gsw.start_of_month      =   aasa.start_of_month
+            where   franchise_priority      =   1
+            and     aasa.actual_sales_value is not null
+            group by 1,2,3,4,10,11
+        )
+        on conflict( cat_mch1_code_brand, month, year ) do update
+              set   cat_mch3_code                       =   excluded.cat_mch3_code
+              ,     cat_mch2_code                       =   excluded.cat_mch2_code
+              ,     actual_sales_qty                    =   excluded.actual_sales_qty
+              ,     actual_sales_value                  =   excluded.actual_sales_value
+              ,     run_date                            =   excluded.run_date
+              ,     status_flag                         =   excluded.status_flag
+              ,     cat_mch1_code_brand                 =   excluded.cat_mch1_code_brand
+        where (     round(arfb.actual_sales_qty, 3)     <>  round(excluded.actual_sales_qty, 3)
+                and excluded.actual_sales_qty           >   0
+              )
+        or    (     round(arfb.actual_sales_value, 3)   <>  round(excluded.actual_sales_value, 3)
+                and excluded.actual_sales_value         >   0
+              )
+        "

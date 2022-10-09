@@ -1,0 +1,245 @@
+# ====================================
+# ----- imp_article_replacement
+# ====================================
+imp_article_replacement:
+  version: "2021-09-01"
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      article_replace_code: "varchar( 64 )"
+      replace_start: "date"
+      replace_end: "date"
+      replace_active_flag: "varchar( 32 ) default 'Y' null"
+      update_date: "timestamp not null"
+    primary_key: ['article_code']
+  update:
+    update_replacement_to_article_master:
+      parameter: ['run_date']
+      statement: "
+        update {database_name}.{ai_schema_name}.ai_article_master                                               as aam
+            set   article_replace_code    = iar.article_replace_code
+            ,		replace_start           = iar.replace_start
+            ,     replace_end             = iar.replace_end
+        from    (   select  article_code
+                    ,       case when replace_active_flag = 'N' or article_replace_code is null
+                                 then article_code
+                                 else article_replace_code
+                            end                                                                                 as article_replace_code
+                    ,       case when replace_active_flag = 'N'
+                                 then null::date
+                                 else coalesce(replace_start, '1990-01-01')::date
+                            end                                                                                 as replace_start
+                    ,       case when replace_active_flag = 'N'
+                                 then null::date
+                                 else coalesce(replace_end, '9999-12-31')
+                            end                                                                                 as replace_end
+                    from    {database_name}.{ai_schema_name}.imp_article_replacement
+                    where   update_date in ( select max(update_date)
+                                             from {database_name}.{ai_schema_name}.imp_article_replacement
+                                           )
+                ) as iar
+        where   aam.article_code                                  =     iar.article_code
+        and   (     aam.article_replace_code                      <>    iar.article_replace_code
+                or  coalesce(aam.replace_start, '1990-01-01')     <>    coalesce(iar.replace_start, '1990-01-01')
+                or  coalesce(aam.replace_end, '9999-12-31')       <>    coalesce(iar.replace_end, '9999-12-31')
+              )
+        "
+    update_replacement_to_article_mapping_fc:
+      parameter: ['run_date']
+      statement: "
+        update {database_name}.{ai_schema_name}.ai_article_mapping_fc                                           as amf
+            set   article_replace_code    = iar.article_replace_code
+            ,		replace_start           = iar.replace_start
+            ,     replace_end             = iar.replace_end
+        from    (   select  article_code
+                    ,       case when replace_active_flag = 'N' or article_replace_code is null
+                                 then article_code
+                                 else article_replace_code
+                            end                                                                                 as article_replace_code
+                    ,       case when replace_active_flag = 'N'
+                                 then null::date
+                                 else coalesce(replace_start, '1990-01-01')::date
+                            end                                                                                 as replace_start
+                    ,       case when replace_active_flag = 'N'
+                                 then null::date
+                                 else coalesce(replace_end, '9999-12-31')
+                            end                                                                                 as replace_end
+                    from    {database_name}.{ai_schema_name}.imp_article_replacement
+                    where   update_date in ( select max(update_date)
+                                             from {database_name}.{ai_schema_name}.imp_article_replacement
+                                           )
+                ) as iar
+        where   amf.article_code                                  =     iar.article_code
+        and   (     amf.article_replace_code                      <>    iar.article_replace_code
+                or  coalesce(amf.replace_start, '1990-01-01')     <>    coalesce(iar.replace_start, '1990-01-01')
+                or  coalesce(amf.replace_end, '9999-12-31')       <>    coalesce(iar.replace_end, '9999-12-31')
+              )
+        "
+# ====================================
+# ----- imp_forecast_adjust
+# ====================================
+imp_forecast_adjust:
+  version: "2021-09-10"
+  create:
+    features:
+      cat_mch2_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 ) not null"
+      forecast_value_adjust: "numeric( 24, 8 )"
+      forecast_month: "date not null"
+      adjust_version: "smallint default -1"
+      update_date: "timestamp not null"
+    primary_key: ['cat_mch2_code', 'brand', 'forecast_month', 'adjust_version']
+  update:
+    update_forecast_adjust_to_report:
+      parameter: ['run_date']
+      statement: "
+        with row_table as (
+          update {database_name}.{ai_schema_name}.ai_forecast_article                               as afa
+                set   forecast_qty_adjust        =     afaa.forecast_qty_adjust
+                ,     forecast_value_adjust      =     afaa.forecast_value_adjust
+          from  (   select	ifa.cat_mch2_code
+                    ,		ifa.brand
+                    ,		afa_temp.article_code
+                    ,       afa_temp.franchise_code
+                    ,       coalesce(ifa.forecast_value_adjust * afa_temp.forecast_qty
+                                        / nullif(sum(afa_temp.forecast_qty) over (
+                                        partition by afa_temp.cat_mch2_code, afa_temp.brand, afa_temp.forecast_month
+                                        ), 0.0), 0.0)                                               as forecast_qty_adjust
+                    ,		coalesce(ifa.forecast_value_adjust * afa_temp.forecast_value
+                                        / nullif(sum(afa_temp.forecast_value) over (
+                                        partition by afa_temp.cat_mch2_code, afa_temp.brand, afa_temp.forecast_month
+                                        ), 0.0), 0.0)                                               as forecast_value_adjust
+                    ,		afa_temp.forecast_week
+                    ,		afa_temp.forecast_month
+                    from (	select  cat_mch2_code
+                    		,       brand
+                    		,       forecast_value_adjust
+                    		,       forecast_month
+                    		from  {database_name}.{ai_schema_name}.imp_forecast_adjust
+                    		where   adjust_version = -1
+                    		and     forecast_value_adjust >= 0.0
+                    	 ) as ifa
+                    inner join (	select  cat_mch2_code
+                    				,       brand
+                    				,       article_code
+                    				,       franchise_code
+                    				,       sum(coalesce(forecast_qty_adjust, forecast_qty))        as forecast_qty
+                    				,       sum(coalesce(forecast_value_adjust, forecast_value))    as forecast_value
+                    				,		forecast_week
+                    				,       forecast_month
+                    				from {database_name}.{ai_schema_name}.ai_forecast_article
+                    				group by 1,2,3,4,7,8
+                    		   ) as afa_temp
+                    	on ifa.cat_mch2_code   =   afa_temp.cat_mch2_code
+                    	and ifa.brand           =   afa_temp.brand
+                    	and ifa.forecast_month  =   afa_temp.forecast_month
+                ) as afaa
+          where afa.cat_mch2_code         =   afaa.cat_mch2_code
+          and   afa.brand                 =   afaa.brand
+          and   afa.article_code          =   afaa.article_code
+          and   afa.franchise_code        =   afaa.franchise_code
+          and	afa.forecast_week         =   afaa.forecast_week
+          and	afa.forecast_month        =   afaa.forecast_month
+          returning afa.cat_mch2_code, afa.brand, afa.forecast_month
+        ),
+        row_process as (
+          update {database_name}.{ai_schema_name}.imp_forecast_adjust                               as ifa
+                set   adjust_version	= lvt.latest_adjust_version + 1
+          from  (   select  ifa.cat_mch2_code
+                    ,		ifa.brand
+                    ,		ifa.forecast_month
+                    ,		case when max(adjust_version) = -1 then 0
+                                 else max(adjust_version)
+                            end                                                                     as latest_adjust_version
+                    from  {database_name}.{ai_schema_name}.imp_forecast_adjust                      as ifa
+                    inner join (	select	cat_mch2_code
+                    				,		brand
+                    				,		forecast_month
+                    				from row_table
+                    				group by 1,2,3
+                    			) as rt
+                    on ifa.cat_mch2_code    =   rt.cat_mch2_code
+                    and ifa.brand           =   rt.brand
+                    and ifa.forecast_month  =   rt.forecast_month
+                    group by 1,2,3
+                ) as lvt
+          where ifa.cat_mch2_code     =   lvt.cat_mch2_code
+          and   ifa.brand             =   lvt.brand
+          and   ifa.forecast_month    =   lvt.forecast_month
+          and   ifa.adjust_version    =   -1
+          returning 1
+        )
+        select count(*) as row_number from row_table
+        "
+# ====================================
+# ----- imp_lead_time_inventory_cap_fc
+# ====================================
+imp_lead_time_inventory_cap_fc:
+  version: "2021-10-11"
+  create:
+    features:
+      dc_code: "varchar( 64 )"
+      dc_name: "varchar( 516 )"
+      rdc_code: "varchar( 64 )"
+      rdc_name: "varchar( 516 )"
+      franchise_code: "varchar( 64 ) not null"
+      franchise_name: "varchar( 516 )"
+      lead_time_fc: "smallint"
+      inventory_cap_value_fc: "numeric( 24, 8 )"
+      update_date: "timestamp not null"
+    primary_key: ['franchise_code']
+# ========================================
+# ----- imp_lead_time_inventory_cap_rdc
+# ========================================
+imp_lead_time_inventory_cap_rdc:
+  version: "2021-10-11"
+  create:
+    features:
+      dc_code: "varchar( 64 )"
+      dc_name: "varchar( 516 )"
+      rdc_code: "varchar( 64 ) not null"
+      rdc_name: "varchar( 516 )"
+      lead_time_rdc: "smallint"
+      inventory_cap_value_rdc: "numeric( 24, 8 )"
+      update_date: "timestamp not null"
+#      update_datetime: "date not null"
+#      create_date: "date"
+#      run_date: "date not null"
+    primary_key: ['rdc_code']
+# ========================================
+# ----- imp_lead_time_inventory_cap_dc
+# ========================================
+imp_lead_time_inventory_cap_dc:
+  version: "2021-10-11"
+  create:
+    features:
+      dc_code: "varchar( 64 ) not null"
+      dc_name: "varchar( 516 )"
+      lead_time_dc: "smallint"
+      inventory_cap_value_dc: "numeric( 24, 8 )"
+      update_date: "timestamp not null"
+    primary_key: ['dc_code']
+# ====================================
+# ----- imp_sales_target
+# ====================================
+imp_sales_target:
+  version: "2021-09-10"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      sales_target_value: "numeric( 24, 8 )"
+      start_of_month: "date not null"
+      update_date: "timestamp not null"
+    primary_key: ['cat_mch3_code', 'start_of_month']
+# ====================================
+# ----- imp_sales_target_fc
+# ====================================
+imp_sales_target_fc:
+  version: '2021-09-10'
+  create:
+    features:
+      franchise_code: "varchar( 32 ) not null"
+      sales_target_value: "numeric( 24, 8 )"
+      start_of_month: "date not null"
+      update_date: "timestamp not null"
+    primary_key: ['franchise_code', 'start_of_month']

@@ -1,0 +1,111 @@
+vw_ai_opt_actual_sales_article:
+  version: "2022-01-01"
+  create: "
+    create materialized view if not exists {database_name}.{ai_schema_name}.vw_ai_opt_actual_sales_article as
+    (
+        select	target.article_code
+        ,		target.franchise_code
+        ,		target.start_of_week
+        ,		target.start_of_month
+        ,		target.actual_sales_value 			as target_value
+        ,		source.actual_sales_value			as source_value
+        ,		target.actual_sales_qty				as target_qty
+        ,		source.actual_sales_qty				as source_qty
+        ,		case when target.actual_sales_value = source.actual_sales_value then true else false end				  as value_flag
+        ,		case when target.actual_sales_qty = source.actual_sales_qty then true else false end				  	  as qty_flag
+        from	(	select  soff                                                                                          as franchise_code
+                    ,       case when article_id like '0%'  then replace(ltrim(replace(article_id,'0',' ')),' ','0')
+                                 else article_id
+                            end                                                                                           as article_code
+                    ,       date_trunc('week', to_date(create_date, 'YYYY-MM-DD'))::date                                  as start_of_week
+                    ,       date_trunc('month', to_date(create_date, 'YYYY-MM-DD'))::date                                 as start_of_month
+                    ,       coalesce(sum(coalesce(nullif(trim(sale_qty), ''), '0')::double precision), 0.0)               as actual_sales_qty
+                    ,       coalesce(sum(coalesce(nullif(trim(net_inc_tax), ''), '0')::double precision), 0.0)            as actual_sales_value
+                    from    {database_name}.{ai_schema_name}.src_actual_sales_transaction
+                    where   coalesce(nullif(trim(net_inc_tax), ''), '0')::double precision >= 0
+                    and     coalesce(nullif(trim(sale_qty), ''), '0')::double precision >= 0
+                    and     nullif(trim(article_id), '') is not null
+                    group by 1,2,3,4
+                ) as source
+        inner join	{database_name}.{ai_schema_name}.ai_report_actual_sales_article		as target
+            on	source.article_code		= target.article_code
+            and	source.franchise_code	=	target.franchise_code
+            and source.start_of_week	=	target.start_of_week
+            and source.start_of_month	=	target.start_of_month
+    )
+    "
+vw_ai_opt_forecast_mch3:
+  create: "
+    create materialized view if not exists {database_name}.{ai_schema_name}.vw_ai_opt_forecast_mch3 as
+    (
+        select  coalesce(afm.cat_mch3_code, aasm.cat_mch3_code)	            as cat_mch3_code
+        ,		coalesce(aasm.actual_sales_value, 0.0)				        as actual_sales_value
+        ,		coalesce(afm.forecast_value, 0.0)					        as forecast_value
+        ,		coalesce(afm.forecast_month, aasm.start_of_month)	        as start_of_month
+        from  {database_name}.{ai_schema_name}.ai_forecast_mch3             as afm
+        full join {database_name}.{ai_schema_name}.ai_actual_sales_mch3     as aasm
+            on  aasm.cat_mch3_code   =   afm.cat_mch3_code
+            and aasm.start_of_month   =   afm.forecast_month
+        order by 1,4
+    )
+    "
+vw_ai_opt_forecast_mch3_fc:
+  create: "
+    create materialized view if not exists ai.vw_ai_opt_forecast_mch3_fc as
+    (
+    select	coalesce(afa.cat_mch3_code, aasa.cat_mch3_code)	    as cat_mch3_code
+    ,		coalesce(afa.franchise_code, aasa.franchise_code)	as franchise_code
+    ,		coalesce(aasa.actual_sales_value, 0.0)				as actual_sales_value
+    ,		coalesce(afa.forecast_value, 0.0)					as forecast_value
+    ,		coalesce(afa.forecast_month, aasa.start_of_month)	as start_of_month
+    from	(	select	cat_mch3_code
+                ,		franchise_code
+                ,		sum(actual_sales_value)					as actual_sales_value
+                ,		start_of_month
+                from	ai.ai_actual_sales_article
+                group by 1,2,4
+            ) as aasa
+    full join	(	select	cat_mch3_code
+                    ,		franchise_code
+                    ,		sum(forecast_value)					as forecast_value
+                    ,		forecast_month
+                    from ai.ai_forecast_article
+                    group by 1,2,4
+                ) as afa
+    on	aasa.cat_mch3_code = afa.cat_mch3_code
+    and	aasa.franchise_code = afa.franchise_code
+    and aasa.start_of_month = afa.forecast_month
+    order by 1,2,5
+    )
+    "
+vw_ai_opt:
+  create: "
+    create materialized view if not exists ai.vw_ai_opt_actual_sales_mch1_bf_rp as
+    (
+      select  cat_mch3_code
+      ,		  cat_mch2_code
+      ,		  cat_mch1_code
+      ,		  franchise_code
+      ,		  start_of_week
+      ,		  start_of_month
+      ,		  target_value
+      ,		  source_value
+      ,		  target_qty
+      ,		  source_qty
+      ,		  case when (source_value - target_value between -1 and 1) then true else false end								as value_flag
+      ,		  case when (source_qty - target_qty between -1 and 1) then true else false end									as qty_flag
+      from	(	select	cat_mch3_code
+                ,		cat_mch2_code
+                ,		cat_mch1_code
+                ,		franchise_code
+                ,		start_of_week
+                ,		start_of_month
+                ,		sum(target_value) 									as target_value
+                ,		sum(source_value)									as source_value
+                ,		sum(target_qty) 									as target_qty
+                ,		sum(source_qty)										as source_qty
+                from	ai.vw_ai_opt_actual_sales_article_bf_rp
+                group	by 1,2,3,4,5,6
+            ) as view_opt
+    )
+    "

@@ -1,0 +1,62 @@
+path:
+    # Setup local path for inner engine process of this application.
+    # The best practice for path setup is,
+    #   <root>:
+    #       - application
+    #       - <conf>
+    #       - <data>
+    #           - <data-landing>
+    #           - <data-success>
+    #       - ...
+    # NOTE: The conf and data directories should have the same tree
+    # level with application dir.
+    conf: 'conf'
+    data: 'data'
+    data_landing: 'data/landing'
+    data_success: 'data/success'
+
+control_frameworks:
+    # This key was generated before this application started for
+    # setup automate process if table or data from configuration
+    # does not exists in target database.
+    - name: 'sql:ctr_data_logging'
+    - name: 'sql:ctr_task_process'
+    - name: 'sql:ctr_data_parameter'
+    - name: 'sql:ctr_data_pipeline'
+    - name: 'sql:ctr_task_schedule'
+
+functions:
+    # This key was generated before this application started for
+    # setup automate process if function from configuration does
+    # not exists in target database.
+    - name: 'func:func_count_if_exists'
+    - name: 'func:func_hash_32_bit'
+    - name: 'func:func_hash_64_bit'
+
+modules:
+    # Mapping of component function name for the function gateway.
+    # It will return function with input argument from key this
+    # setup mapping
+    ingestion:
+        payload: 'ingest_payload'
+    framework:
+        setup: 'run_tbl_setup'
+        data: 'run_tbl_data'
+        retention: 'run_tbl_retention'
+        drop_schema: 'run_schema_drop'
+
+env_variables:
+    - 'APIKEY'
+    - 'SSH_FLAG'
+    - 'SSH_HOST'
+    - 'SSH_PRIVATE_KEY'
+    - 'SSH_USER'
+    - 'SSH_PASS'
+    - 'DB_HOST'
+    - 'DB_NAME'
+    - 'DB_USER'
+    - 'DB_PASS'
+    - 'DB_PORT'
+    - 'AI_SCHEMA'
+    - 'MAIN_SCHEMA'
+    - 'DEBUG'

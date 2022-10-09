@@ -1,0 +1,15 @@
+query_shutdown:
+    query:
+        parameter: ['process_message', 'status', 'update_date']
+        statement: "
+            update {database_name}.{ai_schema_name}.ctr_task_process as ctp
+                set update_date         =   '{update_date}'
+                ,   process_message     =   '{process_message}'
+                ,   status              =   '{status}'
+            where   ctp.status          =   '2'
+            "
+query_demo:
+    query:
+        statement: "
+            select * from {database_name}.{ai_schema_name}.ctr_data_parameter
+            "

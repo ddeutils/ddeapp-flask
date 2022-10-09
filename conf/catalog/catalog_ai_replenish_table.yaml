@@ -1,0 +1,1434 @@
+# ====================================
+# ----- ai_replenish_prod_cls_fc
+# ====================================
+ai_replenish_prod_cls_fc:
+  version: '2021-09-01'
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      lead_time: "smallint"
+      lead_time_fc: "smallint"
+      bss_item_flag: "varchar( 64 )"
+      bss_item_status: "varchar( 64 )"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      inventory_cap_value_fc: "numeric( 24, 8 )"
+      actual_sales_qty_avg_rolling: "numeric( 24, 8 )" # for max quantity
+      actual_sales_qty_avg_day_rolling: "numeric( 24, 8 )" # for min quantity and safety stock
+      actual_sales_qty_stddev_day_rolling: "numeric( 24, 8 )" # for min quantity and safety stock
+      actual_sales_value_avg_rolling: "numeric( 24, 8 )" # for order quantity report
+      actual_purchase_value_rolling: "numeric( 24, 8 )" # for max quantity
+      product_class_freq: "varchar( 32 )"
+      product_class_qty: "varchar( 32 )"
+      product_class_value: "varchar( 32 )"
+      product_class_default: "varchar( 32 )"
+      product_class_adjust: "varchar( 32 )"
+      start_of_month: "date not null"
+    primary_key: ['article_code', 'dc_code', 'rdc_code', 'franchise_code', 'start_of_month']
+  update:
+    ai_replenish_prod_cls_fc:
+      priority: 1
+      parameter: [
+          'data_date',
+          'run_date',
+          'window_start',
+          'window_end',
+          'date_range_sla_month',
+          'actual_sales_filter_sales_price',
+          'actual_sales_filter_purchase_price',
+          'prod_cls_lead_time_default_fc',
+          'prod_cls_item_flag_filter',
+          'prod_cls_item_status_filter'
+      ]
+      statements:
+        with_ai_actual_sales_article_filter: "
+          select  coalesce(aasa.cat_mch3_code, aamf.cat_mch3_code)                                                  as cat_mch3_code
+          ,       cat_group_id
+          ,       aamf.article_code
+          ,       aamf.franchise_code
+          ,       lead_time
+          ,       bss_item_flag
+          ,       bss_item_status
+          ,       aasa.sales_price
+          ,       aasa.purchase_price
+          ,       actual_sales_price                                                                                as actual_sales_price
+          ,       coalesce(actual_sales_qty, 0.0)                                                                   as actual_sales_qty
+          ,       coalesce(actual_sales_qty_power, 0.0)                                                             as actual_sales_qty_power
+          ,       coalesce(actual_sales_value, 0.0)                                                                 as actual_sales_value
+          ,       coalesce(actual_sales_order_count, 0.0)                                                           as actual_sales_order_count
+          ,       coalesce(actual_purchase_value, 0.0)                                                              as actual_purchase_value
+          ,       gsm.start_of_month::date                                                                          as start_of_month
+          from  {database_name}.{ai_schema_name}.ai_article_mapping_fc                                              as aamf
+          inner join  (   select  article_code
+                          ,       coalesce(cat_group_id, cat_mc_code)                                               as cat_group_id
+                          ,       lead_time
+                          ,       bss_item_flag
+                          ,       bss_item_status
+                          from  {database_name}.{ai_schema_name}.ai_article_master
+                          where   article_code is not null
+                          {prod_cls_item_flag_filter}
+                          {prod_cls_item_status_filter}
+                      ) as aam
+              on  aamf.article_code   =   aam.article_code
+          cross join  (   select  generate_series(date_trunc('month', (date '{run_date}' - interval '{window_start} month' - interval '{date_range_sla_month} month'))::date
+                                  ,               date_trunc('month', (date '{run_date}' - interval '{window_end} month'   - interval '{date_range_sla_month} month'))::date
+                                  ,               interval '1 month')                                               as start_of_month
+                      ) as gsm
+          left join   (   select  cat_mch3_code
+                          ,       article_code
+                          ,       franchise_code
+                          ,       start_of_month
+                          ,       avg(sales_price)                                                                  as sales_price
+                          ,       avg(purchase_price)                                                               as purchase_price
+                          ,       avg(actual_sales_price)                                                           as actual_sales_price
+                          ,       sum(actual_sales_qty)                                                             as actual_sales_qty
+                          ,       sum(power(actual_sales_qty, 2))                                                   as actual_sales_qty_power
+                          ,       sum(actual_sales_value)                                                           as actual_sales_value
+                          ,       sum(actual_sales_order_count)                                                     as actual_sales_order_count
+                          ,       sum(purchase_price * actual_sales_qty)                                            as actual_purchase_value
+                          from  {database_name}.{ai_schema_name}.ai_actual_sales_article
+                          where ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{window_start} month' - interval '{date_range_sla_month} month'))::date
+                                                 and     date_trunc('month', (date '{run_date}' - interval '{window_end} month'   - interval '{date_range_sla_month} month'))::date
+                                )
+                          group by 1,2,3,4
+                      ) as aasa
+              on  aamf.article_code     =   aasa.article_code
+              and aamf.franchise_code   =   aasa.franchise_code
+              and gsm.start_of_month    =   aasa.start_of_month
+          "
+        with_ai_actual_sales_article_accum_fc: "
+          select  cat_mch3_code
+          ,       cat_group_id
+          ,       article_code
+          ,       sales_price
+          ,       purchase_price
+          ,       lead_time
+          ,       lead_time_fc
+          ,       bss_item_flag
+          ,       bss_item_status
+          ,       dc_code
+          ,       rdc_code
+          ,       franchise_code
+          ,       inventory_cap_value_fc
+          ,       actual_sales_price
+          ,       actual_sales_qty
+          ,       actual_sales_value
+          ,       actual_sales_order_count
+          ,       actual_purchase_value
+          ,       actual_sales_qty_avg_rolling
+          ,       actual_sales_qty_avg_day_rolling
+          ,       actual_sales_qty_stddev_day_rolling
+          ,       actual_sales_value_avg_rolling
+          ,       actual_purchase_value_rolling
+          ,       coalesce(sum(actual_sales_qty_rolling) over (
+                                partition by start_of_month, franchise_code, rdc_code, dc_code, cat_group_id
+                                order by actual_sales_qty_rolling desc
+                                ) / nullif(sum(actual_sales_qty_rolling) over (
+                                partition by start_of_month, franchise_code, rdc_code, dc_code, cat_group_id
+                                ), 0.0) , 1.0)                                                                                    as actual_sales_qty_accum
+          ,       coalesce(sum(actual_sales_value_rolling) over (
+                                partition by start_of_month, franchise_code, rdc_code, dc_code, cat_group_id
+                                order by actual_sales_value_rolling desc
+                                ) / nullif(sum(actual_sales_value_rolling) over (
+                                partition by start_of_month, franchise_code, rdc_code, dc_code, cat_group_id
+                                ), 0.0) , 1.0)                                                                                    as actual_sales_value_accum
+          ,       coalesce(sum(actual_sales_order_count_rolling) over (
+                                partition by start_of_month, franchise_code, rdc_code, dc_code, cat_group_id
+                                order by actual_sales_order_count_rolling desc
+                                ) / nullif(sum(actual_sales_order_count_rolling) over (
+                                partition by start_of_month, franchise_code, rdc_code, dc_code, cat_group_id
+                                ), 0.0) , 1.0)                                                                                    as actual_sales_order_count_accum
+          ,       start_of_month
+          from  ( select  cat_mch3_code
+                  ,       cat_group_id
+                  ,       article_code
+                  ,       avg(sales_price) over (partition by dc_code, rdc_code, franchise_code, article_code)                    as sales_price
+                  ,       avg(purchase_price) over (partition by dc_code, rdc_code, franchise_code, article_code)                 as purchase_price
+                  ,       lead_time
+                  ,       lead_time_fc
+                  ,       bss_item_flag
+                  ,       bss_item_status
+                  ,       dc_code
+                  ,       rdc_code
+                  ,		  franchise_code
+                  ,       inventory_cap_value_fc
+                  ,       avg(actual_sales_price) over (partition by dc_code, rdc_code, franchise_code, article_code)             as actual_sales_price
+                  ,       actual_sales_qty
+                  ,       actual_sales_value
+                  ,       actual_sales_order_count
+                  ,       actual_purchase_value
+                  ,		  coalesce(sum(actual_sales_qty) over article_per_franchise
+                                    , 0.0)                                                                                        as actual_sales_qty_rolling
+                  ,		  coalesce(sum(actual_sales_value) over article_per_franchise
+                                    , 0.0)                                                                                        as actual_sales_value_rolling
+                  ,		  coalesce(sum(actual_sales_order_count) over article_per_franchise
+                                    , 0.0)                                                                                        as actual_sales_order_count_rolling
+                  ,		  coalesce(sum(actual_sales_qty) over article_per_franchise
+                                    / ({window_start} - {window_end} + 1)
+                                    , 0.0)                                                                                        as actual_sales_qty_avg_rolling
+                  ,		  coalesce(sum(actual_sales_qty) over article_per_franchise
+                                    / window_days
+                                    , 0.0)                                                                                        as actual_sales_qty_avg_day_rolling
+                  ,       coalesce(sqrt((sum(actual_sales_qty_power) over article_per_franchise
+                                    - (power(sum(actual_sales_qty) over article_per_franchise, 2)
+                                    / window_days))
+                                    / (window_days - 1))
+                                    , 0.0)                                                                                        as actual_sales_qty_stddev_day_rolling
+                  ,		  coalesce(sum(actual_sales_value) over article_per_franchise
+                                    / ({window_start} - {window_end} + 1)
+                                    , 0.0)                                                                                        as actual_sales_value_avg_rolling
+                  ,		  coalesce(sum(actual_purchase_value) over article_per_franchise
+                                    , 0.0)	                                                                                      as actual_purchase_value_rolling
+                  ,       start_of_month
+                  from  ( select  cat_mch3_code
+                          ,       cat_group_id
+                          ,       article_code
+                          ,       lead_time
+                          ,       bss_item_flag
+                          ,       bss_item_status
+                          ,       dc_code
+                          ,       rdc_code
+                          ,       aasa.franchise_code
+                          ,       start_of_month
+                          ,       avg(sales_price)                                                                                as sales_price
+                          ,       avg(purchase_price)                                                                             as purchase_price
+                          ,       coalesce(avg(lead_time_fc), {prod_cls_lead_time_default_fc})                                    as lead_time_fc
+                          ,       coalesce(avg(inventory_cap_value_fc), 0.0)                                                      as inventory_cap_value_fc
+                          ,       avg(nullif(actual_sales_price, 0.0))                                                            as actual_sales_price
+                          ,       sum(actual_sales_qty)                                                                           as actual_sales_qty
+                          ,       sum(actual_sales_qty_power)                                                                     as actual_sales_qty_power
+                          ,       sum(actual_sales_value)                                                                         as actual_sales_value
+                          ,       sum(actual_sales_order_count)                                                                   as actual_sales_order_count
+                          ,       sum(actual_purchase_value)                                                                      as actual_purchase_value
+                          ,       extract(days from
+                                        (start_of_month + concat((1 - {window_end})::varchar,' month')::interval)
+                                        - (start_of_month - '{window_start} month'::interval))                                    as window_days
+
+                          /* [NOTE: Remove stddev value for each month]
+                          ,       sqrt((sum(power(actual_sales_qty, 2)) - (power(sum(actual_sales_qty), 2)
+                                            / date_part('days', start_of_month + interval '1 month' - interval '1 day')))
+                                            / (date_part('days', start_of_month + interval '1 month' - interval '1 day') - 1))    as actual_sales_qty_stddev
+                          */
+
+                          from    ai_actual_sales_article_filter                                                                  as aasa
+                          inner join  ( select  dc_code
+                                        ,       rdc_code
+                                        ,       franchise_code
+                                        ,       avg(nullif(lead_time_fc, 0))                                                      as lead_time_fc
+                                        ,       avg(nullif(inventory_cap_value_fc, 0.0))                                          as inventory_cap_value_fc
+                                        from  {database_name}.{ai_schema_name}.ai_franchise_master
+                                        where   franchise_priority = 1
+                                        group by 1,2,3
+                                      ) as afm
+                              on aasa.franchise_code   = afm.franchise_code
+                          group by 1,2,3,4,5,6,7,8,9,10
+                        ) as aasa_temp
+                  window article_per_franchise as (
+                      partition by dc_code, rdc_code, franchise_code, article_code
+                      order by start_of_month
+                      range between interval '{window_start}' month preceding
+                            and     interval '{window_end}'   month preceding
+                  )
+                ) as aasa_rolling
+          where   start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+          {actual_sales_filter_sales_price}
+          {actual_sales_filter_purchase_price}
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_replenish_prod_cls_fc as arpcf
+          (
+            select  article_code
+            ,       lead_time
+            ,       lead_time_fc
+            ,       bss_item_flag
+            ,       bss_item_status
+            ,       dc_code
+            ,       rdc_code
+            ,       franchise_code
+            ,       inventory_cap_value_fc
+            ,       actual_sales_qty_avg_rolling
+            ,       actual_sales_qty_avg_day_rolling
+            ,       actual_sales_qty_stddev_day_rolling
+            ,       actual_sales_value_avg_rolling
+            ,       actual_purchase_value_rolling
+            ,       product_class_freq
+            ,       product_class_qty
+            ,       product_class_value
+            /* [NOTE: Remove old recommend logic to use default by `product_class_freq`]
+            ,       case  when product_class_value  = product_class_qty then product_class_value
+                          when product_class_value  = 'A' and (product_class_qty    = 'B' or product_class_qty    = 'C') then 'A'
+                          when product_class_qty    = 'A' and (product_class_value  = 'B' or product_class_value  = 'C') then 'A'
+                          when product_class_value  = 'B' and (product_class_qty    = 'C' ) then 'B'
+                          when product_class_qty    = 'B' and (product_class_value  = 'C' ) then 'B'
+                          else 'C'
+                    end                                                                                                           as product_class_default
+            */
+            ,       product_class_freq                                                                                            as product_class_default
+            ,       null                                                                                                          as product_class_adjust
+            ,       start_of_month
+            from (  select  article_code
+                    ,       lead_time
+                    ,       lead_time_fc
+                    ,       bss_item_flag
+                    ,       bss_item_status
+                    ,       dc_code
+                    ,       rdc_code
+                    ,       franchise_code
+                    ,       inventory_cap_value_fc
+                    ,       actual_sales_qty_avg_rolling
+                    ,       actual_sales_qty_avg_day_rolling
+                    ,       actual_sales_qty_stddev_day_rolling
+                    ,       actual_sales_value_avg_rolling
+                    ,       actual_purchase_value_rolling
+                    ,       case when lag(actual_sales_order_count_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, franchise_code, rdc_code, dc_code, cat_group_id
+                                            order by actual_sales_order_count_accum) <= class_a
+                                 then 'A'
+                                 when lag(actual_sales_order_count_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, franchise_code, rdc_code, dc_code, cat_group_id
+                                            order by actual_sales_order_count_accum) <= class_b
+                                 then 'B'
+                                 else 'C'
+                            end                                                                                                   as product_class_freq
+                    ,       case when lag(actual_sales_qty_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, franchise_code, rdc_code, dc_code, cat_group_id
+                                            order by actual_sales_qty_accum) <= class_a
+                                 then 'A'
+                                 when lag(actual_sales_qty_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, franchise_code, rdc_code, dc_code, cat_group_id
+                                            order by actual_sales_qty_accum) <= class_b
+                                 then 'B'
+                                 else 'C'
+                            end                                                                                                   as product_class_qty
+                    ,       case when lag(actual_sales_value_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, franchise_code, rdc_code, dc_code, cat_group_id
+                                            order by actual_sales_value_accum) <= class_a
+                                 then 'A'
+                                 when lag(actual_sales_value_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, franchise_code, rdc_code, dc_code, cat_group_id
+                                            order by actual_sales_value_accum) <= class_b
+                                 then 'B'
+                                 else 'C'
+                            end                                                                                                   as product_class_value
+                    ,       start_of_month
+                    from  ai_actual_sales_article_accum_fc                                                                        as aasaaf
+                    ,     (   select  class_a
+                              ,       class_b
+                              ,       class_c
+                              from    {database_name}.{ai_schema_name}.imp_prod_cls_criteria_master
+                              where   class_version in (  select  max(class_version)                                              as class_version
+                                                          from  {database_name}.{ai_schema_name}.imp_prod_cls_criteria_master
+                                                          where   class_convert_flag = 'Y'
+                                                       )
+                              and     class_convert_flag = 'Y'
+                          ) as ipcm
+                    where actual_purchase_value_rolling > 0
+                  ) as aasaa
+          )
+          on conflict ( article_code, dc_code, rdc_code, franchise_code, start_of_month ) do update
+                set   lead_time                                 =   excluded.lead_time
+                ,     lead_time_fc                              =   excluded.lead_time_fc
+                ,     bss_item_flag                             =   excluded.bss_item_flag
+                ,     bss_item_status                           =   excluded.bss_item_status
+                ,     inventory_cap_value_fc                    =   excluded.inventory_cap_value_fc
+                ,     actual_sales_qty_avg_rolling              =   excluded.actual_sales_qty_avg_rolling
+                ,     actual_sales_qty_avg_day_rolling          =   excluded.actual_sales_qty_avg_day_rolling
+                ,     actual_sales_qty_stddev_day_rolling       =   excluded.actual_sales_qty_stddev_day_rolling
+                ,     actual_sales_value_avg_rolling            =   excluded.actual_sales_value_avg_rolling
+                ,     actual_purchase_value_rolling             =   excluded.actual_purchase_value_rolling
+                ,     product_class_qty                         =   excluded.product_class_qty
+                ,     product_class_value                       =   excluded.product_class_value
+                ,     product_class_default                     =   excluded.product_class_default
+                ,     product_class_adjust                      =   coalesce(arpcf.product_class_adjust, excluded.product_class_adjust)
+          where     arpcf.bss_item_flag                         <>  excluded.bss_item_flag
+          or        arpcf.bss_item_status                       <>  excluded.bss_item_status
+          or        arpcf.inventory_cap_value_fc                <>  excluded.inventory_cap_value_fc
+          or        arpcf.actual_sales_qty_avg_rolling          <>  excluded.actual_sales_qty_avg_rolling
+          or        arpcf.actual_sales_qty_avg_day_rolling      <>  excluded.actual_sales_qty_avg_day_rolling
+          or        arpcf.actual_sales_qty_stddev_day_rolling   <>  excluded.actual_sales_qty_stddev_day_rolling
+          or        arpcf.actual_sales_value_avg_rolling        <>  excluded.actual_sales_value_avg_rolling
+          or        arpcf.actual_purchase_value_rolling         <>  excluded.actual_purchase_value_rolling
+          or        arpcf.product_class_qty                     <>  excluded.product_class_qty
+          or        arpcf.product_class_value                   <>  excluded.product_class_value
+          or        arpcf.product_class_default                 <>  excluded.product_class_default
+          "
+# ====================================
+# ----- ai_replenish_prod_cls_rdc
+# ====================================
+ai_replenish_prod_cls_rdc:
+  version: '2021-09-01'
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      lead_time: "smallint"
+      lead_time_rdc: "smallint"
+      bss_item_flag: "varchar( 64 )"
+      bss_item_status: "varchar( 64 )"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      inventory_cap_value_rdc: "numeric( 24, 8 )"
+      actual_sales_qty_avg_rolling: "numeric( 24, 8 )" # for max quantity
+      actual_sales_qty_avg_day_rolling: "numeric( 24, 8 )" # for min quantity and safety stock
+      actual_sales_qty_stddev_day_rolling: "numeric( 24, 8 )" # for min quantity and safety stock
+      actual_sales_value_avg_rolling: "numeric( 24, 8 )" # for order quantity report
+      actual_purchase_value_rolling: "numeric( 24, 8 )" # for max quantity
+      product_class_freq: "varchar( 32 )"
+      product_class_qty: "varchar( 32 )"
+      product_class_value: "varchar( 32 )"
+      product_class_default: "varchar( 32 )"
+      product_class_adjust: "varchar( 32 )"
+      start_of_month: "date not null"
+    primary_key: ['article_code', 'dc_code', 'rdc_code', 'start_of_month']
+  update:
+    ai_replenish_prod_cls_rdc:
+      priority: 1
+      parameter: [
+          'data_date',
+          'run_date',
+          'window_start',
+          'window_end',
+          'date_range_sla_month',
+          'actual_sales_filter_sales_price',
+          'actual_sales_filter_purchase_price',
+          'prod_cls_lead_time_default_rdc',
+          'prod_cls_item_flag_filter',
+          'prod_cls_item_status_filter'
+      ]
+      statements:
+        with_ai_actual_sales_article_filter: "
+          select  coalesce(aasa.cat_mch3_code, aamf.cat_mch3_code)                                                  as cat_mch3_code
+          ,       cat_group_id
+          ,       aamf.article_code
+          ,       aamf.franchise_code
+          ,       lead_time
+          ,       bss_item_flag
+          ,       bss_item_status
+          ,       aasa.sales_price
+          ,       aasa.purchase_price
+          ,       actual_sales_price                                                                                as actual_sales_price
+          ,       coalesce(actual_sales_qty, 0.0)                                                                   as actual_sales_qty
+          ,       coalesce(actual_sales_qty_power, 0.0)                                                             as actual_sales_qty_power
+          ,       coalesce(actual_sales_value, 0.0)                                                                 as actual_sales_value
+          ,       coalesce(actual_sales_order_count, 0.0)                                                           as actual_sales_order_count
+          ,       coalesce(actual_purchase_value, 0.0)                                                              as actual_purchase_value
+          ,       gsm.start_of_month::date                                                                          as start_of_month
+          from  {database_name}.{ai_schema_name}.ai_article_mapping_fc                                              as aamf
+          inner join  (   select  article_code
+                          ,       coalesce(cat_group_id, cat_mc_code)                                               as cat_group_id
+                          ,       lead_time
+                          ,       bss_item_flag
+                          ,       bss_item_status
+                          from  {database_name}.{ai_schema_name}.ai_article_master
+                          where   article_code is not null
+                          {prod_cls_item_flag_filter}
+                          {prod_cls_item_status_filter}
+                      ) as aam
+              on  aamf.article_code   =   aam.article_code
+          cross join  (   select  generate_series(date_trunc('month', (date '{run_date}' - interval '{window_start} month' - interval '{date_range_sla_month} month'))::date
+                                  ,               date_trunc('month', (date '{run_date}' - interval '{window_end} month'   - interval '{date_range_sla_month} month'))::date
+                                  ,               interval '1 month')                                               as start_of_month
+                      ) as gsm
+          left join   (   select  cat_mch3_code
+                          ,       article_code
+                          ,       franchise_code
+                          ,       start_of_month
+                          ,       avg(sales_price)                                                                  as sales_price
+                          ,       avg(purchase_price)                                                               as purchase_price
+                          ,       avg(actual_sales_price)                                                           as actual_sales_price
+                          ,       sum(actual_sales_qty)                                                             as actual_sales_qty
+                          ,       sum(power(actual_sales_qty, 2))                                                   as actual_sales_qty_power
+                          ,       sum(actual_sales_value)                                                           as actual_sales_value
+                          ,       sum(actual_sales_order_count)                                                     as actual_sales_order_count
+                          ,       sum(purchase_price * actual_sales_qty)                                            as actual_purchase_value
+                          from  {database_name}.{ai_schema_name}.ai_actual_sales_article
+                          where ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{window_start} month' - interval '{date_range_sla_month} month'))::date
+                                                 and     date_trunc('month', (date '{run_date}' - interval '{window_end} month'   - interval '{date_range_sla_month} month'))::date
+                                )
+                          group by 1,2,3,4
+                      ) as aasa
+              on  aamf.article_code     =   aasa.article_code
+              and aamf.franchise_code   =   aasa.franchise_code
+              and gsm.start_of_month    =   aasa.start_of_month
+          "
+        with_ai_actual_sales_article_accum_rdc: "
+          select  cat_mch3_code
+          ,       cat_group_id
+          ,       article_code
+          ,       sales_price
+          ,       purchase_price
+          ,       lead_time
+          ,       lead_time_rdc
+          ,       bss_item_flag
+          ,       bss_item_status
+          ,       dc_code
+          ,       rdc_code
+          ,       inventory_cap_value_rdc
+          ,       actual_sales_price
+          ,       actual_sales_qty
+          ,       actual_sales_value
+          ,       actual_sales_order_count
+          ,       actual_purchase_value
+          ,       actual_sales_qty_avg_rolling
+          ,       actual_sales_qty_avg_day_rolling
+          ,       actual_sales_qty_stddev_day_rolling
+          ,       actual_sales_value_avg_rolling
+          ,       actual_purchase_value_rolling
+          ,       coalesce(sum(actual_sales_qty_rolling) over (
+                                partition by start_of_month, rdc_code, dc_code, cat_group_id
+                                order by actual_sales_qty_rolling desc
+                                ) / nullif(sum(actual_sales_qty_rolling) over (
+                                partition by start_of_month, rdc_code, dc_code, cat_group_id
+                                ), 0.0) , 1.0)                                                                                    as actual_sales_qty_accum
+          ,       coalesce(sum(actual_sales_value_rolling) over (
+                                partition by start_of_month, rdc_code, dc_code, cat_group_id
+                                order by actual_sales_value_rolling desc
+                                ) / nullif(sum(actual_sales_value_rolling) over (
+                                partition by start_of_month, rdc_code, dc_code, cat_group_id
+                                ), 0.0) , 1.0)                                                                                    as actual_sales_value_accum
+          ,       coalesce(sum(actual_sales_order_count_rolling) over (
+                                partition by start_of_month, rdc_code, dc_code, cat_group_id
+                                order by actual_sales_order_count_rolling desc
+                                ) / nullif(sum(actual_sales_order_count_rolling) over (
+                                partition by start_of_month, rdc_code, dc_code, cat_group_id
+                                ), 0.0) , 1.0)                                                                                    as actual_sales_order_count_accum
+          ,       start_of_month
+          from  ( select  cat_mch3_code
+                  ,       cat_group_id
+                  ,       article_code
+                  ,       avg(sales_price) over (partition by dc_code, rdc_code, article_code)                                    as sales_price
+                  ,       avg(purchase_price) over (partition by dc_code, rdc_code, article_code)                                 as purchase_price
+                  ,       lead_time
+                  ,       lead_time_rdc
+                  ,       bss_item_flag
+                  ,       bss_item_status
+                  ,       dc_code
+                  ,       rdc_code
+                  ,       inventory_cap_value_rdc
+                  ,       avg(actual_sales_price) over (partition by dc_code, rdc_code, article_code)                             as actual_sales_price
+                  ,       actual_sales_qty
+                  ,       actual_sales_value
+                  ,       actual_sales_order_count
+                  ,       actual_purchase_value
+                  ,		  coalesce(sum(actual_sales_qty) over article_per_rdc
+                                    , 0.0)                                                                                        as actual_sales_qty_rolling
+                  ,		  coalesce(sum(actual_sales_value) over article_per_rdc
+                                    , 0.0)                                                                                        as actual_sales_value_rolling
+                  ,		  coalesce(sum(actual_sales_order_count) over article_per_rdc
+                                    , 0.0)                                                                                        as actual_sales_order_count_rolling
+                  ,		  coalesce(sum(actual_sales_qty) over article_per_rdc
+                                    / ({window_start} - {window_end} + 1)
+                                    , 0.0)                                                                                        as actual_sales_qty_avg_rolling
+                  ,		  coalesce(sum(actual_sales_qty) over article_per_rdc
+                                    / window_days
+                                    , 0.0)                                                                                        as actual_sales_qty_avg_day_rolling
+                  ,       coalesce(sqrt((sum(actual_sales_qty_power) over article_per_rdc
+                                    - (power(sum(actual_sales_qty) over article_per_rdc, 2)
+                                    / (window_days * sum(franchise_distinct) over article_per_rdc)))
+                                    / (window_days * sum(franchise_distinct) over article_per_rdc - 1))
+                                    , 0.0)                                                                                        as actual_sales_qty_stddev_day_rolling
+                  ,		  coalesce(sum(actual_sales_value) over article_per_rdc
+                                    / ({window_start} - {window_end} + 1)
+                                    , 0.0)                                                                                        as actual_sales_value_avg_rolling
+                  ,		  coalesce(sum(actual_purchase_value) over article_per_rdc
+                                    , 0.0)	                                                                                      as actual_purchase_value_rolling
+                  ,       start_of_month
+                  from  ( select  cat_mch3_code
+                          ,       cat_group_id
+                          ,       article_code
+                          ,       lead_time
+                          ,       bss_item_flag
+                          ,       bss_item_status
+                          ,       dc_code
+                          ,       rdc_code
+                          ,       start_of_month
+                          ,       avg(sales_price)                                                                                as sales_price
+                          ,       avg(purchase_price)                                                                             as purchase_price
+                          ,       coalesce(avg(lead_time_rdc), {prod_cls_lead_time_default_rdc})                                  as lead_time_rdc
+                          ,       coalesce(avg(inventory_cap_value_rdc), 0.0)                                                     as inventory_cap_value_rdc
+                          ,       avg(nullif(actual_sales_price, 0.0))                                                            as actual_sales_price
+                          ,       sum(actual_sales_qty)					                                                          as actual_sales_qty
+                          ,       sum(power(actual_sales_qty, 2))                                                                 as actual_sales_qty_power
+                          ,       sum(actual_sales_value)				                                                          as actual_sales_value
+                          ,       sum(actual_sales_order_count)                                                                   as actual_sales_order_count
+                          ,       sum(purchase_price * actual_sales_qty)                                                          as actual_purchase_value
+                          ,       count(distinct aasa.franchise_code)                                                             as franchise_distinct
+                          ,       extract(days from
+                                        (start_of_month + concat((1 - {window_end})::varchar,' month')::interval)
+                                        - (start_of_month - '{window_start} month'::interval))                                    as window_days
+
+                          /* [NOTE: Remove stddev value for each month]
+                          ,       sqrt((sum(power(actual_sales_qty, 2)) - (power(sum(actual_sales_qty), 2)
+                                            / (date_part('days', start_of_month + interval '1 month' - interval '1 day')
+                                            * count(distinct aasa.franchise_code))))
+                                            / (date_part('days', start_of_month + interval '1 month' - interval '1 day')
+                                            * count(distinct aasa.franchise_code) - 1))                                           as actual_sales_qty_stddev
+                          */
+
+                          from  ai_actual_sales_article_filter                                                                    as aasa
+                          inner join  ( select  dc_code
+                                        ,       rdc_code
+                                        ,       franchise_code
+                                        ,       avg(nullif(lead_time_rdc, 0))                                                     as lead_time_rdc
+                                        ,       avg(nullif(inventory_cap_value_rdc, 0.0))                                         as inventory_cap_value_rdc
+                                        from  {database_name}.{ai_schema_name}.ai_franchise_master
+                                        where   franchise_priority = 1
+                                        group by 1,2,3
+                                      ) as afm
+                              on aasa.franchise_code   =   afm.franchise_code
+                          group by 1,2,3,4,5,6,7,8,9
+                        ) as aasa_temp
+                  window article_per_rdc as (
+                      partition by dc_code, rdc_code, article_code
+                      order by start_of_month
+                      range between interval '{window_start}' month preceding
+                            and     interval '{window_end}'   month preceding
+                  )
+                ) as aasa_rolling
+          where   start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+          {actual_sales_filter_sales_price}
+          {actual_sales_filter_purchase_price}
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_replenish_prod_cls_rdc                            as arpcr
+          (
+            select  article_code
+            ,       lead_time
+            ,       lead_time_rdc
+            ,       bss_item_flag
+            ,       bss_item_status
+            ,       dc_code
+            ,       rdc_code
+            ,       inventory_cap_value_rdc
+            ,       actual_sales_qty_avg_rolling
+            ,       actual_sales_qty_avg_day_rolling
+            ,       actual_sales_qty_stddev_day_rolling
+            ,       actual_sales_value_avg_rolling
+            ,       actual_purchase_value_rolling
+            ,       product_class_freq
+            ,       product_class_qty
+            ,       product_class_value
+            ,       product_class_freq                                                                      as product_class_default
+            ,       null                                                                                    as product_class_adjust
+            ,       start_of_month
+            from (  select  article_code
+                    ,       lead_time
+                    ,       lead_time_rdc
+                    ,       bss_item_flag
+                    ,       bss_item_status
+                    ,       dc_code
+                    ,       rdc_code
+                    ,       inventory_cap_value_rdc
+                    ,       actual_sales_qty_avg_rolling
+                    ,       actual_sales_qty_avg_day_rolling
+                    ,       actual_sales_qty_stddev_day_rolling
+                    ,       actual_sales_value_avg_rolling
+                    ,       actual_purchase_value_rolling
+                    ,       case when lag(actual_sales_order_count_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, rdc_code, dc_code, cat_group_id
+                                            order by actual_sales_order_count_accum) <= class_a
+                                 then 'A'
+                                 when lag(actual_sales_order_count_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, rdc_code, dc_code, cat_group_id
+                                            order by actual_sales_order_count_accum) <= class_b
+                                 then 'B'
+                                 else 'C'
+                            end                                                                             as product_class_freq
+                    ,       case when lag(actual_sales_qty_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, rdc_code, dc_code, cat_group_id
+                                            order by actual_sales_qty_accum) <= class_a
+                                 then 'A'
+                                 when lag(actual_sales_qty_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, rdc_code, dc_code, cat_group_id
+                                            order by actual_sales_qty_accum) <= class_b
+                                 then 'B'
+                                 else 'C'
+                            end                                                                             as product_class_qty
+                    ,       case when lag(actual_sales_value_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, rdc_code, dc_code, cat_group_id
+                                            order by actual_sales_value_accum) <= class_a
+                                 then 'A'
+                                 when lag(actual_sales_value_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, rdc_code, dc_code, cat_group_id
+                                            order by actual_sales_value_accum) <= class_b
+                                 then 'B'
+                                 else 'C'
+                            end                                                                             as product_class_value
+                    ,       start_of_month
+                    from  ai_actual_sales_article_accum_rdc                                                 as aasaar
+                    ,     (   select  class_a
+                              ,       class_b
+                              ,       class_c
+                              from  {database_name}.{ai_schema_name}.imp_prod_cls_criteria_master
+                              where   class_version in (  select  max(class_version) as class_version
+                                                          from  {database_name}.{ai_schema_name}.imp_prod_cls_criteria_master
+                                                          where class_convert_flag = 'Y'
+                                                       )
+                              and     class_convert_flag = 'Y'
+                          ) as ipcm
+                    where actual_purchase_value_rolling > 0
+                  ) as aasaa
+          )
+          on conflict ( article_code, dc_code, rdc_code, start_of_month ) do update
+                set   lead_time                                 =   excluded.lead_time
+                ,     lead_time_rdc                             =   excluded.lead_time_rdc
+                ,     bss_item_flag                            =   excluded.bss_item_flag
+                ,     bss_item_status                          =   excluded.bss_item_status
+                ,     inventory_cap_value_rdc                   =   excluded.inventory_cap_value_rdc
+                ,     actual_sales_qty_avg_rolling              =   excluded.actual_sales_qty_avg_rolling
+                ,     actual_sales_qty_avg_day_rolling          =   excluded.actual_sales_qty_avg_day_rolling
+                ,     actual_sales_qty_stddev_day_rolling       =   excluded.actual_sales_qty_stddev_day_rolling
+                ,     actual_sales_value_avg_rolling            =   excluded.actual_sales_value_avg_rolling
+                ,     actual_purchase_value_rolling             =   excluded.actual_purchase_value_rolling
+                ,     product_class_qty                         =   excluded.product_class_qty
+                ,     product_class_value                       =   excluded.product_class_value
+                ,     product_class_default                     =   excluded.product_class_default
+                ,     product_class_adjust                      =   coalesce(arpcr.product_class_adjust, excluded.product_class_adjust)
+          where     arpcr.bss_item_flag                        <>  excluded.bss_item_flag
+          or        arpcr.bss_item_status                      <>  excluded.bss_item_status
+          or        arpcr.inventory_cap_value_rdc               <>  excluded.inventory_cap_value_rdc
+          or        arpcr.actual_sales_qty_avg_rolling          <>  excluded.actual_sales_qty_avg_rolling
+          or        arpcr.actual_sales_qty_avg_day_rolling      <>  excluded.actual_sales_qty_avg_day_rolling
+          or        arpcr.actual_sales_qty_stddev_day_rolling   <>  excluded.actual_sales_qty_stddev_day_rolling
+          or        arpcr.actual_sales_value_avg_rolling        <>  excluded.actual_sales_value_avg_rolling
+          or        arpcr.actual_purchase_value_rolling         <>  excluded.actual_purchase_value_rolling
+          or        arpcr.product_class_qty                     <>  excluded.product_class_qty
+          or        arpcr.product_class_value                   <>  excluded.product_class_value
+          or        arpcr.product_class_default                 <>  excluded.product_class_default
+          "
+# ====================================
+# ----- ai_replenish_prod_cls_dc
+# ====================================
+ai_replenish_prod_cls_dc:
+  version: '2021-09-01'
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      lead_time: "smallint"
+      lead_time_dc: "smallint"
+      bss_item_flag: "varchar( 64 )"
+      bss_item_status: "varchar( 64 )"
+      dc_code: "varchar( 64 ) not null"
+      inventory_cap_value_dc: "numeric( 24, 8 )"
+      actual_sales_qty_avg_rolling: "numeric( 24, 8 )" # for max quantity
+      actual_sales_qty_avg_day_rolling: "numeric( 24, 8 )" # for min quantity and safety stock
+      actual_sales_qty_stddev_day_rolling: "numeric( 24, 8 )" # for min quantity and safety stock
+      actual_sales_value_avg_rolling: "numeric( 24, 8 )" # for order quantity report
+      actual_purchase_value_rolling: "numeric( 24, 8 )" # for max quantity
+      product_class_freq: "varchar( 32 )"
+      product_class_qty: "varchar( 32 )"
+      product_class_value: "varchar( 32 )"
+      product_class_default: "varchar( 32 )"
+      product_class_adjust: "varchar( 32 )"
+      start_of_month: "date not null"
+    primary_key: ['article_code', 'dc_code', 'start_of_month']
+  update:
+    ai_replenish_prod_cls_dc:
+      priority: 1
+      parameter: [
+          'data_date',
+          'run_date',
+          'window_start',
+          'window_end',
+          'date_range_sla_month',
+          'actual_sales_filter_sales_price',
+          'actual_sales_filter_purchase_price',
+          'prod_cls_lead_time_default_dc',
+          'prod_cls_item_flag_filter',
+          'prod_cls_item_status_filter'
+      ]
+      statements:
+        with_ai_actual_sales_article_filter: "
+          select  coalesce(aasa.cat_mch3_code, aamf.cat_mch3_code)                                                  as cat_mch3_code
+          ,       cat_group_id
+          ,       aamf.article_code
+          ,       aamf.franchise_code
+          ,       lead_time
+          ,       bss_item_flag
+          ,       bss_item_status
+          ,       aasa.sales_price
+          ,       aasa.purchase_price
+          ,       actual_sales_price                                                                                as actual_sales_price
+          ,       coalesce(actual_sales_qty, 0.0)                                                                   as actual_sales_qty
+          ,       coalesce(actual_sales_qty_power, 0.0)                                                             as actual_sales_qty_power
+          ,       coalesce(actual_sales_value, 0.0)                                                                 as actual_sales_value
+          ,       coalesce(actual_sales_order_count, 0.0)                                                           as actual_sales_order_count
+          ,       coalesce(actual_purchase_value, 0.0)                                                              as actual_purchase_value
+          ,       gsm.start_of_month::date                                                                          as start_of_month
+          from  {database_name}.{ai_schema_name}.ai_article_mapping_fc                                              as aamf
+          inner join  (   select  article_code
+                          ,       coalesce(cat_group_id, cat_mc_code)                                               as cat_group_id
+                          ,       lead_time
+                          ,       bss_item_flag
+                          ,       bss_item_status
+                          from  {database_name}.{ai_schema_name}.ai_article_master
+                          where   article_code is not null
+                          {prod_cls_item_flag_filter}
+                          {prod_cls_item_status_filter}
+                      ) as aam
+              on  aamf.article_code   =   aam.article_code
+          cross join  (   select  generate_series(date_trunc('month', (date '{run_date}' - interval '{window_start} month' - interval '{date_range_sla_month} month'))::date
+                                  ,               date_trunc('month', (date '{run_date}' - interval '{window_end} month'   - interval '{date_range_sla_month} month'))::date
+                                  ,               interval '1 month')                                               as start_of_month
+                      ) as gsm
+          left join   (   select  cat_mch3_code
+                          ,       article_code
+                          ,       franchise_code
+                          ,       start_of_month
+                          ,       avg(sales_price)                                                                  as sales_price
+                          ,       avg(purchase_price)                                                               as purchase_price
+                          ,       avg(actual_sales_price)                                                           as actual_sales_price
+                          ,       sum(actual_sales_qty)                                                             as actual_sales_qty
+                          ,       sum(power(actual_sales_qty, 2))                                                   as actual_sales_qty_power
+                          ,       sum(actual_sales_value)                                                           as actual_sales_value
+                          ,       sum(actual_sales_order_count)                                                     as actual_sales_order_count
+                          ,       sum(purchase_price * actual_sales_qty)                                            as actual_purchase_value
+                          from  {database_name}.{ai_schema_name}.ai_actual_sales_article
+                          where ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{window_start} month' - interval '{date_range_sla_month} month'))::date
+                                                 and     date_trunc('month', (date '{run_date}' - interval '{window_end} month'   - interval '{date_range_sla_month} month'))::date
+                                )
+                          group by 1,2,3,4
+                      ) as aasa
+              on  aamf.article_code     =   aasa.article_code
+              and aamf.franchise_code   =   aasa.franchise_code
+              and gsm.start_of_month    =   aasa.start_of_month
+          "
+        with_ai_actual_sales_article_accum_dc: "
+          select  cat_mch3_code
+          ,       cat_group_id
+          ,       article_code
+          ,       sales_price
+          ,       purchase_price
+          ,       lead_time
+          ,       lead_time_dc
+          ,       bss_item_flag
+          ,       bss_item_status
+          ,       dc_code
+          ,       inventory_cap_value_dc
+          ,       actual_sales_price
+          ,       actual_sales_qty
+          ,       actual_sales_value
+          ,       actual_sales_order_count
+          ,       actual_purchase_value
+          ,       actual_sales_qty_avg_rolling
+          ,       actual_sales_qty_avg_day_rolling
+          ,       actual_sales_qty_stddev_day_rolling
+          ,       actual_sales_value_avg_rolling
+          ,       actual_purchase_value_rolling
+          ,       coalesce(sum(actual_sales_qty_rolling) over (
+                                partition by start_of_month, dc_code, cat_group_id
+                                order by actual_sales_qty_rolling desc
+                                ) / nullif(sum(actual_sales_qty_rolling) over (
+                                partition by start_of_month, dc_code, cat_group_id
+                                ), 0.0) , 1.0)                                                                                    as actual_sales_qty_accum
+          ,       coalesce(sum(actual_sales_value_rolling) over (
+                                partition by start_of_month, dc_code, cat_group_id
+                                order by actual_sales_value_rolling desc
+                                ) / nullif(sum(actual_sales_value_rolling) over (
+                                partition by start_of_month, dc_code, cat_group_id
+                                ), 0.0) , 1.0)                                                                                    as actual_sales_value_accum
+          ,       coalesce(sum(actual_sales_order_count_rolling) over (
+                                partition by start_of_month, dc_code, cat_group_id
+                                order by actual_sales_order_count_rolling desc
+                                ) / nullif(sum(actual_sales_order_count_rolling) over (
+                                partition by start_of_month, dc_code, cat_group_id
+                                ), 0.0) , 1.0)                                                                                    as actual_sales_order_count_accum
+          ,       start_of_month
+          from  ( select  cat_mch3_code
+                  ,       cat_group_id
+                  ,       article_code
+                  ,       avg(sales_price) over (partition by dc_code, article_code)                                              as sales_price
+                  ,       avg(purchase_price) over (partition by dc_code, article_code)                                           as purchase_price
+                  ,       lead_time
+                  ,       lead_time_dc
+                  ,       bss_item_flag
+                  ,       bss_item_status
+                  ,		  dc_code
+                  ,       inventory_cap_value_dc
+                  ,       avg(actual_sales_price) over (partition by dc_code, article_code)                                       as actual_sales_price
+                  ,       actual_sales_qty
+                  ,       actual_sales_value
+                  ,       actual_sales_order_count
+                  ,       actual_purchase_value
+                  ,		  coalesce(sum(actual_sales_qty) over article_per_dc
+                                    , 0.0)                                                                                        as actual_sales_qty_rolling
+                  ,		  coalesce(sum(actual_sales_value) over article_per_dc
+                                    , 0.0)                                                                                        as actual_sales_value_rolling
+                  ,		  coalesce(sum(actual_sales_order_count) over article_per_dc
+                                    , 0.0)                                                                                        as actual_sales_order_count_rolling
+                  ,		  coalesce(sum(actual_sales_qty) over article_per_dc
+                                    / ({window_start} - {window_end} + 1)
+                                    , 0.0)                                                                                        as actual_sales_qty_avg_rolling
+                  ,		  coalesce(sum(actual_sales_qty) over article_per_dc
+                                    / window_days
+                                    , 0.0)                                                                                        as actual_sales_qty_avg_day_rolling
+                  ,       coalesce(sqrt((sum(actual_sales_qty_power) over article_per_dc
+                                    - (power(sum(actual_sales_qty) over article_per_dc, 2)
+                                    / (window_days * sum(rdc_franchise_distinct) over article_per_dc)))
+                                    / (window_days * sum(rdc_franchise_distinct) over article_per_dc - 1))
+                                    , 0.0)                                                                                        as actual_sales_qty_stddev_day_rolling
+                  ,		  coalesce(sum(actual_sales_value) over article_per_dc
+                                    / ({window_start} - {window_end} + 1)
+                                    , 0.0)                                                                                        as actual_sales_value_avg_rolling
+                  ,		  coalesce(sum(actual_purchase_value) over article_per_dc
+                                    , 0.0)	                                                                                      as actual_purchase_value_rolling
+                  ,       start_of_month
+                  from  ( select  cat_mch3_code
+                          ,       cat_group_id
+                          ,       article_code
+                          ,       lead_time
+                          ,       bss_item_flag
+                          ,       bss_item_status
+                          ,       dc_code
+                          ,       start_of_month
+                          ,       avg(sales_price)                                                                                as sales_price
+                          ,       avg(purchase_price)                                                                             as purchase_price
+                          ,       coalesce(avg(lead_time_dc), {prod_cls_lead_time_default_dc})                                    as lead_time_dc
+                          ,       coalesce(avg(inventory_cap_value_dc), 0.0)                                                      as inventory_cap_value_dc
+                          ,       avg(actual_sales_price)                                                                         as actual_sales_price
+                          ,		  sum(actual_sales_qty)					                                                          as actual_sales_qty
+                          ,       sum(power(actual_sales_qty, 2))                                                                 as actual_sales_qty_power
+                          ,		  sum(actual_sales_value)					                                                      as actual_sales_value
+                          ,       sum(actual_sales_order_count)                                                                   as actual_sales_order_count
+                          ,		  sum(purchase_price * actual_sales_qty)                                                          as actual_purchase_value
+                          ,       count(distinct concat(afm.rdc_code, aasa.franchise_code))                                       as rdc_franchise_distinct
+                          ,       extract(days from
+                                        (start_of_month + concat((1 - {window_end})::varchar,' month')::interval)
+                                        - (start_of_month - '{window_start} month'::interval))                                    as window_days
+
+                          /* [NOTE: Remove stddev value for each month]
+                          ,       sqrt((sum(power(actual_sales_qty, 2)) - (power(sum(actual_sales_qty), 2)
+                                            / (date_part('days', start_of_month + interval '1 month' - interval '1 day')
+                                            * count(distinct aasa.franchise_code))))
+                                            / (date_part('days', start_of_month + interval '1 month' - interval '1 day')
+                                            * count(distinct aasa.franchise_code) - 1))                                           as actual_sales_qty_stddev
+                          */
+
+                          from  ai_actual_sales_article_filter                                                                    as aasa
+                          inner join  ( select  dc_code
+                                        ,       rdc_code
+                                        ,       franchise_code
+                                        ,       avg(nullif(lead_time_dc, 0))                                                      as lead_time_dc
+                                        ,       avg(nullif(inventory_cap_value_dc, 0.0))                                          as inventory_cap_value_dc
+                                        from  {database_name}.{ai_schema_name}.ai_franchise_master
+                                        where   franchise_priority = 1
+                                        group by 1,2,3
+                                      ) as afm
+                              on aasa.franchise_code   = afm.franchise_code
+                          group by 1,2,3,4,5,6,7,8
+                        ) as aasa_temp
+                  window article_per_dc as (
+                      partition by dc_code, article_code
+                      order by start_of_month
+                      range between interval '{window_start}' month preceding
+                            and     interval '{window_end}'   month preceding
+                  )
+                ) as aasa_rolling
+          where   start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+          {actual_sales_filter_sales_price}
+          {actual_sales_filter_purchase_price}
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_replenish_prod_cls_dc as arpcd
+          (
+            select  article_code
+            ,       lead_time
+            ,       lead_time_dc
+            ,       bss_item_flag
+            ,       bss_item_status
+            ,       dc_code
+            ,       inventory_cap_value_dc
+            ,       actual_sales_qty_avg_rolling
+            ,       actual_sales_qty_avg_day_rolling
+            ,       actual_sales_qty_stddev_day_rolling
+            ,       actual_sales_value_avg_rolling
+            ,       actual_purchase_value_rolling
+            ,       product_class_freq
+            ,       product_class_qty
+            ,       product_class_value
+            ,       product_class_freq                                                                      as product_class_default
+            ,       null                                                                                    as product_class_adjust
+            ,       start_of_month
+            from (  select  article_code
+                    ,       lead_time
+                    ,       lead_time_dc
+                    ,       bss_item_flag
+                    ,       bss_item_status
+                    ,       dc_code
+                    ,       inventory_cap_value_dc
+                    ,       actual_sales_qty_avg_rolling
+                    ,       actual_sales_qty_avg_day_rolling
+                    ,       actual_sales_qty_stddev_day_rolling
+                    ,       actual_sales_value_avg_rolling
+                    ,       actual_purchase_value_rolling
+                    ,       case when lag(actual_sales_order_count_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, dc_code, cat_group_id
+                                            order by actual_sales_order_count_accum) <= class_a
+                                 then 'A'
+                                 when lag(actual_sales_order_count_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, dc_code, cat_group_id
+                                            order by actual_sales_order_count_accum) <= class_b
+                                 then 'B'
+                                 else 'C'
+                            end                                                                             as product_class_freq
+                    ,       case when lag(actual_sales_qty_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, dc_code, cat_group_id
+                                            order by actual_sales_qty_accum) <= class_a
+                                 then 'A'
+                                 when lag(actual_sales_qty_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, dc_code, cat_group_id
+                                            order by actual_sales_qty_accum) <= class_b
+                                 then 'B'
+                                 else 'C'
+                            end                                                                             as product_class_qty
+                    ,       case when lag(actual_sales_value_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, dc_code, cat_group_id
+                                            order by actual_sales_value_accum) <= class_a
+                                 then 'A'
+                                 when lag(actual_sales_value_accum, 1, 0::numeric) over (
+                                            partition by start_of_month, dc_code, cat_group_id
+                                            order by actual_sales_value_accum) <= class_b
+                                 then 'B'
+                                 else 'C'
+                            end                                                                             as product_class_value
+                    ,       start_of_month
+                    from  ai_actual_sales_article_accum_dc                                                  as aasaad
+                    ,     (   select  class_a
+                              ,       class_b
+                              ,       class_c
+                              from    {database_name}.{ai_schema_name}.imp_prod_cls_criteria_master
+                              where   class_version in (  select  max(class_version)                    as class_version
+                                                          from  {database_name}.{ai_schema_name}.imp_prod_cls_criteria_master
+                                                          where   class_convert_flag = 'Y'
+                                                       )
+                              and     class_convert_flag = 'Y'
+                          ) as ipcm
+                    where actual_purchase_value_rolling > 0
+                  ) as aasaa
+          )
+          on conflict ( article_code, dc_code, start_of_month ) do update
+                set   lead_time                                 =   excluded.lead_time
+                ,     lead_time_dc                              =   excluded.lead_time_dc
+                ,     bss_item_flag                             =   excluded.bss_item_flag
+                ,     bss_item_status                           =   excluded.bss_item_status
+                ,     inventory_cap_value_dc                    =   excluded.inventory_cap_value_dc
+                ,     actual_sales_qty_avg_rolling              =   excluded.actual_sales_qty_avg_rolling
+                ,     actual_sales_qty_avg_day_rolling          =   excluded.actual_sales_qty_avg_day_rolling
+                ,     actual_sales_qty_stddev_day_rolling       =   excluded.actual_sales_qty_stddev_day_rolling
+                ,     actual_sales_value_avg_rolling            =   excluded.actual_sales_value_avg_rolling
+                ,     actual_purchase_value_rolling             =   excluded.actual_purchase_value_rolling
+                ,     product_class_qty                         =   excluded.product_class_qty
+                ,     product_class_value                       =   excluded.product_class_value
+                ,     product_class_default                     =   excluded.product_class_default
+                ,     product_class_adjust                      =   coalesce(arpcd.product_class_adjust, excluded.product_class_adjust)
+          where     arpcd.bss_item_flag                         <>  excluded.bss_item_flag
+          or        arpcd.bss_item_status                       <>  excluded.bss_item_status
+          or        arpcd.inventory_cap_value_dc                <>  excluded.inventory_cap_value_dc
+          or        arpcd.actual_sales_qty_avg_rolling          <>  excluded.actual_sales_qty_avg_rolling
+          or        arpcd.actual_sales_qty_avg_day_rolling      <>  excluded.actual_sales_qty_avg_day_rolling
+          or        arpcd.actual_sales_qty_stddev_day_rolling   <>  excluded.actual_sales_qty_stddev_day_rolling
+          or        arpcd.actual_sales_value_avg_rolling        <>  excluded.actual_sales_value_avg_rolling
+          or        arpcd.actual_purchase_value_rolling         <>  excluded.actual_purchase_value_rolling
+          or        arpcd.product_class_qty                     <>  excluded.product_class_qty
+          or        arpcd.product_class_value                   <>  excluded.product_class_value
+          or        arpcd.product_class_default                 <>  excluded.product_class_default
+          "
+# ====================================
+# ----- ai_replenish_min_max_fc
+# ====================================
+ai_replenish_min_max_fc:
+  version: '2021-08-29'
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      safety_stock: "numeric( 20, 6 )"
+      min_qty: "numeric( 20, 6 )"
+      max_qty: "numeric( 20, 6 )"
+      max_qty_custom: "numeric( 20, 6 )"
+      min_qty_adjust: "numeric( 20, 6 )"
+      max_qty_adjust: "numeric( 20, 6 )"
+      max_qty_custom_adjust: "numeric( 20, 6 )"
+      bss_item_flag: "varchar( 64 )"
+      bss_item_status: "varchar( 64 )"
+      start_of_month: "date not null"
+    primary_key: ['article_code', 'dc_code', 'rdc_code', 'franchise_code', 'start_of_month']
+  update:
+    ai_replenish_min_max_fc:
+      priority: 1
+      parameter: [
+          'data_date',
+          'run_date',
+          'min_max_item_flag_filter',
+          'min_max_item_status_filter',
+          'date_range_sla_month'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_replenish_min_max_fc                                              as armmf
+        (
+          select  article_code
+          ,       dc_code
+          ,       rdc_code
+          ,       franchise_code
+          ,       safety_stock
+          ,		min_qty
+          ,       case when max_qty <= min_qty
+                       then ceil(min_qty + ((min_qty - safety_stock + 0.5) / 2))
+                       when min_qty < max_qty and max_qty <= (min_qty + ((min_qty - safety_stock) / 2))
+                       then ceil(max_qty + ((min_qty - safety_stock + 0.5) / 2))
+                       else max_qty
+                  end                                                                                                     as max_qty
+          ,       case when max_qty_custom <= min_qty
+                       then ceil(min_qty + ((min_qty - safety_stock + 0.5) / 2))
+                       when min_qty < max_qty_custom and max_qty_custom <= (min_qty + ((min_qty - safety_stock) / 2))
+                       then ceil(max_qty_custom + ((min_qty - safety_stock + 0.5) / 2))
+                       else max_qty_custom
+                  end                                                                                                     as max_qty_custom
+          ,       null                                                                                                    as min_qty_adjust
+          ,       null                                                                                                    as max_qty_adjust
+          ,       null                                                                                                    as max_qty_custom_adjust
+          ,       bss_item_flag
+          ,       bss_item_status
+          ,       start_of_month
+          from  ( select  article_code
+                  ,       dc_code
+                  ,       rdc_code
+                  ,       franchise_code
+                  ,		ceil(coalesce((inventory_cap_value_fc * actual_purchase_value_rolling
+                                    / nullif(sum(actual_purchase_value_rolling) over (
+                                    partition by dc_code, rdc_code, franchise_code, start_of_month), 0.0))
+                                    / nullif(actual_purchase_value_rolling
+                                    / nullif(actual_sales_qty_avg_rolling, 0.0), 0.0)
+                                    , 0.0))								                                                as max_qty
+                  /* [NOTE: `inventory_cap_value_fc * actual_purchase_value_rolling / sum(actual_purchase_value_rolling) rolling / (actual_purchase_value_rolling / actual_sales_qty_avg_rolling)`
+                          = `MOS * actual_sales_qty_avg_rolling`]
+                  */
+                  ,		ceil(coalesce(coalesce((mos ->> product_class)::numeric, (
+                                    (inventory_cap_value_fc * actual_purchase_value_rolling
+                                    / nullif(sum(actual_purchase_value_rolling) over (
+                                    partition by dc_code, rdc_code, franchise_code, start_of_month
+                                    ), 0.0)) / nullif(actual_purchase_value_rolling
+                                    , 0.0) * actual_sales_qty_avg_rolling))
+                                    , 0.0))								                                                as max_qty_custom
+                  ,       ceil((service_level ->> product_class)::numeric
+                                    * actual_sales_qty_stddev_day_rolling * sqrt(lead_time))                              as safety_stock
+                  ,       ceil(((service_level ->> product_class)::numeric
+                                    * actual_sales_qty_stddev_day_rolling * sqrt(lead_time))
+                                    + lead_time * (actual_sales_qty_avg_day_rolling))                                     as min_qty
+
+                  /* [NOTE: change value from month level to day level]
+                  ,       ceil((service_level ->> product_class)::numeric
+                                * actual_sales_qty_stddev_rolling * sqrt(lead_time))                                      as safety_stock
+                  ,       ceil(((service_level ->> product_class)::numeric
+                                * actual_sales_qty_stddev_rolling * sqrt(lead_time))
+                                + lead_time * (actual_sales_qty_stddev_rolling))                                          as min_qty
+                  */
+
+                  ,       bss_item_flag
+                  ,       bss_item_status
+                  ,       start_of_month
+                  from  (   select  article_code
+                            ,       dc_code
+                            ,       rdc_code
+                            ,       arocf.franchise_code
+                            ,       coalesce(nullif(lead_time, 0), lead_time_fc)                                          as lead_time
+                            ,       inventory_cap_value_fc
+                            ,       coalesce(mos, '{{\"A\": null, \"B\": null, \"C\": null}}'::jsonb)                     as mos
+                            ,       actual_sales_qty_avg_rolling
+                            ,       actual_sales_qty_avg_day_rolling
+                            ,       actual_sales_qty_stddev_day_rolling
+                            ,       actual_purchase_value_rolling
+                            ,       coalesce(product_class_adjust, product_class_default)                                 as product_class
+                            ,       bss_item_flag
+                            ,       bss_item_status
+                            ,       start_of_month
+                            from  {database_name}.{ai_schema_name}.ai_replenish_prod_cls_fc                               as arocf
+                            left join ( select  franchise_code
+                                        ,       jsonb_build_object('A', class_a, 'B', class_b, 'C', class_c)              as mos
+                                        from  {database_name}.{ai_schema_name}.imp_mix_max_mos_criteria_fc
+                                        where   criteria_active_flag = 'Y'
+                                      ) as immmcf
+                                on  arocf.franchise_code  =   immmcf.franchise_code
+                            where   start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+
+                            /* [NOTE: Remove stddev value for each month]
+                            where   start_of_month >  date_trunc('month', (date '{data_date}'))::date
+                            and     start_of_month <= date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                            */
+
+                        ) as arpcf_tmp
+                  ,     (   select  jsonb_build_object('A', class_a, 'B', class_b, 'C', class_c)                          as service_level
+                            from    {database_name}.{ai_schema_name}.imp_min_max_service_level
+                            where   class_version in (  select  max(class_version)                                        as class_version
+                                                        from  {database_name}.{ai_schema_name}.imp_min_max_service_level
+                                                        where   class_convert_flag = 'Y'
+                                                     )
+                            and     class_convert_flag = 'Y'
+                        ) as immsl
+                  where actual_purchase_value_rolling > 0
+                  {min_max_item_flag_filter}
+                  {min_max_item_status_filter}
+                ) as arpcf
+        )
+        on conflict ( article_code, dc_code, rdc_code, franchise_code, start_of_month ) do update
+            set   safety_stock          =   excluded.safety_stock
+            ,     min_qty               =   excluded.min_qty
+            ,     max_qty               =   excluded.max_qty
+            ,     max_qty_custom        =   excluded.max_qty_custom
+            ,     bss_item_flag         =   excluded.bss_item_flag
+            ,     bss_item_status       =   excluded.bss_item_status
+        where   armmf.safety_stock      <>  excluded.safety_stock
+        or      armmf.min_qty           <>  excluded.min_qty
+        or      armmf.max_qty           <>  excluded.max_qty
+        or      armmf.max_qty_custom    <>  excluded.max_qty_custom
+        "
+# ====================================
+# ----- ai_replenish_min_max_rdc
+# ====================================
+ai_replenish_min_max_rdc:
+  version: '2021-08-29'
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      safety_stock: "numeric( 20, 6 )"
+      min_qty: "numeric( 20, 6 )"
+      max_qty: "numeric( 20, 6 )"
+      max_qty_custom: "numeric( 20, 6 )"
+      min_qty_adjust: "numeric( 20, 6 )"
+      max_qty_adjust: "numeric( 20, 6 )"
+      max_qty_custom_adjust: "numeric( 20, 6 )"
+      bss_item_flag: "varchar( 64 )"
+      bss_item_status: "varchar( 64 )"
+      start_of_month: "date not null"
+    primary_key: ['article_code', 'dc_code', 'rdc_code', 'start_of_month']
+  update:
+    ai_replenish_min_max_rdc:
+      priority: 1
+      parameter: [
+          'data_date',
+          'run_date',
+          'min_max_item_flag_filter',
+          'min_max_item_status_filter',
+          'date_range_sla_month'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_replenish_min_max_rdc                                             as armmr
+        (
+          select  article_code
+          ,       dc_code
+          ,       rdc_code
+          ,       safety_stock
+          ,		min_qty
+          ,       case when max_qty <= min_qty
+                       then ceil(min_qty + ((min_qty - safety_stock + 0.5) / 2))
+                       when min_qty < max_qty and max_qty <= (min_qty + ((min_qty - safety_stock) / 2))
+                       then ceil(max_qty + ((min_qty - safety_stock + 0.5) / 2))
+                       else max_qty
+                  end                                                                                                     as max_qty
+          ,       case when max_qty_custom <= min_qty
+                       then ceil(min_qty + ((min_qty - safety_stock + 0.5) / 2))
+                       when min_qty < max_qty_custom and max_qty_custom <= (min_qty + ((min_qty - safety_stock) / 2))
+                       then ceil(max_qty_custom + ((min_qty - safety_stock + 0.5) / 2))
+                       else max_qty_custom
+                  end                                                                                                     as max_qty_custom
+          ,       null                                                                                                    as min_qty_adjust
+          ,       null                                                                                                    as max_qty_adjust
+          ,       null                                                                                                    as max_qty_custom_adjust
+          ,       bss_item_flag
+          ,       bss_item_status
+          ,       start_of_month
+          from  ( select  article_code
+                  ,       dc_code
+                  ,       rdc_code
+                  ,		  ceil(coalesce((inventory_cap_value_rdc * actual_purchase_value_rolling
+                                    / nullif(sum(actual_purchase_value_rolling) over (
+                                    partition by dc_code, rdc_code, start_of_month), 0.0))
+                                    / nullif(actual_purchase_value_rolling
+                                    / nullif(actual_sales_qty_avg_rolling, 0.0), 0.0)
+                                    , 0.0))								                                                  as max_qty
+                  ,		  ceil(coalesce(coalesce((mos ->> product_class)::numeric, (
+                                    (inventory_cap_value_rdc * actual_purchase_value_rolling
+                                    / nullif(sum(actual_purchase_value_rolling) over (
+                                    partition by dc_code, rdc_code, start_of_month
+                                    ), 0.0)) / nullif(actual_purchase_value_rolling
+                                    , 0.0) * actual_sales_qty_avg_rolling))
+                                    , 0.0))								                                                  as max_qty_custom
+                  ,       ceil((service_level ->> product_class)::numeric
+                                    * actual_sales_qty_stddev_day_rolling * sqrt(lead_time))                              as safety_stock
+                  ,       ceil(((service_level ->> product_class)::numeric
+                                    * actual_sales_qty_stddev_day_rolling * sqrt(lead_time))
+                                    + lead_time * (actual_sales_qty_avg_day_rolling))                                     as min_qty
+                  ,       bss_item_flag
+                  ,       bss_item_status
+                  ,       start_of_month
+                  from  (   select  article_code
+                            ,       dc_code
+                            ,       arocr.rdc_code
+                            ,       coalesce(nullif(lead_time, 0), lead_time_rdc)                                         as lead_time
+                            ,       inventory_cap_value_rdc
+                            ,       coalesce(mos, '{{\"A\": null, \"B\": null, \"C\": null}}'::jsonb)                     as mos
+                            ,       actual_sales_qty_avg_rolling
+                            ,       actual_sales_qty_avg_day_rolling
+                            ,       actual_sales_qty_stddev_day_rolling
+                            ,       actual_purchase_value_rolling
+                            ,       coalesce(product_class_adjust, product_class_default)                                 as product_class
+                            ,       bss_item_flag
+                            ,       bss_item_status
+                            ,       start_of_month
+                            from  {database_name}.{ai_schema_name}.ai_replenish_prod_cls_rdc                              as arocr
+                            left join ( select  rdc_code
+                                        ,       jsonb_build_object('A', class_a, 'B', class_b, 'C', class_c)              as mos
+                                        from  {database_name}.{ai_schema_name}.imp_mix_max_mos_criteria_rdc
+                                        where   criteria_active_flag = 'Y'
+                                      ) as immmcr
+                                on  arocr.rdc_code  =   immmcr.rdc_code
+                            where   start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                        ) as arpcr_tmp
+                  ,     (   select  jsonb_build_object('A', class_a, 'B', class_b, 'C', class_c)                          as service_level
+                            from    {database_name}.{ai_schema_name}.imp_min_max_service_level
+                            where   class_version in (  select  max(class_version)                                        as class_version
+                                                        from  {database_name}.{ai_schema_name}.imp_min_max_service_level
+                                                        where   class_convert_flag = 'Y'
+                                                     )
+                            and     class_convert_flag = 'Y'
+                        ) as immsl
+                  where actual_purchase_value_rolling > 0
+                  {min_max_item_flag_filter}
+                  {min_max_item_status_filter}
+                ) as arpcf
+        )
+        on conflict ( article_code, dc_code, rdc_code, start_of_month ) do update
+            set   safety_stock          =   excluded.safety_stock
+            ,     min_qty               =   excluded.min_qty
+            ,     max_qty               =   excluded.max_qty
+            ,     max_qty_custom        =   excluded.max_qty_custom
+            ,     bss_item_flag        =   excluded.bss_item_flag
+            ,     bss_item_status      =   excluded.bss_item_status
+        where   armmr.safety_stock      <>  excluded.safety_stock
+        or      armmr.min_qty           <>  excluded.min_qty
+        or      armmr.max_qty           <>  excluded.max_qty
+        or      armmr.max_qty_custom    <>  excluded.max_qty_custom
+        "
+# ====================================
+# ----- ai_replenish_min_max_dc
+# ====================================
+ai_replenish_min_max_dc:
+  version: '2021-08-29'
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      dc_code: "varchar( 64 ) not null"
+      safety_stock: "numeric( 20, 6 )"
+      min_qty: "numeric( 20, 6 )"
+      max_qty: "numeric( 20, 6 )"
+      max_qty_custom: "numeric( 20, 6 )"
+      min_qty_adjust: "numeric( 20, 6 )"
+      max_qty_adjust: "numeric( 20, 6 )"
+      max_qty_custom_adjust: "numeric( 20, 6 )"
+      bss_item_flag: "varchar( 64 )"
+      bss_item_status: "varchar( 64 )"
+      start_of_month: "date not null"
+    primary_key: ['article_code', 'dc_code', 'start_of_month']
+  update:
+    ai_replenish_min_max_dc:
+      priority: 1
+      parameter: ['data_date', 'run_date', 'min_max_item_flag_filter', 'min_max_item_status_filter', 'date_range_sla_month']
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_replenish_min_max_dc                                              as armmd
+        (
+          select  article_code
+          ,       dc_code
+          ,       safety_stock
+          ,		min_qty
+          ,       case when max_qty <= min_qty
+                       then ceil(min_qty + ((min_qty - safety_stock + 0.5) / 2))
+                       when min_qty < max_qty and max_qty <= (min_qty + ((min_qty - safety_stock) / 2))
+                       then ceil(max_qty + ((min_qty - safety_stock + 0.5) / 2))
+                       else max_qty
+                  end                                                                                                     as max_qty
+          ,       case when max_qty_custom <= min_qty
+                       then ceil(min_qty + ((min_qty - safety_stock + 0.5) / 2))
+                       when min_qty < max_qty_custom and max_qty_custom <= (min_qty + ((min_qty - safety_stock) / 2))
+                       then ceil(max_qty_custom + ((min_qty - safety_stock + 0.5) / 2))
+                       else max_qty_custom
+                  end                                                                                                     as max_qty_custom
+          ,       null                                                                                                    as min_qty_adjust
+          ,       null                                                                                                    as max_qty_adjust
+          ,       null                                                                                                    as max_qty_custom_adjust
+          ,       bss_item_flag
+          ,       bss_item_status
+          ,       start_of_month
+          from  ( select  article_code
+                  ,       dc_code
+                  ,		  ceil(coalesce((inventory_cap_value_dc * actual_purchase_value_rolling
+                                    / nullif(sum(actual_purchase_value_rolling) over (
+                                    partition by dc_code, start_of_month), 0.0))
+                                    / nullif(actual_purchase_value_rolling
+                                    / nullif(actual_sales_qty_avg_rolling, 0.0), 0.0)
+                                    , 0.0))								                                                  as max_qty
+                  ,		  ceil(coalesce(coalesce((mos ->> product_class)::numeric, (
+                                    (inventory_cap_value_dc * actual_purchase_value_rolling
+                                    / nullif(sum(actual_purchase_value_rolling) over (
+                                    partition by dc_code, start_of_month
+                                    ), 0.0)) / nullif(actual_purchase_value_rolling
+                                    , 0.0) * actual_sales_qty_avg_rolling))
+                                    , 0.0))								                                                  as max_qty_custom
+                  ,       ceil((service_level ->> product_class)::numeric
+                                * actual_sales_qty_stddev_day_rolling * sqrt(lead_time))                                  as safety_stock
+                  ,       ceil(((service_level ->> product_class)::numeric
+                                * actual_sales_qty_stddev_day_rolling * sqrt(lead_time))
+                                + lead_time * (actual_sales_qty_avg_day_rolling))                                         as min_qty
+                  ,       bss_item_flag
+                  ,       bss_item_status
+                  ,       start_of_month
+                  from  (   select  article_code
+                            ,       arocd.dc_code
+                            ,       coalesce(nullif(lead_time, 0), lead_time_dc)                                          as lead_time
+                            ,       inventory_cap_value_dc
+                            ,       coalesce(mos, '{{\"A\": null, \"B\": null, \"C\": null}}'::jsonb)                     as mos
+                            ,       actual_sales_qty_avg_rolling
+                            ,       actual_sales_qty_avg_day_rolling
+                            ,       actual_sales_qty_stddev_day_rolling
+                            ,       actual_purchase_value_rolling
+                            ,       coalesce(product_class_adjust, product_class_default)                                 as product_class
+                            ,       bss_item_flag
+                            ,       bss_item_status
+                            ,       start_of_month
+                            from  {database_name}.{ai_schema_name}.ai_replenish_prod_cls_dc                               as arocd
+                            left join ( select  dc_code
+                                        ,       jsonb_build_object('A', class_a, 'B', class_b, 'C', class_c)              as mos
+                                        from  {database_name}.{ai_schema_name}.imp_mix_max_mos_criteria_dc
+                                        where   criteria_active_flag = 'Y'
+                                      ) as immmcd
+                                on  arocd.dc_code  =   immmcd.dc_code
+                            where   start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                        ) as arpcd_tmp
+                  ,     (   select  jsonb_build_object('A', class_a, 'B', class_b, 'C', class_c)                          as service_level
+                            from    {database_name}.{ai_schema_name}.imp_min_max_service_level
+                            where   class_version in (  select  max(class_version)                                        as class_version
+                                                        from {database_name}.{ai_schema_name}.imp_min_max_service_level
+                                                        where   class_convert_flag = 'Y'
+                                                     )
+                            and     class_convert_flag = 'Y'
+                        ) as immsl
+                  where actual_purchase_value_rolling > 0
+                  {min_max_item_flag_filter}
+                  {min_max_item_status_filter}
+                ) as arpcd
+        )
+        on conflict ( article_code, dc_code, start_of_month ) do update
+            set   safety_stock          =   excluded.safety_stock
+            ,     min_qty               =   excluded.min_qty
+            ,     max_qty               =   excluded.max_qty
+            ,     max_qty_custom        =   excluded.max_qty_custom
+            ,     bss_item_flag        =   excluded.bss_item_flag
+            ,     bss_item_status      =   excluded.bss_item_status
+        where   armmd.safety_stock      <>  excluded.safety_stock
+        or      armmd.min_qty           <>  excluded.min_qty
+        or      armmd.max_qty           <>  excluded.max_qty
+        or      armmd.max_qty_custom    <>  excluded.max_qty_custom
+        "

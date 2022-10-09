@@ -1,0 +1,350 @@
+# ====================================
+# ----- ai_report_order_qty_fc
+# ====================================
+ai_report_order_qty_fc:
+  version: "2021-09-10"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 )"
+      cat_mch2_code: "varchar( 32 )"
+      cat_mch1_code: "varchar( 32 )"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      dc_rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      safety_stock: "numeric( 24, 8 )"
+      min_qty: "numeric( 20, 6 )"
+      max_qty: "numeric( 20, 6 )"
+      product_class: "varchar( 32 )"
+      month_of_supply: "numeric( 20, 6 )"
+      forecast_qty: "numeric( 24, 8 )"
+      current_stock: "numeric( 20, 6 )"
+      order_quantity: "numeric( 20, 6 )"
+      batch_flag: "varchar( 32 )"
+      item_flag: "varchar( 64 )"
+      data_date: "date not null"
+      start_of_week: "date not null"
+      start_of_month: "date not null"
+      status_flag: "varchar( 16 )"
+      cat_mch1_code_brand: "varchar( 128 )"
+    primary_key: ['dc_rdc_code', 'franchise_code', 'article_code', 'data_date']
+  update:
+    ai_report_order_qty_fc:
+      parameter: [
+          'run_date',
+          'date_range_sla_day_order_qty',
+          'date_range_sla_month_order_qty'
+      ]
+      statements:
+        with_month_of_supply_fc: "
+          select  arpcmmf.cat_mch3_code
+          ,		  arpcmmf.cat_mch2_code
+          ,		  arpcmmf.cat_mch1_code
+          ,		  arpcmmf.article_code
+          ,		  arpcmmf.brand
+          ,		  arpcmmf.dc_rdc_code
+          ,		  arpcmmf.franchise_code
+          ,		  arpcmmf.safety_stock
+          ,		  arpcmmf.min_qty
+          ,		  arpcmmf.max_qty
+          ,		  arpcmmf.product_class
+          ,		  arpcmmf.inventory_cap_value_fc
+					          / sum(arpcmmf.actual_sales_value_avg_rolling) over (partition by arpcmmf.franchise_code)
+					          * sum(arpcmmf.actual_sales_value_avg_rolling) over (partition by arpcmmf.franchise_code, arpcmmf.product_class)
+					          / sum(arpcmmf.actual_sales_value_avg_rolling) over (partition by arpcmmf.franchise_code)
+					          * arpcmmf_num_cls.number_of_product_class				          as month_of_supply_product_class
+          ,		  arpcmmf.start_of_month
+          from    {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_fc              as arpcmmf
+          inner join  (   select  dc_rdc_code
+                          ,       franchise_code
+                          ,		  start_of_month
+                          ,		  count(distinct product_class)                               as number_of_product_class
+                          from    {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_fc
+                          group by 1,2,3
+                      ) as arpcmmf_num_cls
+              on  arpcmmf.dc_rdc_code     = arpcmmf_num_cls.dc_rdc_code
+              and arpcmmf.franchise_code  = arpcmmf_num_cls.franchise_code
+              and arpcmmf.start_of_month  = arpcmmf_num_cls.start_of_month
+          where   arpcmmf.start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month_order_qty} month'))::date
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_report_order_qty_fc                 as aroqf
+          (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.article_code
+            ,       aam.brand
+            ,       dc_rdc_code
+            ,       franchise_code
+            ,       safety_stock
+            ,       min_qty
+            ,       max_qty
+            ,       product_class
+            ,       month_of_supply
+            ,       forecast_qty
+            ,       current_stock
+            ,       case when (current_stock <= min_qty) and (min_qty + forecast_qty + safety_stock > max_qty)
+                         then (max_qty - current_stock)
+                         when (current_stock <= min_qty) and (min_qty + forecast_qty + safety_stock <= max_qty)
+                         then (forecast_qty + safety_stock + min_qty - current_stock)
+                         else 0
+                    end                                                                       as order_quantity
+            ,       aam.batch_flag
+            ,       aam.item_flag
+            ,       today_date                                                                as data_date
+            ,       today_week                                                                as start_of_week
+            ,       date_trunc('month', today_date)::date                                     as start_of_month
+            ,       null                                                                      as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                as cat_mch1_code_brand
+            from  (   select  mosf.cat_mch3_code
+                      ,       mosf.cat_mch2_code
+                      ,       mosf.cat_mch1_code
+                      ,       mosf.article_code
+                      ,       mosf.brand
+                      ,       mosf.dc_rdc_code
+                      ,       mosf.franchise_code
+                      ,       mosf.today_date
+                      ,       mosf.today_week
+                      ,       mosf.fcst_end_date
+                      ,       mosf.fcst_end_week
+                      ,       mosf.safety_stock
+                      ,       mosf.min_qty
+                      ,       mosf.max_qty
+                      ,       mosf.product_class
+                      ,       mosf.month_of_supply_product_class                              as month_of_supply
+                      ,       icsf.current_stock_fc + ispsf.stock_transfer_fc                 as current_stock
+                      ,       sum(arfa.forecast_qty)                                          as forecast_qty
+                      from    (   select  cat_mch3_code
+                                  ,       cat_mch2_code
+                                  ,       cat_mch1_code
+                                  ,       article_code
+                                  ,       brand
+                                  ,       dc_rdc_code
+                                  ,       franchise_code
+                                  ,       safety_stock
+                                  ,       min_qty
+                                  ,       max_qty
+                                  ,       product_class
+                                  ,       month_of_supply_product_class
+                                  ,       (date '{run_date}' - interval '{date_range_sla_day_order_qty} day')                                 as today_date
+                                  ,       date_trunc('week', (date '{run_date}' - interval '{date_range_sla_day_order_qty} day'))::date       as today_week
+                                  ,       (date '{run_date}' - interval '{date_range_sla_day_order_qty} day'
+                                                             + concat(month_of_supply_product_class, 'month')::interval)                      as fcst_end_date
+                                  ,       date_trunc('week', (date '{run_date}' - interval '{date_range_sla_day_order_qty} day'
+                                                             + concat(month_of_supply_product_class, 'month')::interval))::date               as fcst_end_week
+                                  from    month_of_supply_fc
+                              ) as mosf
+                      inner join  {database_name}.{ai_schema_name}.imp_current_stock_fc       as icsf
+                          on  mosf.dc_rdc_code      =   icsf.dc_rdc_code
+                          and mosf.franchise_code   =   icsf.franchise_code
+                          and mosf.article_code     =   icsf.article_code
+                          and mosf.today_date       =   icsf.data_date
+
+                      inner join  {database_name}.{ai_schema_name}.imp_sto_po_status_fc       as ispsf
+                          on  mosf.dc_rdc_code      =   ispsf.dc_rdc_code
+                          and mosf.franchise_code   =   ispsf.franchise_code
+                          and mosf.article_code     =   ispsf.article_code
+                          and mosf.today_date       =   ispsf.data_date
+
+                      left join   {database_name}.{ai_schema_name}.ai_report_forecast_article as arfa
+                          on  mosf.franchise_code   =   arfa.franchise_code
+                          and mosf.article_code     =   arfa.article_code
+                          and mosf.today_week       <=  arfa.forecast_week
+                          and mosf.fcst_end_week    >=  arfa.forecast_week
+                      group by 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17
+                  ) as mosf_icsf
+            inner join {database_name}.{ai_schema_name}.ai_article_master                     as aam
+                on  mosf_icsf.cat_mch3_code   =   aam.cat_mch3_code
+                and mosf_icsf.cat_mch2_code   =   aam.cat_mch2_code
+                and mosf_icsf.cat_mch1_code   =   aam.cat_mch1_code
+                and mosf_icsf.article_code    =   aam.article_code
+                and mosf_icsf.brand           =   aam.brand
+
+          )
+          on conflict ( dc_rdc_code, franchise_code, article_code, data_date ) do update
+              set   cat_mch3_code                       =   excluded.cat_mch3_code
+              ,     cat_mch2_code                       =   excluded.cat_mch2_code
+              ,     cat_mch1_code                       =   excluded.cat_mch1_code
+              ,     brand                               =   excluded.brand
+              ,     safety_stock                        =   excluded.safety_stock
+              ,     min_qty                             =   excluded.min_qty
+              ,     max_qty                             =   excluded.max_qty
+              ,     product_class                       =   excluded.product_class
+              ,     month_of_supply                     =   excluded.month_of_supply
+              ,     forecast_qty                        =   excluded.forecast_qty
+              ,     current_stock                       =   excluded.current_stock
+              ,     order_quantity                      =   excluded.order_quantity
+              ,     batch_flag                          =   excluded.batch_flag
+              ,     item_flag                           =   excluded.item_flag
+              ,     status_flag                         =   excluded.status_flag
+              ,     cat_mch1_code_brand                 =   excluded.cat_mch1_code_brand
+          "
+# ====================================
+# ----- ai_report_order_qty_dc_rdc
+# ====================================
+ai_report_order_qty_dc_rdc:
+  version: "2021-09-10"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 )"
+      cat_mch2_code: "varchar( 32 )"
+      cat_mch1_code: "varchar( 32 )"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      dc_rdc_code: "varchar( 64 ) not null"
+      safety_stock: "double precision"
+      min_qty: "double precision"
+      max_qty: "double precision"
+      product_class: "varchar( 32 )"
+      month_of_supply: "double precision"
+      forecast_qty: "double precision"
+      current_stock: "double precision"
+      order_quantity: "double precision"
+      batch_flag: "varchar( 32 )"
+      item_flag: "varchar( 64 )"
+      data_date: "date not null"
+      start_of_week: "date not null"
+      start_of_month: "date not null"
+      status_flag: "varchar( 16 )"
+      cat_mch1_code_brand: "varchar( 128 )"
+    primary_key: ['dc_rdc_code', 'article_code', 'data_date']
+  update:
+    ai_report_order_qty_dc_rdc:
+      parameter: [
+          'run_date',
+          'date_range_sla_day_order_qty',
+          'date_range_sla_month_order_qty'
+      ]
+      statement:
+        with_month_of_supply_dc_rdc: "
+          select  arpcmmdr.cat_mch3_code
+          ,		  arpcmmdr.cat_mch2_code
+          ,		  arpcmmdr.cat_mch1_code
+          ,		  arpcmmdr.article_code
+          ,		  arpcmmdr.brand
+          ,		  arpcmmdr.dc_rdc_code
+          ,		  arpcmmdr.safety_stock
+          ,		  arpcmmdr.min_qty
+          ,		  arpcmmdr.max_qty
+          ,		  arpcmmdr.product_class
+          ,		  arpcmmdr.inventory_cap_value_dc_rdc
+					          / sum(arpcmmdr.actual_sales_value_avg_rolling) over (partition by arpcmmdr.dc_rdc_code)
+					          * sum(arpcmmdr.actual_sales_value_avg_rolling) over (partition by arpcmmdr.dc_rdc_code, arpcmmdr.product_class)
+					          / sum(arpcmmdr.actual_sales_value_avg_rolling) over (partition by arpcmmdr.dc_rdc_code)
+					          * arpcmmdr_num_cls.number_of_product_class				      as month_of_supply_product_class
+          ,		  arpcmmdr.start_of_month
+          from    {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_dc_rdc          as arpcmmdr
+          inner join  (   select  dc_rdc_code
+                          ,		  start_of_month
+                          ,		  count(distinct product_class)                               as number_of_product_class
+                          from    {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_dc_rdc
+                          group by 1,2
+                      ) as arpcmmdr_num_cls
+              on  arpcmmdr.dc_rdc_code     = arpcmmdr_num_cls.dc_rdc_code
+              and arpcmmdr.start_of_month  = arpcmmdr_num_cls.start_of_month
+          where arpcmmdr.start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month_order_qty} month'))::date
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_report_order_qty_dc_rdc             as aroqdr
+          (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.article_code
+            ,       aam.brand
+            ,       dc_rdc_code
+            ,       safety_stock
+            ,       min_qty
+            ,       max_qty
+            ,       product_class
+            ,       month_of_supply
+            ,       forecast_qty
+            ,       current_stock
+            ,       case when (current_stock <= min_qty) and (min_qty + forecast_qty + safety_stock > max_qty) then (max_qty - current_stock)
+                         when (current_stock <= min_qty) and (min_qty + forecast_qty + safety_stock <= max_qty) then (forecast_qty + safety_stock + min_qty - current_stock)
+                         else 0
+                    end                                                                       as order_quantity
+            ,       aam.batch_flag
+            ,       aam.item_flag
+            ,       today_date                                                                as data_date
+            ,       today_week                                                                as start_of_week
+            ,       date_trunc('month', today_date)::date                                     as start_of_month
+            ,       null                                                                      as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                as cat_mch1_code_brand
+            from  (   select  mosf.cat_mch3_code
+                      ,       mosf.cat_mch2_code
+                      ,       mosf.cat_mch1_code
+                      ,       mosf.article_code
+                      ,       mosf.brand
+                      ,       mosf.dc_rdc_code
+                      ,       mosf.today_date
+                      ,       mosf.today_week
+                      ,       mosf.fcst_end_date
+                      ,       mosf.fcst_end_week
+                      ,       mosf.safety_stock
+                      ,       mosf.min_qty
+                      ,       mosf.max_qty
+                      ,       mosf.product_class
+                      ,       mosf.month_of_supply_product_class                              as month_of_supply
+                      ,       icsdr.current_stock_dc_rdc + ispsdr.stock_transfer_dc_rdc       as current_stock
+                      ,       sum(arfa.forecast_qty)                                          as forecast_qty
+                      from    (   select  cat_mch3_code
+                                  ,       cat_mch2_code
+                                  ,       cat_mch1_code
+                                  ,       article_code
+                                  ,       brand
+                                  ,       dc_rdc_code
+                                  ,       safety_stock
+                                  ,       min_qty
+                                  ,       max_qty
+                                  ,       product_class
+                                  ,       month_of_supply_product_class
+                                  ,       (date '{run_date}' - interval '{date_range_sla_day_order_qty} day')                                 as today_date
+                                  ,       date_trunc('week', (date '{run_date}' - interval '{date_range_sla_day_order_qty} day'))::date       as today_week
+                                  ,       (date '{run_date}' - interval '{date_range_sla_day_order_qty} day' + concat(month_of_supply_product_class, 'month')::interval)                            as fcst_end_date
+                                  ,       date_trunc('week', (date '{run_date}' - interval '{date_range_sla_day_order_qty} day' + concat(month_of_supply_product_class, 'month')::interval))::date  as fcst_end_week
+                                  from month_of_supply_dc_rdc
+                              ) as mosf
+                      inner join  {database_name}.{ai_schema_name}.imp_current_stock_dc_rdc   as icsdr
+                          on  mosf.dc_rdc_code      =   icsdr.dc_rdc_code
+                          and mosf.article_code     =   icsdr.article_code
+                          and mosf.today_date       =   icsdr.data_date
+
+                      inner join  {database_name}.{ai_schema_name}.imp_sto_po_status_dc_rdc   as ispsdr
+                          on  mosf.dc_rdc_code      =   ispsdr.dc_rdc_code
+                          and mosf.article_code     =   ispsdr.article_code
+                          and mosf.today_date       =   ispsdr.data_date\
+
+                      left join   {database_name}.{ai_schema_name}.ai_report_forecast_article as arfa
+                          on  mosf.dc_rdc_code      =   arfa.dc_rdc_code
+                          and mosf.article_code     =   arfa.article_code
+                          and mosf.today_week       <=  arfa.forecast_week
+                          and mosf.fcst_end_week    >=  arfa.forecast_week
+                      group by 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
+                  ) as mosf_icsdr
+            inner join {database_name}.{ai_schema_name}.ai_article_master                     as aam
+                on  mosf_icsdr.cat_mch3_code   =   aam.cat_mch3_code
+                and mosf_icsdr.cat_mch2_code   =   aam.cat_mch2_code
+                and mosf_icsdr.cat_mch1_code   =   aam.cat_mch1_code
+                and mosf_icsdr.article_code    =   aam.article_code
+                and mosf_icsdr.brand           =   aam.brand
+          )
+          on conflict ( dc_rdc_code, article_code, data_date ) do update
+              set   cat_mch3_code                       =   excluded.cat_mch3_code
+              ,     cat_mch2_code                       =   excluded.cat_mch2_code
+              ,     cat_mch1_code                       =   excluded.cat_mch1_code
+              ,     brand                               =   excluded.brand
+              ,     safety_stock                        =   excluded.safety_stock
+              ,     min_qty                             =   excluded.min_qty
+              ,     max_qty                             =   excluded.max_qty
+              ,     product_class                       =   excluded.product_class
+              ,     month_of_supply                     =   excluded.month_of_supply
+              ,     forecast_qty                        =   excluded.forecast_qty
+              ,     current_stock                       =   excluded.current_stock
+              ,     order_quantity                      =   excluded.order_quantity
+              ,     batch_flag                          =   excluded.batch_flag
+              ,     item_flag                           =   excluded.item_flag
+              ,     status_flag                         =   excluded.status_flag
+              ,     cat_mch1_code_brand                 =   excluded.cat_mch1_code_brand
+          "

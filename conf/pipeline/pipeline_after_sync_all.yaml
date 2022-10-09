@@ -1,0 +1,74 @@
+# ====================================================================================
+# ----- after_sync_article_master
+# ------------------------------------------------------------------------------------
+# Data pipeline run after sync data from S3 to Database
+#    (i)     src_article_structure
+#    (ii)    src_article_sales_price
+#    (iii)   src_article_info_record
+# ====================================================================================
+after_sync_article_master:
+     id: 'ai_master'
+     priority: 1
+     trigger: [ 'src_structure', 'src_sales_price', 'src_info_record', 'imp_replace' ]
+#     trigger: 'src_structure & src_sales_price & (src_info_record | imp_replace)'  # SUCCESS
+#     trigger: 'src_structure & src_sales_price & (src_info_record | imp_replace' # FAILED
+#     trigger: 'src_structure & src_sales_price & (src_info_record) | imp_replace' # FAILED
+#     trigger: 'src_structure' # SUCCESS
+#     trigger: '(src_structure)' # SUCCESS
+#     trigger: '(src_structure & src_sales_price) & (src_info_record) | imp_replace) & ai_grouping' # FAILED
+#     trigger: '(src_structure & src_sales_price) & (src_info_record | imp_replace) & ai_grouping' # SUCCESS
+#     trigger: '(src_structure & src_sales_price & (src_info_record | imp_replace)) & ai_grouping' # SUCCESS
+#     trigger: '(src_structure & src_sales_price) & (src_info_record | imp_replace)' # SUCCESS
+     alert: [ 'ai_rp_listing' ]
+     nodes:
+          - name: 'sql:ai_article_master'
+          - name: 'sql:ai_article_vendor_master'
+          - name: 'sql:ai_report_article_master'
+          - name: 'sql:ai_report_category_master'
+          - name: 'sql:ai_report_article_listing_master'
+            choose: ['from_ai_article_master']
+
+# ====================================================================================
+# ----- after_sync_article_grouping
+# ------------------------------------------------------------------------------------
+# Data pipeline run after sync data from S3 to Database
+#    (i)     src_article_grouping
+# ====================================================================================
+after_sync_article_grouping:
+     id: 'ai_grouping'
+     priority: 2
+     trigger: [ 'src_grouping', 'ai_master' ]
+     nodes:
+          - name: 'sql:ai_article_grouping'
+
+# ====================================================================================
+# ----- after_sync_article_grouping
+# ------------------------------------------------------------------------------------
+# Data pipeline run after sync data from S3 to Database
+#    (i)     src_so_transaction
+# ====================================================================================
+after_sync_sales_order:
+     id: 'ai_sales_order'
+     priority: 3
+     trigger: ['src_so']
+     nodes:
+          - name: 'sql:ai_sales_order_article'
+          - name: 'sql:ai_sales_order_article_outer'
+          - name: 'sql:ai_sales_order_article_residue'
+
+# ====================================================================================
+# ----- after_sync_actual_sales
+# ------------------------------------------------------------------------------------
+# Data pipeline run after sync data from S3 to Database
+#    (i)     src_actual_sales_transaction
+# ====================================================================================
+after_sync_actual_sales:
+     id: 'ai_actual'
+     priority: 4
+     trigger: ['src_actual', 'ai_sales_order']
+     nodes:
+          - name: 'sql:ai_article_mapping_fc'
+          - name: 'sql:ai_date_master'
+          - name: 'sql:ai_actual_sales_order_article'
+          - name: 'sql:ai_actual_sales_article'
+          - name: 'sql:ai_actual_sales_article_outer'

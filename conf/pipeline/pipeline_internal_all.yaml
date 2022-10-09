@@ -1,0 +1,104 @@
+pipeline_franchise_master:
+     id: 'ai_franchise'
+     priority: 5
+     trigger: ['imp_inventory']
+     nodes:
+          - name: 'sql:ai_franchise_master'
+
+
+pipeline_article_grouping:
+     id: 'ai_rp_grouping'
+     priority: 5.1
+     trigger: ['ai_grouping']
+     nodes:
+          - name: 'sql:ai_report_article_grouping'
+          - name: 'sql:ai_report_article_master'
+
+
+pipeline_actual_sales:
+     id: 'ai_rp_actual'
+     priority: 6
+     trigger: ['ai_master', 'ai_franchise', 'ai_sales_order', 'ai_actual']
+     alert: ['ai_rp_listing']
+     nodes:
+          - name: 'sql:ai_actual_sales_mch3'
+          - name: 'sql:ai_report_actual_sales_article'
+          - name: 'sql:ai_report_actual_sales_article_weekly'
+          - name: 'sql:ai_report_actual_sales_article_monthly'
+          - name: 'sql:ai_report_article_listing_master'
+            choose: ['from_ai_article_master_join_ai_article_franchise']
+
+
+pipeline_sales_target:
+     id: 'ai_rp_target'
+     priority: 7
+#     trigger: ['ai_rp_actual', 'imp_target']
+     schedule: 'every_quarter_at_7th_00_10'
+     nodes:
+          - name: 'sql:ai_sales_target_article'
+            choose: [
+                      'from_ai_sales_target_mch3_to_ai_sales_target_article',
+#                      'from_ai_sales_target_mch3_fc_to_ai_sales_target_article',
+#                      'from_ai_sales_target_mch3_fc_to_ai_sales_target_article_outer',
+            ]
+          - name: 'sql:ai_report_sales_target_mch3'
+          - name: 'sql:ai_report_sales_target_brand'
+
+
+pipeline_forecast:
+     id: 'ai_rp_forecast'
+     priority: 8
+     trigger: ['ai_rp_actual']
+     nodes:
+          - name: 'py:ai_forecast_mch3'
+          - name: 'sql:ai_forecast_article'
+          - name: 'sql:ai_report_forecast_article'
+          - name: 'sql:ai_report_forecast_article_weekly'
+          - name: 'sql:ai_report_forecast_article_monthly'
+          - name: 'sql:ai_report_forecast_brand'
+
+
+pipeline_replenish_prod_cls:
+     id: 'ai_rp_prod_cls'
+     priority: 9
+     trigger: ['ai_rp_actual', 'imp_cls_criteria']
+     nodes:
+          - name: 'py:imp_prod_cls_criteria_master'
+          - name: 'sql:ai_replenish_prod_cls_fc'
+          - name: 'sql:ai_replenish_prod_cls_rdc'
+          - name: 'sql:ai_replenish_prod_cls_dc'
+          - name: 'sql:ai_report_prod_cls_min_max_fc'
+            choose: ['from_ai_replenish_prod_cls']
+          - name: 'sql:ai_report_prod_cls_min_max_rdc'
+            choose: ['from_ai_replenish_prod_cls']
+          - name: 'sql:ai_report_prod_cls_min_max_dc'
+            choose: ['from_ai_replenish_prod_cls']
+
+
+pipeline_replenish_min_max:
+     id: 'ai_rp_min_max'
+     priority: 10.1
+     trigger: ['ai_rp_actual', 'imp_service_level']
+     nodes:
+          - name: 'py:imp_min_max_service_level'
+          - name: 'sql:ai_replenish_min_max_fc'
+          - name: 'sql:ai_replenish_min_max_rdc'
+          - name: 'sql:ai_replenish_min_max_dc'
+          - name: 'sql:ai_report_prod_cls_min_max_fc'
+            choose: ['from_ai_replenish_min_max']
+          - name: 'sql:ai_report_prod_cls_min_max_rdc'
+            choose: ['from_ai_replenish_min_max']
+          - name: 'sql:ai_report_prod_cls_min_max_dc'
+            choose: ['from_ai_replenish_min_max']
+
+
+pipeline_replenish_listing_master:
+     id: 'ai_rp_listing'
+     priority: 10.2
+     trigger: ['ai_rp_min_max', 'ai_rp_prod_cls']
+     nodes:
+          - name: 'sql:ai_report_article_listing_master'
+            choose: [
+                      '!from_ai_article_master',
+                      '!from_ai_article_master_join_ai_article_franchise'
+            ]

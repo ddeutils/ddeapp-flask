@@ -1,0 +1,401 @@
+# ====================================
+# ----- ctr_data_logging
+# ====================================
+ctr_data_logging:
+  version: "2021-08-10"
+  description: "Logging of any table process"
+  create:
+    features:
+      table_name: "varchar( 64 ) not null"
+      data_date: "date null"
+      update_date: "timestamp not null"
+      run_date: "date not null"
+      row_record: "varchar( 256 ) null"
+      process_time: "varchar( 128 ) null"
+      action_type: "varchar( 64 ) not null"
+      status: "varchar( 32 ) not null"
+    primary_key: ['table_name', 'run_date', 'action_type']
+# ====================================
+# ----- ctr_data_parameter
+# ====================================
+ctr_data_parameter:
+  version: "2021-10-03"
+  description: "Parameter for control AI module framework"
+  create:
+    features:
+      module_type: "varchar( 64 ) null"
+      parameter_name: "varchar( 64 ) not null"
+      parameter_type: "varchar( 64 ) not null"
+      parameter_value: "varchar( 512 ) not null"
+      update_date: "timestamp not null"
+      active_flg: "varchar( 32 ) not null"
+    primary_key: ['parameter_name']
+  initial:
+    parameter: ['run_date']
+    statement: "
+      insert into {database_name}.{ai_schema_name}.ctr_data_parameter                                                 as cdp
+      values  ('forecast',  'proportion_value',                   'int',  '3',          '{run_date}',   'Y')
+      ,       ('forecast',  'proportion_inc_current_month_flag',  'str',  'Y',          '{run_date}',   'Y')
+      ,       ('forecast',  'forecast_top_model',                 'int',  '3',          '{run_date}',   'Y')
+      ,       ('forecast',  'forecast_test_period',               'int',  '6',          '{run_date}',   'Y')
+      ,       ('forecast',  'forecast_end_period',                'int',  '12',         '{run_date}',   'Y')
+      ,       ('forecast',  'forecast_model',                     'list', '[\"expo01\", \"expo02\", \"expo03\", \"sma01\", \"wma01\", \"wma02\", \"ema01\", \"ema02\", \"arima01\", \"randomforest01\", \"prophet01\"]', '{run_date}', 'Y')
+
+      ,       ('forecast',  'service_level_type',                 'str',  'percent',    '{run_date}',   'Y')
+      ,       ('forecast',  'service_level_round',                'int',  '5',          '{run_date}',   'Y')
+
+      ,       ('framework', 'data_setup_initial_date',            'str',  '2018-10-31', '{run_date}',   'Y')
+      ,       ('framework', 'data_setup_initial_value',           'int',  '1',          '{run_date}',   'Y')
+      ,       ('framework', 'data_retention_mode',                'str',  'data_date',  '{run_date}',   'Y')
+
+      ,       ('framework', 'data_normal_common_filter_mockup',   'str',  'Y',          '{run_date}',   'Y')
+      ,       ('framework', 'data_normal_rerun_reset_sla',        'str',  'N',          '{run_date}',   'Y')
+      ,       ('framework', 'data_normal_rerun_reset_data',       'str',  'N',          '{run_date}',   'Y')
+
+      ,       ('framework', 'permission_update_active_flag',      'str',  'N',          '{run_date}',   'Y')
+      ,       ('framework', 'permission_force_delete',            'str',  'N',          '{run_date}',   'Y')
+
+      ,       ('framework', 'date_range_recheck_day',             'int',  '0',          '{run_date}',   'N')
+      ,       ('framework', 'date_range_recheck_week',            'int',  '0',          '{run_date}',   'N')
+      ,       ('framework', 'date_range_recheck_month',           'int',  '0',          '{run_date}',   'N')
+      ,       ('framework', 'date_range_sla_day',                 'int',  '1',          '{run_date}',   'Y')
+      ,       ('framework', 'date_range_sla_day_actual_sales',    'int',  '0',          '{run_date}',   'Y')
+      ,       ('framework', 'date_range_sla_day_sales_order',     'int',  '0',          '{run_date}',   'Y')
+      ,       ('framework', 'date_range_sla_day_order_qty',       'int',  '0',          '{run_date}',   'Y')
+      ,       ('framework', 'date_range_sla_week',                'int',  '1',          '{run_date}',   'Y')
+      ,       ('framework', 'date_range_sla_month',               'int',  '1',          '{run_date}',   'Y')
+      ,       ('framework', 'date_range_sla_month_forecast',      'int',  '0',          '{run_date}',   'Y')
+      ,       ('framework', 'date_range_sla_month_target',        'int',  '0',          '{run_date}',   'Y')
+      ,       ('framework', 'date_range_sla_month_order_qty',     'int',  '1',          '{run_date}',   'Y')
+      ,       ('framework', 'date_range_sla_year',                'int',  '1',          '{run_date}',   'Y')
+
+      ,       ('framework', 'article_default_brand',              'str',  'NO BRAND',   '{run_date}',   'Y')
+      ,       ('framework', 'article_mch3_code_filter',           'str',  'and lower(cat_mch3_code) not in (''zpack'', ''zartl'')',        '{run_date}', 'Y')
+      ,       ('framework', 'article_mch3_length_filter',         'str',  'and length(trim(cat_mch3_code)) = 1',                           '{run_date}', 'Y')
+
+      ,       ('framework', 'actual_sales_search_period',         'int',  '5',          '{run_date}',   'Y')
+      ,       ('framework', 'actual_sales_filter_sales_price',    'str',  'and sales_price > 0.01',                                        '{run_date}', 'Y')
+      ,       ('framework', 'actual_sales_filter_purchase_price', 'str',  'and purchase_price > 0.01',                                     '{run_date}', 'Y')
+
+      ,       ('framework', 'forecast_item_flag_filter',          'str',  'and lower(bss_item_flag) = ''standard''',                       '{run_date}', 'N')
+      ,       ('framework', 'forecast_item_status_filter',        'str',  'and lower(bss_item_status) in (''ready'', ''out of stock'')',   '{run_date}', 'N')
+
+      ,       ('framework', 'prod_cls_lead_time_default_fc',      'int',  '5',          '{run_date}',   'Y')
+      ,       ('framework', 'prod_cls_lead_time_default_rdc',     'int',  '5',          '{run_date}',   'Y')
+      ,       ('framework', 'prod_cls_lead_time_default_dc',      'int',  '5',          '{run_date}',   'Y')
+
+      ,       ('framework', 'prod_cls_mch3_grouping_by_tile_size',      'str',  '(''C'')',          '{run_date}', 'Y')
+      ,       ('framework', 'prod_cls_mch3_grouping_by_sales_price',    'str',  '(''B'')',          '{run_date}', 'Y')
+
+      ,       ('framework', 'prod_cls_item_flag_filter',          'str',  'and lower(bss_item_flag) = ''standard''',                       '{run_date}', 'Y')
+      ,       ('framework', 'prod_cls_item_status_filter',        'str',  'and lower(bss_item_status) in (''ready'', ''out of stock'')',   '{run_date}', 'Y')
+
+      ,       ('framework', 'min_max_item_flag_filter',           'str',  'and lower(bss_item_flag) = ''standard''',                       '{run_date}', 'Y')
+      ,       ('framework', 'min_max_item_status_filter',         'str',  'and lower(bss_item_status) in (''ready'', ''out of stock'')',   '{run_date}', 'Y')
+
+      ,       ('framework', 'prod_cls_min_max_search_period',     'int',  '6',          '{run_date}',   'Y')
+
+      ,       ('framework', 'allocate_prop_filter_forecast',      'str',  'and actual_sales_value_prop > 0',                               '{run_date}', 'Y')
+      ,       ('framework', 'allocate_prop_filter_target',        'str',  'and actual_sales_value_prop > 0',                               '{run_date}', 'Y')
+
+      ,       ('framework', 'dt_format_src_article_structure',    'str',  'YYYY-MM-DD', '{run_date}',   'Y')
+      ,       ('framework', 'dt_format_src_article_sales_price',  'str',  'YYYY-MM-DD', '{run_date}',   'Y')
+      ,       ('framework', 'dt_format_src_article_info_record',  'str',  'YYYY-MM-DD', '{run_date}',   'Y')
+      ,       ('framework', 'dt_format_src_actual_sales_trans',   'str',  'YYYY-MM-DD', '{run_date}',   'Y')
+      ,       ('framework', 'dt_format_src_article_grouping',     'str',  'YYYY-MM-DD', '{run_date}',   'Y')
+      ,       ('framework', 'dt_format_src_sales_order_trans',    'str',  'YYYY-MM-DD', '{run_date}',   'Y')
+
+      on conflict ( parameter_name ) do update
+          set  parameter_value                =     excluded.parameter_value
+          ,    update_date                    =     excluded.update_date
+          ,    active_flg                     =     excluded.active_flg
+      where cdp.update_date                   <=    excluded.update_date
+      and   (     cdp.active_flg              <>    excluded.active_flg
+              or  (     cdp.parameter_value   <>    excluded.parameter_value
+                    and cdp.parameter_value   not in ('Y', 'N')
+                  )
+            )
+      "
+# ====================================
+# ----- ctr_data_pipeline
+# ====================================
+ctr_data_pipeline:
+  version: "2021-08-10"
+  create:
+    features:
+      system_type: "varchar( 64 ) not null"
+      table_name: "varchar( 64 ) not null"
+      table_type: "varchar( 64 ) not null"
+      data_date: "date not null"
+      update_date: "timestamp null"
+      run_date: "date not null"
+      run_type: "varchar( 64 ) null"
+      run_count_now: "numeric not null"
+      run_count_max: "numeric not null"
+      rtt_value: "numeric not null"
+      rtt_column: "varchar( 256 ) null"
+      active_flg: "varchar( 32 ) not null"
+    primary_key: ['table_name']
+  initial:
+    parameter: [
+        'run_date',
+        'data_setup_initial_value',
+        'dt_format_src_article_structure',
+        'dt_format_src_article_sales_price',
+        'dt_format_src_article_info_record',
+        'dt_format_src_actual_sales_trans',
+        'dt_format_src_article_grouping',
+        'dt_format_src_sales_order_trans'
+    ]
+    statement: "
+      insert into {database_name}.{ai_schema_name}.ctr_data_pipeline  as cdp
+      values  ('internal',  'ctr_data_logging',                       'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '6',  'run_date',        'P')
+      ,       ('internal',  'ctr_data_parameter',                     'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('internal',  'ctr_data_pipeline',                      'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'run_date',        'P')
+      ,       ('internal',  'ctr_task_process',                       'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '6',  'update_date',     'P')
+      ,       ('internal',  'ctr_task_schedule',                      'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('internal',  'ctr_s3_logging',                         'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '12', 'created_at',      'P')
+
+      ,       ('external',  'src_article_structure',                  'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'to_date(update_date, ''{dt_format_src_article_structure}'')',                 'P')
+      ,       ('external',  'src_article_sales_price',                'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'to_date(update_date, ''{dt_format_src_article_sales_price}'')',               'P')
+      ,       ('external',  'src_article_info_record',                'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'to_date(purchase_info_start_date, ''{dt_format_src_article_info_record}'')',  'P')
+      ,       ('external',  'src_actual_sales_transaction',           'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'to_date(create_date, ''{dt_format_src_actual_sales_trans}'')',                'P')
+      ,       ('external',  'src_article_grouping',                   'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'to_date(create_date, ''{dt_format_src_article_grouping}'')',                  'P')
+      ,       ('external',  'src_so_transaction',                     'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'to_date(create_date, ''{dt_format_src_sales_order_trans}'')',                 'P')
+
+      ,       ('internal',  'ai_article_master',                      'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('internal',  'ai_article_vendor_master',               'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('internal',  'ai_article_mapping_fc',                  'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('internal',  'ai_article_grouping',                    'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('internal',  'ai_date_master',                         'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'P')
+      ,       ('internal',  'ai_franchise_master',                    'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('internal',  'ai_actual_sales_article',                'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'P')
+      ,       ('internal',  'ai_actual_sales_article_outer',          'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'P')
+
+      ,       ('internal',  'ai_actual_sales_order_article',          'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'P')
+
+      ,       ('internal',  'ai_actual_sales_mch3',                   'transaction',  '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+      ,       ('internal',  'ai_forecast_mch3',                       'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'run_date',        'P')
+      ,       ('internal',  'ai_forecast_article',                    'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'run_date',        'P')
+      ,       ('internal',  'ai_replenish_prod_cls_fc',               'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+      ,       ('internal',  'ai_replenish_prod_cls_rdc',              'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+      ,       ('internal',  'ai_replenish_prod_cls_dc',               'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+      ,       ('internal',  'ai_replenish_min_max_fc',                'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+      ,       ('internal',  'ai_replenish_min_max_rdc',               'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+      ,       ('internal',  'ai_replenish_min_max_dc',                'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+
+      ,       ('internal',  'ai_sales_order_article',                 'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'P')
+      ,       ('internal',  'ai_sales_order_article_outer',           'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'P')
+      ,       ('internal',  'ai_sales_order_article_residue',         'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'P')
+
+      ,       ('internal',  'ai_sales_target_article',                'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+      ,       ('internal',  'ai_sales_target_mch3',                   'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+      ,       ('internal',  'ai_sales_target_fc',                     'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+      ,       ('internal',  'ai_sales_target_mch3_fc',                'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+      ,       ('internal',  'ai_report_article_master',               'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '10', '0',  'run_date',        'P')
+      ,       ('internal',  'ai_report_article_grouping',             'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '10', '0',  'run_date',        'P')
+
+      ,       ('internal',  'ai_report_category_master',              'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '10', '0',  'run_date',        'P')
+      ,       ('internal',  'ai_report_article_listing_master',       'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '10', '0',  'run_date',        'P')
+
+      ,       ('internal',  'ai_report_sales_target_article',         'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'run_date',        'P')
+      ,       ('internal',  'ai_report_sales_target_brand',           'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'run_date',        'P')
+      ,       ('internal',  'ai_report_sales_target_mch3',            'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'run_date',        'P')
+      ,       ('internal',  'ai_report_actual_sales_article',         'transaction',  '{run_date}', '{run_date}', '{run_date}', 'weekly',  '0',  '10', '0',  'start_of_week',   'P')
+      ,       ('internal',  'ai_report_actual_sales_article_weekly',  'transaction',  '{run_date}', '{run_date}', '{run_date}', 'weekly',  '0',  '10', '0',  'start_of_week',   'P')
+      ,       ('internal',  'ai_report_actual_sales_article_monthly', 'transaction',  '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'start_of_month',  'P')
+      ,       ('internal',  'ai_report_forecast_article',             'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'run_date',        'P')
+      ,       ('internal',  'ai_report_forecast_article_weekly',      'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'run_date',        'P')
+      ,       ('internal',  'ai_report_forecast_article_monthly',     'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'run_date',        'P')
+
+      ,       ('internal',  'ai_report_forecast_brand',               'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'run_date',        'P')
+
+      ,       ('internal',  'ai_report_prod_cls_min_max_fc',          'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'run_date',        'P')
+      ,       ('internal',  'ai_report_prod_cls_min_max_rdc',         'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'run_date',        'P')
+      ,       ('internal',  'ai_report_prod_cls_min_max_dc',          'report',       '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '10', '0',  'run_date',        'P')
+
+      ,       ('internal',  'ai_report_order_qty_fc',                 'report',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '10', '0',  'data_date',       'N')
+      ,       ('internal',  'ai_report_order_qty_rdc',                'report',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '10', '0',  'data_date',       'N')
+      ,       ('internal',  'ai_report_order_qty_dc',                 'report',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '10', '0',  'data_date',       'N')
+      ,       ('external',  'imp_article_replacement',                'adjustment',   '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '0',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_lead_time_inventory_cap_fc',         'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_lead_time_inventory_cap_rdc',        'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_lead_time_inventory_cap_dc',         'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_prod_cls_criteria_master',           'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_prod_cls_adjust_fc',                 'adjustment',   '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '0',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_prod_cls_adjust_rdc',                'adjustment',   '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '0',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_prod_cls_adjust_dc',                 'adjustment',   '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '0',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_forecast_adjust',                    'adjustment',   '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '0',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_min_max_service_level',              'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_min_max_adjust_fc',                  'adjustment',   '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '0',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_min_max_adjust_rdc',                 'adjustment',   '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '0',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_min_max_adjust_dc',                  'adjustment',   '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '0',  '0',  'update_date',     'P')
+
+      ,       ('external',  'imp_mix_max_mos_criteria_fc',            'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_mix_max_mos_criteria_rdc',           'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+      ,       ('external',  'imp_mix_max_mos_criteria_dc',            'master',       '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'update_date',     'P')
+
+      ,       ('external',  'imp_sales_target',                       'transaction',  '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+      ,       ('external',  'imp_sales_target_fc',                    'transaction',  '{run_date}', '{run_date}', '{run_date}', 'monthly', '0',  '3',  '0',  'start_of_month',  'P')
+      ,       ('external',  'imp_current_stock_fc',                   'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'N')
+      ,       ('external',  'imp_current_stock_rdc',                  'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'N')
+      ,       ('external',  'imp_current_stock_dc',                   'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'N')
+      ,       ('external',  'imp_sto_po_status_fc',                   'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'N')
+      ,       ('external',  'imp_sto_po_status_rdc',                  'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'N')
+      ,       ('external',  'imp_sto_po_status_dc',                   'transaction',  '{run_date}', '{run_date}', '{run_date}', 'daily',   '0',  '3',  '0',  'data_date',       'N')
+      on conflict ( table_name ) do update
+          set system_type   =     excluded.system_type
+          ,   table_type    =     excluded.table_type
+          ,   run_type      =     excluded.run_type
+          ,   run_count_max =     excluded.run_count_max
+          ,   rtt_value     =     excluded.rtt_value
+          ,   rtt_column    =     excluded.rtt_column
+          ,   active_flg    =     (case when excluded.active_flg = 'P' then 'Y' else excluded.active_flg end)
+      where   (     cdp.system_type     <>    excluded.system_type
+                or  cdp.table_type      <>    excluded.table_type
+                or  cdp.run_type        <>    excluded.run_type
+                or  cdp.run_count_max   <>    excluded.run_count_max
+                or  cdp.rtt_value       <>    excluded.rtt_value
+                or  cdp.rtt_column      <>    excluded.rtt_column
+                or  cdp.rtt_column      <>    (case when excluded.active_flg = 'P' then 'Y' else excluded.active_flg end)
+              )
+      ;
+      update {database_name}.{ai_schema_name}.ctr_data_pipeline                                             as cdp
+          set     data_date   = cdp_all.data_date::date - ('{data_setup_initial_value}' || case when (cdp_all.run_type = 'daily') then 'day'
+                                                                              when (cdp_all.run_type = 'weekly') then 'week'
+                                                                              when (cdp_all.run_type = 'monthly') then 'month'
+                                                                              else 'year'
+                                                                         end)::interval
+          ,       update_date = cdp_all.update_date::date - ('{data_setup_initial_value}' || case when (cdp_all.run_type = 'daily') then 'day'
+                                                                                when (cdp_all.run_type = 'weekly') then 'week'
+                                                                                when (cdp_all.run_type = 'monthly') then 'month'
+                                                                                else 'year'
+                                                                           end)::interval
+          ,       active_flg  = 'Y'
+      from  {database_name}.{ai_schema_name}.ctr_data_pipeline                                              as cdp_all
+      where cdp.table_name      =   cdp_all.table_name
+      and   cdp_all.run_date    =   (date '{run_date}')
+      and   cdp_all.active_flg  =   'P'
+      ;
+      "
+# ====================================
+# ----- ctr_task_process
+# ====================================
+ctr_task_process:
+  version: "2021-12-05"
+  create:
+    features:
+      process_id: "varchar( 64 ) not null"
+      process_type: "varchar( 64 ) not null"
+      process_name_put: "varchar( 256 ) not null"
+      process_name_get: "varchar( 256 ) null"
+      run_date_put: "varchar( 256 ) not null"
+      run_date_get: "date null"
+      update_date: "timestamp not null"
+      process_message: "text null"
+      process_time: "varchar( 128 ) not null"
+      process_number_put: "varchar( 32 ) null"
+      process_number_get: "varchar( 32 ) null"
+      process_module: "varchar( 64 ) not null"
+      status: "varchar( 32 ) not null"
+    primary_key: ['process_id']
+# ====================================
+# ----- ctr_task_schedule
+# ====================================
+ctr_task_schedule:
+  version: "2022-06-16"
+  create:
+    features:
+      pipeline_id: "varchar( 64 ) not null"
+      pipeline_name: "varchar( 256 ) not null"
+      pipeline_type: "varchar( 64 ) null"
+      tracking: "varchar( 64 ) not null"  # 'PROCESSING' / 'SUCCESS' / 'FAILED'
+      update_date: "timestamp not null"
+      active_flg: "bool not null"
+      primary_id: "bigserial"
+#      primary_id: "integer"
+    primary_key: ["pipeline_id"]
+  initial:
+    parameter: ['run_date']
+    statement: "
+      insert into {database_name}.{ai_schema_name}.ctr_task_schedule  as cts
+      values  ('src_structure',           'batch_syc_src_article_structure',          'schedule',           'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('src_sales_price',         'batch_syc_src_article_sales_price',        'schedule',           'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('src_info_record',         'batch_syc_src_article_info_record',        'schedule',           'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('src_grouping',            'batch_syc_src_article_grouping',           'schedule',           'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('src_actual',              'batch_syc_src_actual_sales_transaction',   'schedule',           'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('src_so',                  'batch_syc_src_so_transaction',             'schedule',           'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('src_dealer',              'batch_syc_src_dealer_structure',           'schedule',           'SUCCESS', '{run_date} 00:00:00', true)
+
+      ,       ('ai_master',               'after_sync_article_master',                'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('ai_grouping',             'after_sync_article_grouping',              'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('ai_sales_order',          'after_sync_so_transaction',                'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('ai_actual',               'after_sync_actual_sales_transaction',      'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+
+      ,       ('ai_franchise',            'pipeline_franchise_master',                'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+
+      ,       ('ai_rp_grouping',          'pipeline_article_grouping',                'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('ai_rp_actual',            'pipeline_actual_sales',                    'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('ai_rp_forecast',          'pipeline_forecast',                        'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('ai_rp_prod_cls',          'pipeline_replenish_prod_cls',              'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('ai_rp_min_max',           'pipeline_replenish_min_max',               'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('ai_rp_target',            'pipeline_sales_target',                    'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('ai_rp_listing',           'pipeline_replenish_listing_master',        'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+
+      ,       ('imp_inventory',           'after_update_inventory_lead_time',         'trigger|schedule',   'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('imp_target',              'after_update_sales_target',                'trigger|schedule',   'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('imp_replace',             'after_update_replacement',                 'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+
+      ,       ('imp_cls_criteria',        'after_update_prod_cls_criteria',           'trigger|schedule',   'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('imp_service_level',       'after_update_min_max_service_level',       'trigger|schedule',   'SUCCESS', '{run_date} 00:00:00', true)
+
+      ,       ('imp_adjust_forecast',     'after_update_adjust_forecast',             'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+
+      ,       ('imp_adjust_cls_fc',       'after_update_adjust_prod_cls_fc',          'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('imp_adjust_cls_rdc',      'after_update_adjust_prod_cls_rdc',         'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('imp_adjust_cls_dc',       'after_update_adjust_prod_cls_dc',          'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+
+      ,       ('imp_adjust_min_max_fc',   'after_update_adjust_min_max_fc',           'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('imp_adjust_min_max_rdc',  'after_update_adjust_min_max_rdc',          'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('imp_adjust_min_max_dc',   'after_update_adjust_min_max_dc',           'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+
+      ,       ('plt_cat',                 'platform_category',                        'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('plt_listing',             'platform_variant_listing',                 'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      /*
+      ,       ('plt_prod_cls',            'platform_product_class',                   'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('plt_prod_min_max',        'platform_product_min_max',                 'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      */
+
+      ,       ('plt_prod_order',          'platform_product_order_history',           'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('plt_cat_forecast',        'platform_category_forecast',               'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('plt_cat_target',          'platform_category_target',                 'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('plt_dis_target',          'platform_display_target',                  'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+      ,       ('plt_dis_grouping',        'platform_article_grouping',                'trigger',            'SUCCESS', '{run_date} 00:00:00', true)
+
+      on conflict ( pipeline_id ) do update
+          set pipeline_type           =       excluded.pipeline_type
+          ,   active_flg              =       excluded.active_flg
+      where (     cts.pipeline_type   <>      excluded.pipeline_type
+              or  cts.active_flg      <>      excluded.active_flg
+            )
+      /* NOTE: `bigserial` is enough to help platform use it.
+      with row_update as (
+        update {database_name}.{ai_schema_name}.ctr_task_schedule  as cts
+              set   primary_id    =   {ai_schema_name}.hash_word_32(concat(pipeline_id))
+        where  primary_id is null
+        returning 1
+      )
+      */
+      "
+# ====================================
+# ----- ctr_s3_logging
+# ====================================
+ctr_s3_logging:
+  version: "2022-06-21"
+  create:
+    features:
+      id: "serial"
+      type: "varchar( 10 )"
+      message: "text"
+      created_at: "timestamp default current_timestamp"
+    primary_key: ["id"]

@@ -1,0 +1,15 @@
+func_count_if_exists:
+  version: "2021-11-05"
+  create: "
+    create or replace function {database_name}.{ai_schema_name}.func_count_if_exists(_schm text, _tbl text, out result integer)
+    language plpgsql as
+      $func$
+        begin
+          if exists(select * from {database_name}.information_schema.tables where table_schema = _schm and table_name = _tbl) then
+              execute format('select count(*) as row_num from {database_name}.%s.%s', _schm, _tbl)
+              into result;
+          else execute format('select 0') into result;
+          end if;
+        end;
+      $func$;
+    "

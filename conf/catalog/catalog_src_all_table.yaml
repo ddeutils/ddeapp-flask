@@ -1,0 +1,233 @@
+# ====================================
+# ----- src_article_structure
+# ====================================
+src_article_structure:
+  version: "2020-08-10"
+  description: "Dimension or attribute master of article from Source System.
+    The article should increase only, that mean does not drop or add after
+    billing transaction exists
+  "
+  create:
+    features:
+      article: "varchar( 64 )"
+      article_name_text: "varchar( 516 )"
+      cat_mc_code: "varchar( 64 )"
+      cat_mc_desc_text: "varchar( 128 )"
+      cat_mch1_code: "varchar( 64 )"
+      cat_mch1_desc_text: "varchar( 128 )"
+      cat_mch2_code: "varchar( 64 )"
+      cat_mch2_desc_text: "varchar( 128 )"
+      cat_mch3_code: "varchar( 64 )"
+      cat_mch3_desc_text: "varchar( 128 )"
+      uom_code: "varchar( 32 )"
+      uom_desc_text: "varchar( 128 )"
+      box: "varchar( 64 )"
+      box_unit: "varchar( 64 )"
+      sqm: "varchar( 64 )"
+      sqm_unit: "varchar( 64 )"
+      dim_width: "varchar( 64 )"
+      dim_length: "varchar( 64 )"
+      dim_height: "varchar( 64 )"
+      uom_dimension: "varchar( 64 )"
+      weight: "varchar( 64 )"
+      weight_uom: "varchar( 64 )"
+      attribute_zbrand: "varchar( 64 )"
+      attribute_zsupply_source: "varchar( 64 )"
+      z_country_of_origin: "varchar( 64 )"
+      batch_flag: "varchar( 64 )"
+      attribute_zcolor_name: "varchar( 64 )"
+      attribute_zmaterial_name: "varchar( 64 )"
+      attribute_zgrade: "varchar( 64 )"
+      attribute_zitem_flag: "varchar( 64 )"
+      bss_item_flag: "varchar( 64 )"
+      bss_item_status: "varchar( 64 )"
+      bss_dc_item_flag: "varchar( 64 )"
+      bss_dc_stock: "varchar( 64 )"
+      bss_show_no_stock_flag: "varchar( 32 )"
+      bss_product_class: "varchar( 32 )"
+      bss_vmi_flag: "varchar( 32 )"
+      bss_showroom_flag: "varchar( 32 )"
+      bss_market_flag: "varchar( 32 )"
+      bss_shop_flag: "varchar( 32 )"
+      bss_shop_direct_ship_allow_flag: "varchar( 32 )"
+      start_out_of_stock: "varchar( 64 )"
+      end_out_of_stock: "varchar( 64 )"
+      images_product_1: "varchar( 128 )"
+      images_product_2: "varchar( 128 )"
+      images_product_3: "varchar( 128 )"
+      images_product_4: "varchar( 128 )"
+      images_product_5: "varchar( 128 )"
+      images_product_6: "varchar( 128 )"
+      images_product_7: "varchar( 128 )"
+      images_product_8: "varchar( 128 )"
+      images_product_9: "varchar( 128 )"
+      images_product_10: "varchar( 128 )"
+      attribute_ztile_size: "varchar( 128 )"
+      create_on: "varchar( 64 )"
+      update_date: "varchar( 64 )"
+      status_flag: "varchar( 16 )"
+      cat_mch1_code_brand: "varchar( 128 )"
+    primary_key_dummy: ['article']
+# ====================================
+# ----- src_article_sales_price
+# ====================================
+src_article_sales_price:
+  version: "2020-08-17"
+  description: "Dimension or attribute master table of article from Source System."
+  create:
+    features:
+      article: "varchar( 64 )"
+      sales_normal_price: "varchar( 64 )"
+      sales_promotion_price: "varchar( 64 )"
+      sales_promotion_start_date: "varchar( 64 )"
+      sales_promotion_end_date: "varchar( 64 )"
+      create_date: "varchar( 64 )"
+      update_date: "varchar( 64 )"
+      status_flag: "varchar( 16 )"
+    primary_key_dummy: ['article']
+# ====================================
+# ----- src_article_info_record
+# ====================================
+src_article_info_record:
+  version: "2020-08-10"
+  description: "Dimension or attribute master table of article from Source System."
+  create:
+    features:
+      article: "varchar( 64 )"
+      article_name: "varchar( 516 )"
+      vendor_code: "varchar( 64 )"
+      vendor_name: "varchar( 516 )"
+      barcode: "varchar( 256 )"
+      vendor_article_number: "varchar( 256 )"
+      pur_group: "varchar( 64 )"
+      purchase_uom: "varchar( 64 )"
+      moq: "varchar( 64 )"
+      lead_time: "varchar( 64 )"
+      po_price: "varchar( 64 )"
+      lp_price: "varchar( 64 )"
+      discount_1: "varchar( 64 )"
+      discount_2: "varchar( 64 )"
+      discount_3: "varchar( 64 )"
+      discount_4: "varchar( 64 )"
+      discount_5: "varchar( 64 )"
+      discount_6: "varchar( 64 )"
+      discount_7: "varchar( 64 )"
+      discount_8: "varchar( 64 )"
+      discount_9: "varchar( 64 )"
+      discount_10: "varchar( 64 )"
+      purchase_info_start_date: "varchar( 64 )"
+      purchase_info_end_date: "varchar( 64 )"
+      knumh: "varchar( 128 )"
+      create_date: "varchar( 64 )"
+      update_date: "varchar( 64 )"
+      status_flag: "varchar( 16 )"
+    primary_key_dummy: ['article']
+# ====================================
+# ----- src_actual_sales_transaction
+# ====================================
+src_actual_sales_transaction:
+  version: "2022-04-01"
+  description: "Fact or transaction table of article from Source System."
+  create:
+    features:
+      dealer_code: "varchar( 64 )"
+      dealer_name: "varchar( 256 )"
+      trans_date: "varchar( 64 )"
+      create_date: "varchar( 64 )"
+      soff: "varchar( 64 )"
+      sls_ofc_desc: "varchar( 256 )"
+      sale_order: "varchar( 64 )"
+      customer_code: "varchar( 64 )"
+      sale_code: "varchar( 64 )"
+      customer: "varchar( 64 )"
+      sales: "varchar( 256 )"
+      bill_pos: "varchar( 128 )"
+      item_number: "varchar( 64 )"
+      dprio: "varchar( 64 )"
+      delivery_priority: "varchar( 64 )"
+      bu: "varchar( 64 )"
+      brand: "varchar( 64 )"
+      article_id: "varchar( 64 )"
+      article_name_th: "varchar( 516 )"
+      zvendor_article: "varchar( 256 )"
+      barcode: "varchar( 256 )"
+      zcode: "varchar( 256 )"
+      catid: "varchar( 128 )"
+      billing_no: "varchar( 128 )"
+      sale_qty: "varchar( 64 )"
+      uom: "varchar( 32 )"
+      net_inc_tax: "varchar( 64 )"
+      mch3_code: "varchar( 64 )"
+      mch2_code: "varchar( 64 )"
+      mch1_code: "varchar( 64 )"
+      mch_code: "varchar( 64 )"
+      mch3_desc: "varchar( 128 )"
+      mch2_desc: "varchar( 128 )"
+      mch1_desc: "varchar( 128 )"
+      mch_desc: "varchar( 128 )"
+      reference_sale_order: "varchar( 128 )"
+      status_flag: "varchar( 16 )"
+    primary_key_dummy: ['create_date', 'article_id', 'soff']
+# ====================================
+# ----- src_article_grouping
+# ====================================
+src_article_grouping:
+  version: "2020-08-10"
+  description: "Dimension or attribute master table of article from Source System."
+  create:
+    features:
+      group_id: "varchar( 64 )"
+      cat_mch3_code: "varchar( 64 )"
+      cat_mch2_code: "varchar( 64 )"
+      cat_mch1_code: "varchar( 64 )"
+      cat_mc_code: "varchar( 64 )"
+      attribute_ztile_size: "varchar( 128 )"
+      sales_price_min: "varchar( 256 )"
+      sales_price_max: "varchar( 256 )"
+      update_date: "varchar( 64 )"
+      create_date: "varchar( 64 )"
+      status_flag: "varchar( 16 )"
+    primary_key_dummy: ['cat_mc_code', 'attribute_ztile_size', 'sales_price_min', 'sales_price_max']
+# ====================================
+# ----- src_so_transaction
+# ====================================
+src_so_transaction:
+  version: "2022-05-09"
+  description: "Fact or transaction table of article from Source System."
+  create:
+    features:
+      sale_order: "varchar( 64 )"
+      so_doc_type: "varchar( 32 )"
+      trans_date: "varchar( 64 )"
+      create_date: "varchar( 64 )"
+      partner_code: "varchar( 64 )"
+      soff: "varchar( 64 )"
+      sls_ofc_desc: "varchar( 256 )"
+      customer_code: "varchar( 64 )"
+      project_category: "varchar( 128 )"
+      so_status: "varchar( 32 )"
+      bss_family: "varchar( 64 )"
+      item_number: "varchar( 32 )"
+      article_id: "varchar( 64 )"
+      article_name_th: "varchar( 516 )"
+      batch: "varchar( 64 )"
+      sale_qty: "varchar( 64 )"
+      uom: "varchar( 64 )"
+      unit_price_ex_tax: "varchar( 128 )"
+      unit_price_inc_tax: "varchar( 128 )"
+      sup_disc: "varchar( 64 )"
+      vendor_disc: "varchar( 64 )"
+      wholesale_disc: "varchar( 64 )"
+      net_ex_tax: "varchar( 128 )"
+      net_inc_tax: "varchar( 128 )"
+      dprio: "varchar( 64 )"
+      delivery_priority: "varchar( 64 )"
+      delivery_date: "varchar( 64 )"
+      line_item_remark: "varchar( 64 )"
+      hd_customer_remark: "varchar( 64 )"
+      hd_internal_remark: "varchar( 64 )"
+      last_update_date: "varchar( 64 )"
+      so_from: "varchar( 64 )"
+      status_flag: "varchar( 64 )"
+    primary_key_dummy: ['sale_order', 'article_id', 'trans_date', 'item_number']
+

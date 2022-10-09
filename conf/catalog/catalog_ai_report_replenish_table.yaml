@@ -1,0 +1,911 @@
+# ====================================
+# ----- ai_report_prod_cls_min_max_fc
+# ====================================
+ai_report_prod_cls_min_max_fc:
+  version: "2021-09-20"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      moq: "numeric( 20, 8 )"
+      lead_time: "smallint"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      inventory_cap_value_fc: "numeric( 24, 8 )"
+      actual_sales_value_avg_rolling: "numeric( 24, 8 )"
+      safety_stock: "numeric( 20, 6 )"
+      min_qty_previous: "numeric( 20, 6 )"
+      max_qty_previous: "numeric( 20, 6 )"
+      max_qty_custom_previous: "numeric( 20, 6 )"
+      min_qty: "numeric( 20, 6 )"
+      max_qty: "numeric( 20, 6 )"
+      max_qty_custom: "numeric( 20, 6 )"
+      min_max_month: "date not null"
+      product_class_previous: "varchar( 32 )"
+      product_class_freq: "varchar( 32 )"
+      product_class_qty: "varchar( 32 )"
+      product_class_value: "varchar( 32 )"
+      product_class: "varchar( 32 )"
+      product_class_month: "date not null"
+      run_date: "date not null"
+      status_flag: "varchar( 16 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+    primary_key: ['dc_code', 'rdc_code', 'franchise_code', 'article_code']
+  update:
+    from_ai_replenish_prod_cls:
+      parameter: [
+          'run_date',
+          'date_range_sla_month',
+          'prod_cls_min_max_search_period'
+      ]
+      statements:
+        with_previous_prod_cls_report: "
+          select  article_code
+          ,       dc_code
+          ,       rdc_code
+          ,       franchise_code
+          ,       product_class                                                                           as product_class_previous
+          ,       product_class_month
+          from  {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_fc
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_fc                      as arpsmmf
+          (
+              select  aam.cat_mch3_code
+              ,       aam.cat_mch2_code
+              ,       aam.cat_mch1_code
+              ,       aam.article_code
+              ,       aam.brand
+              ,       aam.moq
+              ,       aam.lead_time
+              ,       afm.dc_code
+              ,       afm.rdc_code
+              ,       afm.franchise_code
+              ,       afm.inventory_cap_value_fc
+              ,       actual_sales_value_avg_rolling
+              ,       0                                                                                   as safety_stock
+              ,       null                                                                                as min_qty_previous
+              ,       null                                                                                as max_qty_previous
+              ,       null                                                                                as max_qty_custom_previous
+              ,       null                                                                                as min_qty
+              ,       null                                                                                as max_qty
+              ,       null                                                                                as max_qty_custom
+              ,       '1990-01-01'::date                                                                  as min_max_month
+              ,       case when product_class_month < start_of_month then product_class_previous
+                           when product_class_month = start_of_month and not prod_cls_equal_flag then product_class_previous
+                           when product_class_month = start_of_month and prod_cls_equal_flag then null
+                           else product_class
+                      end                                                                                 as product_class_previous
+              ,       product_class_freq
+              ,       product_class_qty
+              ,       product_class_value
+              ,       case when product_class_month < start_of_month then product_class
+                           when product_class_month = start_of_month and not prod_cls_equal_flag then product_class
+                           else product_class_previous
+                      end                                                                                 as product_class
+              ,       greatest(product_class_month, start_of_month)                                       as product_class_month
+
+              ,       '{run_date}'::date                                                                  as run_date
+              ,       null                                                                                as status_flag
+              ,       concat(aam.cat_mch1_code, '|', aam.brand)                                           as cat_mch1_code_brand
+
+              from  (   select  coalesce(arpcf.article_code, ppcr.article_code)                           as article_code
+                        ,       coalesce(arpcf.dc_code, ppcr.dc_code)                                     as dc_code
+                        ,       coalesce(arpcf.rdc_code, ppcr.rdc_code)                                   as rdc_code
+                        ,       coalesce(arpcf.franchise_code, ppcr.franchise_code)                       as franchise_code
+                        ,       arpcf.actual_sales_value_avg_rolling
+                        ,       product_class_freq
+                        ,       product_class_qty
+                        ,       product_class_value
+                        ,       product_class
+                        ,       product_class_previous
+                        ,       (coalesce(product_class_previous, '') = coalesce(product_class, ''))      as prod_cls_equal_flag
+                        ,       coalesce(product_class_month, '1990-01-01'::date)                         as product_class_month
+                        ,       coalesce(start_of_month,
+                                        date_trunc('month', date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date)::date)   as start_of_month
+                        from  ( select  article_code
+                                ,       dc_code
+                                ,       rdc_code
+                                ,       franchise_code
+                                ,       actual_sales_value_avg_rolling
+                                ,       product_class_freq
+                                ,       product_class_qty
+                                ,       product_class_value
+                                ,       coalesce(product_class_adjust, product_class_default)             as product_class
+                                ,       start_of_month
+                                from  {database_name}.{ai_schema_name}.ai_replenish_prod_cls_fc
+                                where   start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                              ) as arpcf
+                        full join  previous_prod_cls_report                                               as ppcr
+                            on  arpcf.article_code    =   ppcr.article_code
+                            and arpcf.dc_code         =   ppcr.dc_code
+                            and arpcf.rdc_code        =   ppcr.rdc_code
+                            and arpcf.franchise_code  =   ppcr.franchise_code
+                    ) as arpcf_all
+              inner join {database_name}.{ai_schema_name}.ai_article_master                               as aam
+                  on  arpcf_all.article_code    = aam.article_code
+              inner join  ( select  dc_code
+                            ,       rdc_code
+                            ,       franchise_code
+                            ,       avg(inventory_cap_value_fc)                                           as inventory_cap_value_fc
+                            from  {database_name}.{ai_schema_name}.ai_franchise_master
+                            where   franchise_priority = 1
+                            group by 1,2,3
+                          ) as afm
+                  on  arpcf_all.dc_code         =   afm.dc_code
+                  and arpcf_all.rdc_code        =   afm.rdc_code
+                  and arpcf_all.franchise_code  =   afm.franchise_code
+          )
+          on conflict ( dc_code, rdc_code, franchise_code, article_code ) do update
+                set   cat_mch3_code                      =   excluded.cat_mch3_code
+                ,     cat_mch2_code                      =   excluded.cat_mch2_code
+                ,     cat_mch1_code                      =   excluded.cat_mch1_code
+                ,     brand                               =   excluded.brand
+                ,     moq                                 =   excluded.moq
+                ,     lead_time                           =   excluded.lead_time
+                ,     inventory_cap_value_fc              =   excluded.inventory_cap_value_fc
+                ,     actual_sales_value_avg_rolling      =   excluded.actual_sales_value_avg_rolling
+                ,     product_class_previous              =   excluded.product_class_previous
+                ,     product_class_freq                  =   excluded.product_class_freq
+                ,     product_class_qty                   =   excluded.product_class_qty
+                ,     product_class_value                 =   excluded.product_class_value
+                ,     product_class                       =   excluded.product_class
+                ,     product_class_month                 =   excluded.product_class_month
+                ,     run_date                            =   excluded.run_date
+                ,     status_flag                         =   excluded.status_flag
+                ,     cat_mch1_code_brand                =   excluded.cat_mch1_code_brand
+          where round(arpsmmf.inventory_cap_value_fc, 3)  <>  round(excluded.inventory_cap_value_fc, 3)
+          or    coalesce(arpsmmf.product_class_freq)      <>  excluded.product_class_freq
+          or    coalesce(arpsmmf.product_class_qty)       <>  excluded.product_class_qty
+          or    coalesce(arpsmmf.product_class_value)     <>  excluded.product_class_value
+          or    coalesce(arpsmmf.product_class)           <>  excluded.product_class
+          or    arpsmmf.product_class_month               <>  excluded.product_class_month
+          "
+    from_ai_replenish_min_max:
+      parameter: ['run_date', 'date_range_sla_month', 'prod_cls_min_max_search_period']
+      statements:
+        with_previous_min_max_report: "
+          select  article_code
+          ,       dc_code
+          ,       rdc_code
+          ,       franchise_code
+          ,       min_qty                                                                                 as min_qty_previous
+          ,       max_qty                                                                                 as max_qty_previous
+          ,       max_qty_custom                                                                          as max_qty_custom_previous
+          ,       min_max_month
+          from  {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_fc
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_fc                      as arpsmmf
+          (
+              select  aam.cat_mch3_code
+              ,       aam.cat_mch2_code
+              ,       aam.cat_mch1_code
+              ,       aam.article_code
+              ,       aam.brand
+              ,       aam.moq
+              ,       aam.lead_time
+              ,       afm.dc_code
+              ,       afm.rdc_code
+              ,       afm.franchise_code
+              ,       afm.inventory_cap_value_fc
+              ,       0                                                                                   as actual_sales_value_avg_rolling
+              ,       safety_stock
+              ,       case when min_max_month < start_of_month then min_qty_previous
+                           when min_max_month = start_of_month and not min_max_equal_flag then min_qty_previous
+                           when min_max_month = start_of_month and min_max_equal_flag then null
+                           else min_qty
+                      end                                                                                 as min_qty_previous
+              ,       case when min_max_month < start_of_month then max_qty_previous
+                           when min_max_month = start_of_month and not min_max_equal_flag then max_qty_previous
+                           when min_max_month = start_of_month and min_max_equal_flag then null
+                           else max_qty
+                      end                                                                                 as max_qty_previous
+              ,       case when min_max_month < start_of_month then max_qty_custom_previous
+                           when min_max_month = start_of_month and not min_max_equal_flag then max_qty_custom_previous
+                           when min_max_month = start_of_month and min_max_equal_flag then null
+                           else max_qty_custom
+                      end                                                                                 as max_qty_custom_previous
+              ,       case when min_max_month < start_of_month then min_qty
+                           when min_max_month = start_of_month and not min_max_equal_flag then min_qty
+                           else min_qty_previous
+                      end                                                                                 as min_qty
+              ,       case when min_max_month < start_of_month then max_qty
+                           when min_max_month = start_of_month and not min_max_equal_flag then max_qty
+                           else max_qty_previous
+                      end                                                                                 as max_qty
+              ,       case when min_max_month < start_of_month then max_qty_custom
+                           when min_max_month = start_of_month and not min_max_equal_flag then max_qty_custom
+                           else max_qty_custom_previous
+                      end                                                                                 as max_qty_custom
+              ,       greatest(min_max_month, start_of_month)                                             as min_max_month
+              ,       null                                                                                as product_class_previous
+              ,       null                                                                                as product_class_freq
+              ,       null                                                                                as product_class_qty
+              ,       null                                                                                as product_class_value
+              ,       null                                                                                as product_class
+              ,       '1990-01-01'::date                                                                  as product_class_month
+              ,       '{run_date}'::date                                                                  as run_date
+              ,       null                                                                                as status_flag
+              ,       concat(aam.cat_mch1_code, '|', aam.brand)                                           as cat_mch1_code_brand
+              from  (   select  coalesce(armmf.article_code, pmmr.article_code)                           as article_code
+                        ,       coalesce(armmf.dc_code, pmmr.dc_code)                                     as dc_code
+                        ,       coalesce(armmf.rdc_code, pmmr.rdc_code)                                   as rdc_code
+                        ,       coalesce(armmf.franchise_code, pmmr.franchise_code)                       as franchise_code
+                        ,       safety_stock
+                        ,       min_qty
+                        ,       max_qty
+                        ,       max_qty_custom
+                        ,       min_qty_previous
+                        ,       max_qty_previous
+                        ,       max_qty_custom_previous
+                        ,       (     (coalesce(min_qty_previous, 0) = coalesce(min_qty, 0))
+                                  and (coalesce(max_qty_previous, 0) = coalesce(max_qty, 0))
+                                )	                                                                      as min_max_equal_flag
+                        ,       coalesce(min_max_month, '1990-01-01'::date)                               as min_max_month
+                        ,       coalesce(start_of_month, date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date)         as start_of_month
+                        from  ( select  article_code
+                                ,       dc_code
+                                ,       rdc_code
+                                ,       franchise_code
+                                ,       safety_stock
+                                ,       coalesce(min_qty_adjust, min_qty)                                 as min_qty
+                                ,       coalesce(max_qty_adjust, max_qty)                                 as max_qty
+                                ,       coalesce(max_qty_custom_adjust, max_qty_custom)                   as max_qty_custom
+                                ,       start_of_month
+                                from  {database_name}.{ai_schema_name}.ai_replenish_min_max_fc
+                                where   start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                              ) as armmf
+                        full join  previous_min_max_report                                                as pmmr
+                            on  armmf.article_code    =   pmmr.article_code
+                            and armmf.dc_code         =   pmmr.dc_code
+                            and armmf.rdc_code        =   pmmr.rdc_code
+                            and armmf.franchise_code  =   pmmr.franchise_code
+                    ) as armmf_all
+              inner join {database_name}.{ai_schema_name}.ai_article_master                               as aam
+                  on  armmf_all.article_code    = aam.article_code
+              inner join  ( select  dc_code
+                            ,       rdc_code
+                            ,       franchise_code
+                            ,       avg(inventory_cap_value_fc)                                           as inventory_cap_value_fc
+                            from  {database_name}.{ai_schema_name}.ai_franchise_master
+                            where   franchise_priority = 1
+                            group by 1,2,3
+                          ) as afm
+                  on  armmf_all.dc_code         =   afm.dc_code
+                  and armmf_all.rdc_code        =   afm.rdc_code
+                  and armmf_all.franchise_code  =   afm.franchise_code
+          )
+          on conflict ( dc_code, rdc_code, franchise_code, article_code ) do update
+                set   cat_mch3_code                           =   excluded.cat_mch3_code
+                ,     cat_mch2_code                           =   excluded.cat_mch2_code
+                ,     cat_mch1_code                           =   excluded.cat_mch1_code
+                ,     brand                                   =   excluded.brand
+                ,     moq                                     =   excluded.moq
+                ,     lead_time                               =   excluded.lead_time
+                ,     inventory_cap_value_fc                  =   excluded.inventory_cap_value_fc
+                ,     safety_stock                            =   excluded.safety_stock
+                ,     min_qty_previous                        =   excluded.min_qty_previous
+                ,     max_qty_previous                        =   excluded.max_qty_previous
+                ,     max_qty_custom_previous                 =   excluded.max_qty_custom_previous
+                ,     min_qty                                 =   excluded.min_qty
+                ,     max_qty                                 =   excluded.max_qty
+                ,     max_qty_custom                          =   excluded.max_qty_custom
+                ,     min_max_month                           =   excluded.min_max_month
+                ,     run_date                                =   excluded.run_date
+                ,     status_flag                             =   excluded.status_flag
+                ,     cat_mch1_code_brand                     =   excluded.cat_mch1_code_brand
+          where round(arpsmmf.inventory_cap_value_fc, 3)      <>  round(excluded.inventory_cap_value_fc, 3)
+          or    (     round(arpsmmf.safety_stock, 3)          <>  round(excluded.safety_stock, 3)
+                  and excluded.safety_stock                   >   0
+                )
+          or    (     round(arpsmmf.min_qty, 3)               <>  round(excluded.min_qty, 3)
+                  and excluded.min_qty                        >   0
+                )
+          or    (     round(arpsmmf.max_qty, 3)               <>  round(excluded.max_qty, 3)
+                  and excluded.max_qty                        >   0
+                )
+          or    (     round(arpsmmf.max_qty_custom, 3)        <>  round(excluded.max_qty_custom, 3)
+                  and excluded.max_qty_custom                 >   0
+                )
+          or    arpsmmf.min_max_month                         <>  excluded.min_max_month
+          "
+# ====================================
+# ----- ai_report_prod_cls_min_max_rdc
+# ====================================
+ai_report_prod_cls_min_max_rdc:
+  version: "2021-09-20"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      moq: "numeric( 20, 8 )"
+      lead_time: "smallint"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      inventory_cap_value_rdc: "numeric( 24, 8 )"
+      actual_sales_value_avg_rolling: "numeric( 24, 8 )"
+      safety_stock: "numeric( 20, 6 )"
+      min_qty_previous: "numeric( 20, 6 )"
+      max_qty_previous: "numeric( 20, 6 )"
+      max_qty_custom_previous: "numeric( 20, 6 )"
+      min_qty: "numeric( 20, 6 )"
+      max_qty: "numeric( 20, 6 )"
+      max_qty_custom: "numeric( 20, 6 )"
+      min_max_month: "date not null"
+      product_class_previous: "varchar( 32 )"
+      product_class_freq: "varchar( 32 )"
+      product_class_qty: "varchar( 32 )"
+      product_class_value: "varchar( 32 )"
+      product_class: "varchar( 32 )"
+      product_class_month: "date not null"
+      run_date: "date not null"
+      status_flag: "varchar( 16 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+    primary_key: ['dc_code', 'rdc_code', 'article_code']
+  update:
+    from_ai_replenish_prod_cls:
+      parameter: [
+          'run_date',
+          'date_range_sla_month',
+          'prod_cls_min_max_search_period'
+      ]
+      statements:
+        with_previous_prod_cls_report: "
+          select  article_code
+          ,       dc_code
+          ,       rdc_code
+          ,       product_class                                                                            as product_class_previous
+          ,       product_class_month
+          from  {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_rdc
+          where   product_class_month >= date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' - interval '{prod_cls_min_max_search_period} month'))::date
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_rdc                      as arpsmmr
+          (
+              select  aam.cat_mch3_code
+              ,       aam.cat_mch2_code
+              ,       aam.cat_mch1_code
+              ,       aam.article_code
+              ,       aam.brand
+              ,       aam.moq
+              ,       aam.lead_time
+              ,       afm.dc_code
+              ,       afm.rdc_code
+              ,       afm.inventory_cap_value_rdc
+              ,       actual_sales_value_avg_rolling
+              ,       0                                                                                   as safety_stock
+              ,       null                                                                                as min_qty_previous
+              ,       null                                                                                as max_qty_previous
+              ,       null                                                                                as max_qty_custom_previous
+              ,       null                                                                                as min_qty
+              ,       null                                                                                as max_qty
+              ,       null                                                                                as max_qty_custom
+              ,       '1990-01-01'::date                                                                  as min_max_month
+              ,       case when product_class_month < start_of_month then product_class_previous
+                           when product_class_month = start_of_month and not prod_cls_equal_flag then product_class_previous
+                           when product_class_month = start_of_month and prod_cls_equal_flag then null
+                           else product_class
+                      end                                                                                 as product_class_previous
+              ,       product_class_freq
+              ,       product_class_qty
+              ,       product_class_value
+              ,       case when product_class_month < start_of_month then product_class
+                           when product_class_month = start_of_month and not prod_cls_equal_flag then product_class
+                           else product_class_previous
+                      end                                                                                 as product_class
+              ,       greatest(product_class_month, start_of_month)                                       as product_class_month
+
+              ,       '{run_date}'::date                                                                  as run_date
+              ,       null                                                                                as status_flag
+              ,       concat(aam.cat_mch1_code, '|', aam.brand)                                           as cat_mch1_code_brand
+
+              from  (   select  coalesce(arpcr.article_code, ppcr.article_code)                           as article_code
+                        ,       coalesce(arpcr.dc_code, ppcr.dc_code)                                     as dc_code
+                        ,       coalesce(arpcr.rdc_code, ppcr.rdc_code)                                   as rdc_code
+                        ,       arpcr.actual_sales_value_avg_rolling
+                        ,       product_class_freq
+                        ,       product_class_qty
+                        ,       product_class_value
+                        ,       product_class
+                        ,       product_class_previous
+                        ,       (coalesce(product_class_previous, '') = coalesce(product_class, ''))      as prod_cls_equal_flag
+                        ,       coalesce(product_class_month, '1990-01-01'::date)                         as product_class_month
+                        ,       coalesce(start_of_month, date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date)  as start_of_month
+                        from  ( select  article_code
+                                ,       dc_code
+                                ,       rdc_code
+                                ,       actual_sales_value_avg_rolling
+                                ,       product_class_freq
+                                ,       product_class_qty
+                                ,       product_class_value
+                                ,       coalesce(product_class_adjust, product_class_default)             as product_class
+                                ,       start_of_month
+                                from  {database_name}.{ai_schema_name}.ai_replenish_prod_cls_rdc
+                                where   start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                              ) as arpcr
+                        full join  previous_prod_cls_report                                               as ppcr
+                            on  arpcr.article_code    =   ppcr.article_code
+                            and arpcr.dc_code         =   ppcr.dc_code
+                            and arpcr.rdc_code        =   ppcr.rdc_code
+                    ) as arpcr_all
+              inner join {database_name}.{ai_schema_name}.ai_article_master                               as aam
+                  on  arpcr_all.article_code    = aam.article_code
+              inner join  ( select  dc_code
+                            ,       rdc_code
+                            ,       avg(inventory_cap_value_rdc)                                          as inventory_cap_value_rdc
+                            from  {database_name}.{ai_schema_name}.ai_franchise_master
+                            where   franchise_priority = 1
+                            group by 1,2
+                          ) as afm
+                  on  arpcr_all.dc_code         =   afm.dc_code
+                  and arpcr_all.rdc_code        =   afm.rdc_code
+          )
+          on conflict ( dc_code, rdc_code, article_code ) do update
+                set   cat_mch3_code                      =   excluded.cat_mch3_code
+                ,     cat_mch2_code                      =   excluded.cat_mch2_code
+                ,     cat_mch1_code                      =   excluded.cat_mch1_code
+                ,     brand                               =   excluded.brand
+                ,     moq                                 =   excluded.moq
+                ,     lead_time                           =   excluded.lead_time
+                ,     inventory_cap_value_rdc             =   excluded.inventory_cap_value_rdc
+                ,     actual_sales_value_avg_rolling      =   excluded.actual_sales_value_avg_rolling
+                ,     product_class_previous              =   excluded.product_class_previous
+                ,     product_class_freq                  =   excluded.product_class_freq
+                ,     product_class_qty                   =   excluded.product_class_qty
+                ,     product_class_value                 =   excluded.product_class_value
+                ,     product_class                       =   excluded.product_class
+                ,     product_class_month                 =   excluded.product_class_month
+                ,     run_date                            =   excluded.run_date
+                ,     status_flag                         =   excluded.status_flag
+                ,     cat_mch1_code_brand                =   excluded.cat_mch1_code_brand
+          where round(arpsmmr.inventory_cap_value_rdc, 3) <>  round(excluded.inventory_cap_value_rdc, 3)
+          or    coalesce(arpsmmr.product_class_freq)      <>  excluded.product_class_freq
+          or    coalesce(arpsmmr.product_class_qty)       <>  excluded.product_class_qty
+          or    coalesce(arpsmmr.product_class_value)     <>  excluded.product_class_value
+          or    coalesce(arpsmmr.product_class)           <>  excluded.product_class
+          or    arpsmmr.product_class_month               <>  excluded.product_class_month
+          "
+    from_ai_replenish_min_max:
+      parameter: [
+          'run_date',
+          'date_range_sla_month',
+          'prod_cls_min_max_search_period'
+      ]
+      statements:
+        with_previous_min_max_report: "
+          select  article_code
+          ,       dc_code
+          ,       rdc_code
+          ,       min_qty                                                                                  as min_qty_previous
+          ,       max_qty                                                                                  as max_qty_previous
+          ,       max_qty_custom                                                                           as max_qty_custom_previous
+          ,       min_max_month
+          from  {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_rdc
+          where   min_max_month >= date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' - interval '{prod_cls_min_max_search_period} month'))::date
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_rdc                      as arpsmmr
+          (
+              select  aam.cat_mch3_code
+              ,       aam.cat_mch2_code
+              ,       aam.cat_mch1_code
+              ,       aam.article_code
+              ,       aam.brand
+              ,       aam.moq
+              ,       aam.lead_time
+              ,       afm.dc_code
+              ,       afm.rdc_code
+              ,       afm.inventory_cap_value_rdc
+              ,       0                                                                                   as actual_sales_value_avg_rolling
+              ,       safety_stock
+              ,       case when min_max_month < start_of_month then min_qty_previous
+                           when min_max_month = start_of_month and not min_max_equal_flag then min_qty_previous
+                           when min_max_month = start_of_month and min_max_equal_flag then null
+                           else min_qty
+                      end                                                                                 as min_qty_previous
+              ,       case when min_max_month < start_of_month then max_qty_previous
+                           when min_max_month = start_of_month and not min_max_equal_flag then max_qty_previous
+                           when min_max_month = start_of_month and min_max_equal_flag then null
+                           else max_qty
+                      end                                                                                 as max_qty_previous
+              ,       case when min_max_month < start_of_month then max_qty_custom_previous
+                           when min_max_month = start_of_month and not min_max_equal_flag then max_qty_custom_previous
+                           when min_max_month = start_of_month and min_max_equal_flag then null
+                           else max_qty_custom
+                      end                                                                                 as max_qty_custom_previous
+              ,       case when min_max_month < start_of_month then min_qty
+                           when min_max_month = start_of_month and not min_max_equal_flag then min_qty
+                           else min_qty_previous
+                      end                                                                                 as min_qty
+              ,       case when min_max_month < start_of_month then max_qty
+                           when min_max_month = start_of_month and not min_max_equal_flag then max_qty
+                           else max_qty_previous
+                      end                                                                                 as max_qty
+              ,       case when min_max_month < start_of_month then max_qty_custom
+                           when min_max_month = start_of_month and not min_max_equal_flag then max_qty_custom
+                           else max_qty_custom_previous
+                      end                                                                                 as max_qty_custom
+              ,       greatest(min_max_month, start_of_month)                                             as min_max_month
+              ,       null                                                                                as product_class_previous
+              ,       null                                                                                as product_class_freq
+              ,       null                                                                                as product_class_qty
+              ,       null                                                                                as product_class_value
+              ,       null                                                                                as product_class
+              ,       '1990-01-01'::date                                                                  as product_class_month
+              ,       '{run_date}'::date                                                                  as run_date
+              ,       null                                                                                as status_flag
+              ,       concat(aam.cat_mch1_code, '|', aam.brand)                                           as cat_mch1_code_brand
+              from  (   select  coalesce(armmr.article_code, pmmr.article_code)                           as article_code
+                        ,       coalesce(armmr.dc_code, pmmr.dc_code)                                     as dc_code
+                        ,       coalesce(armmr.rdc_code, pmmr.rdc_code)                                   as rdc_code
+                        ,       safety_stock
+                        ,       min_qty
+                        ,       max_qty
+                        ,       max_qty_custom
+                        ,       min_qty_previous
+                        ,       max_qty_previous
+                        ,       max_qty_custom_previous
+                        ,       (     (coalesce(min_qty_previous, 0) = coalesce(min_qty, 0))
+                                  and (coalesce(max_qty_previous, 0) = coalesce(max_qty, 0))
+                                )	                                                                      as min_max_equal_flag
+                        ,       coalesce(min_max_month, '1990-01-01'::date)                               as min_max_month
+                        ,       coalesce(start_of_month, date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date)  as start_of_month
+                        from  ( select  article_code
+                                ,       dc_code
+                                ,       rdc_code
+                                ,       safety_stock
+                                ,       coalesce(min_qty_adjust, min_qty)                                 as min_qty
+                                ,       coalesce(max_qty_adjust, max_qty)                                 as max_qty
+                                ,       coalesce(max_qty_custom_adjust, max_qty_custom)                   as max_qty_custom
+                                ,       start_of_month
+                                from  {database_name}.{ai_schema_name}.ai_replenish_min_max_rdc
+                                where   start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                              ) as armmr
+                        full join  previous_min_max_report                                                as pmmr
+                            on  armmr.article_code    =   pmmr.article_code
+                            and armmr.dc_code         =   pmmr.dc_code
+                            and armmr.rdc_code        =   pmmr.rdc_code
+                    ) as armmr_all
+              inner join {database_name}.{ai_schema_name}.ai_article_master                               as aam
+                  on  armmr_all.article_code    = aam.article_code
+              inner join  ( select  dc_code
+                            ,       rdc_code
+                            ,       avg(inventory_cap_value_rdc)                                           as inventory_cap_value_rdc
+                            from  {database_name}.{ai_schema_name}.ai_franchise_master
+                            where   franchise_priority = 1
+                            group by 1,2
+                          ) as afm
+                  on  armmr_all.dc_code         =   afm.dc_code
+                  and armmr_all.rdc_code        =   afm.rdc_code
+          )
+          on conflict ( dc_code, rdc_code, article_code ) do update
+                set   cat_mch3_code                           =   excluded.cat_mch3_code
+                ,     cat_mch2_code                           =   excluded.cat_mch2_code
+                ,     cat_mch1_code                           =   excluded.cat_mch1_code
+                ,     brand                                   =   excluded.brand
+                ,     moq                                     =   excluded.moq
+                ,     lead_time                               =   excluded.lead_time
+                ,     inventory_cap_value_rdc                 =   excluded.inventory_cap_value_rdc
+                ,     safety_stock                            =   excluded.safety_stock
+                ,     min_qty_previous                        =   excluded.min_qty_previous
+                ,     max_qty_previous                        =   excluded.max_qty_previous
+                ,     max_qty_custom_previous                 =   excluded.max_qty_custom_previous
+                ,     min_qty                                 =   excluded.min_qty
+                ,     max_qty                                 =   excluded.max_qty
+                ,     max_qty_custom                          =   excluded.max_qty_custom
+                ,     min_max_month                           =   excluded.min_max_month
+                ,     run_date                                =   excluded.run_date
+                ,     status_flag                             =   excluded.status_flag
+                ,     cat_mch1_code_brand                     =   excluded.cat_mch1_code_brand
+          where round(arpsmmr.inventory_cap_value_rdc, 3)     <>  round(excluded.inventory_cap_value_rdc, 3)
+          or    (     round(arpsmmr.safety_stock, 3)          <>  round(excluded.safety_stock, 3)
+                  and excluded.safety_stock                   >   0
+                )
+          or    (     round(arpsmmr.min_qty, 3)               <>  round(excluded.min_qty, 3)
+                  and excluded.min_qty                        >   0
+                )
+          or    (     round(arpsmmr.max_qty, 3)               <>  round(excluded.max_qty, 3)
+                  and excluded.max_qty                        >   0
+                )
+          or    (     round(arpsmmr.max_qty_custom, 3)        <>  round(excluded.max_qty_custom, 3)
+                  and excluded.max_qty_custom                 >   0
+                )
+          or    arpsmmr.min_max_month                         <>  excluded.min_max_month
+          "
+# =======================================
+# ----- ai_report_prod_cls_min_max_dc
+# =======================================
+ai_report_prod_cls_min_max_dc:
+  version: "2021-09-20"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      moq: "numeric( 20, 8 )"
+      lead_time: "smallint"
+      dc_code: "varchar( 64 ) not null"
+      inventory_cap_value_dc: "numeric( 24, 8 )"
+      actual_sales_value_avg_rolling: "numeric( 24, 8 )"
+      safety_stock: "numeric( 20, 6 )"
+      min_qty_previous: "numeric( 20, 6 )"
+      max_qty_previous: "numeric( 20, 6 )"
+      max_qty_custom_previous: "numeric( 20, 6 )"
+      min_qty: "numeric( 20, 6 )"
+      max_qty: "numeric( 20, 6 )"
+      max_qty_custom: "numeric( 20, 6 )"
+      min_max_month: "date not null"
+      product_class_previous: "varchar( 32 )"
+      product_class_freq: "varchar( 32 )"
+      product_class_qty: "varchar( 32 )"
+      product_class_value: "varchar( 32 )"
+      product_class: "varchar( 32 )"
+      product_class_month: "date not null"
+      run_date: "date not null"
+      status_flag: "varchar( 16 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+    primary_key: ['dc_code', 'article_code']
+  update:
+    from_ai_replenish_prod_cls:
+      parameter: [
+          'run_date',
+          'date_range_sla_month',
+          'prod_cls_min_max_search_period'
+      ]
+      statements:
+        with_previous_prod_cls_report: "
+          select  article_code
+          ,       dc_code
+          ,       product_class                                                                           as product_class_previous
+          ,       product_class_month
+          from  {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_dc
+          where   product_class_month >= date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' - interval '{prod_cls_min_max_search_period} month'))::date
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_dc                      as arpsmmd
+          (
+              select  aam.cat_mch3_code
+              ,       aam.cat_mch2_code
+              ,       aam.cat_mch1_code
+              ,       aam.article_code
+              ,       aam.brand
+              ,       aam.moq
+              ,       aam.lead_time
+              ,       afm.dc_code
+              ,       afm.inventory_cap_value_dc
+              ,       actual_sales_value_avg_rolling
+              ,       0                                                                                   as safety_stock
+              ,       null                                                                                as min_qty_previous
+              ,       null                                                                                as max_qty_previous
+              ,       null                                                                                as max_qty_custom_previous
+              ,       null                                                                                as min_qty
+              ,       null                                                                                as max_qty
+              ,       null                                                                                as max_qty_custom
+              ,       '1990-01-01'::date                                                                  as min_max_month
+              ,       case when product_class_month < start_of_month then product_class_previous
+                           when product_class_month = start_of_month and not prod_cls_equal_flag then product_class_previous
+                           when product_class_month = start_of_month and prod_cls_equal_flag then null
+                           else product_class
+                      end                                                                                 as product_class_previous
+              ,       product_class_freq
+              ,       product_class_qty
+              ,       product_class_value
+              ,       case when product_class_month < start_of_month then product_class
+                           when product_class_month = start_of_month and not prod_cls_equal_flag then product_class
+                           else product_class_previous
+                      end                                                                                 as product_class
+              ,       greatest(product_class_month, start_of_month)                                       as product_class_month
+              ,       '{run_date}'::date                                                                  as run_date
+              ,       null                                                                                as status_flag
+              ,       concat(aam.cat_mch1_code, '|', aam.brand)                                           as cat_mch1_code_brand
+              from  (   select  coalesce(arpcd.article_code, ppcr.article_code)                           as article_code
+                        ,       coalesce(arpcd.dc_code, ppcr.dc_code)                                     as dc_code
+                        ,       arpcd.actual_sales_value_avg_rolling
+                        ,       product_class_freq
+                        ,       product_class_qty
+                        ,       product_class_value
+                        ,       product_class
+                        ,       product_class_previous
+                        ,       (coalesce(product_class_previous, '') = coalesce(product_class, ''))      as prod_cls_equal_flag
+                        ,       coalesce(product_class_month, '1990-01-01'::date)                         as product_class_month
+                        ,       coalesce(start_of_month, date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date)  as start_of_month
+                        from  ( select  article_code
+                                ,       dc_code
+                                ,       actual_sales_value_avg_rolling
+                                ,       product_class_freq
+                                ,       product_class_qty
+                                ,       product_class_value
+                                ,       coalesce(product_class_adjust, product_class_default)             as product_class
+                                ,       start_of_month
+                                from  {database_name}.{ai_schema_name}.ai_replenish_prod_cls_dc
+                                where   start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                              ) as arpcd
+                        full join  previous_prod_cls_report                                               as ppcr
+                            on  arpcd.article_code    =   ppcr.article_code
+                            and arpcd.dc_code         =   ppcr.dc_code
+                    ) as arpcd_all
+              inner join {database_name}.{ai_schema_name}.ai_article_master                               as aam
+                  on  arpcd_all.article_code    = aam.article_code
+              inner join  ( select  dc_code
+                            ,       avg(inventory_cap_value_dc)                                           as inventory_cap_value_dc
+                            from  {database_name}.{ai_schema_name}.ai_franchise_master
+                            where   franchise_priority = 1
+                            group by 1
+                          ) as afm
+                  on  arpcd_all.dc_code         =   afm.dc_code
+          )
+          on conflict ( dc_code, article_code ) do update
+                set   cat_mch3_code                       =   excluded.cat_mch3_code
+                ,     cat_mch2_code                       =   excluded.cat_mch2_code
+                ,     cat_mch1_code                       =   excluded.cat_mch1_code
+                ,     brand                               =   excluded.brand
+                ,     moq                                 =   excluded.moq
+                ,     lead_time                           =   excluded.lead_time
+                ,     inventory_cap_value_dc              =   excluded.inventory_cap_value_dc
+                ,     actual_sales_value_avg_rolling      =   excluded.actual_sales_value_avg_rolling
+                ,     product_class_previous              =   excluded.product_class_previous
+                ,     product_class_freq                  =   excluded.product_class_freq
+                ,     product_class_qty                   =   excluded.product_class_qty
+                ,     product_class_value                 =   excluded.product_class_value
+                ,     product_class                       =   excluded.product_class
+                ,     product_class_month                 =   excluded.product_class_month
+                ,     run_date                            =   excluded.run_date
+                ,     status_flag                         =   excluded.status_flag
+                ,     cat_mch1_code_brand                 =   excluded.cat_mch1_code_brand
+          where round(arpsmmd.inventory_cap_value_dc, 3) <>  round(excluded.inventory_cap_value_dc, 3)
+          or    coalesce(arpsmmd.product_class_freq)      <>  excluded.product_class_freq
+          or    coalesce(arpsmmd.product_class_qty)       <>  excluded.product_class_qty
+          or    coalesce(arpsmmd.product_class_value)     <>  excluded.product_class_value
+          or    coalesce(arpsmmd.product_class)           <>  excluded.product_class
+          or    arpsmmd.product_class_month               <>  excluded.product_class_month
+          "
+    from_ai_replenish_min_max:
+      parameter: [
+          'run_date',
+          'date_range_sla_month',
+          'prod_cls_min_max_search_period'
+      ]
+      statements:
+        with_previous_min_max_report: "
+          select  article_code
+          ,       dc_code
+          ,       min_qty                                                                                 as min_qty_previous
+          ,       max_qty                                                                                 as max_qty_previous
+          ,       max_qty_custom                                                                          as max_qty_custom_previous
+          ,       min_max_month
+          from  {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_dc
+          where   min_max_month >= date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month' - interval '{prod_cls_min_max_search_period} month'))::date
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_dc                      as arpsmmd
+          (
+              select  aam.cat_mch3_code
+              ,       aam.cat_mch2_code
+              ,       aam.cat_mch1_code
+              ,       aam.article_code
+              ,       aam.brand
+              ,       aam.moq
+              ,       aam.lead_time
+              ,       afm.dc_code
+              ,       afm.inventory_cap_value_dc
+              ,       0                                                                                   as actual_sales_value_avg_rolling
+              ,       safety_stock
+              ,       case when min_max_month < start_of_month then min_qty_previous
+                           when min_max_month = start_of_month and not min_max_equal_flag then min_qty_previous
+                           when min_max_month = start_of_month and min_max_equal_flag then null
+                           else min_qty
+                      end                                                                                 as min_qty_previous
+              ,       case when min_max_month < start_of_month then max_qty_previous
+                           when min_max_month = start_of_month and not min_max_equal_flag then max_qty_previous
+                           when min_max_month = start_of_month and min_max_equal_flag then null
+                           else max_qty
+                      end                                                                                 as max_qty_previous
+              ,       case when min_max_month < start_of_month then max_qty_custom_previous
+                           when min_max_month = start_of_month and not min_max_equal_flag then max_qty_custom_previous
+                           when min_max_month = start_of_month and min_max_equal_flag then null
+                           else max_qty_custom
+                      end                                                                                 as max_qty_custom_previous
+              ,       case when min_max_month < start_of_month then min_qty
+                           when min_max_month = start_of_month and not min_max_equal_flag then min_qty
+                           else min_qty_previous
+                      end                                                                                 as min_qty
+              ,       case when min_max_month < start_of_month then max_qty
+                           when min_max_month = start_of_month and not min_max_equal_flag then max_qty
+                           else max_qty_previous
+                      end                                                                                 as max_qty
+              ,       case when min_max_month < start_of_month then max_qty_custom
+                           when min_max_month = start_of_month and not min_max_equal_flag then max_qty_custom
+                           else max_qty_custom_previous
+                      end                                                                                 as max_qty_custom
+              ,       greatest(min_max_month, start_of_month)                                             as min_max_month
+              ,       null                                                                                as product_class_previous
+              ,       null                                                                                as product_class_freq
+              ,       null                                                                                as product_class_qty
+              ,       null                                                                                as product_class_value
+              ,       null                                                                                as product_class
+              ,       '1990-01-01'::date                                                                  as product_class_month
+              ,       '{run_date}'::date                                                                  as run_date
+              ,       null                                                                                as status_flag
+              ,       concat(aam.cat_mch1_code, '|', aam.brand)                                           as cat_mch1_code_brand
+              from  (   select  coalesce(armmd.article_code, pmmr.article_code)                           as article_code
+                        ,       coalesce(armmd.dc_code, pmmr.dc_code)                                     as dc_code
+                        ,       safety_stock
+                        ,       min_qty
+                        ,       max_qty
+                        ,       max_qty_custom
+                        ,       min_qty_previous
+                        ,       max_qty_previous
+                        ,       max_qty_custom_previous
+                        ,       (     (coalesce(min_qty_previous, 0) = coalesce(min_qty, 0))
+                                  and (coalesce(max_qty_previous, 0) = coalesce(max_qty, 0))
+                                )	                                                                      as min_max_equal_flag
+                        ,       coalesce(min_max_month, '1990-01-01'::date)                               as min_max_month
+                        ,       coalesce(start_of_month, date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date)  as start_of_month
+                        from  ( select  article_code
+                                ,       dc_code
+                                ,       safety_stock
+                                ,       coalesce(min_qty_adjust, min_qty)                                 as min_qty
+                                ,       coalesce(max_qty_adjust, max_qty)                                 as max_qty
+                                ,       coalesce(max_qty_custom_adjust, max_qty_custom)                   as max_qty_custom
+                                ,       start_of_month
+                                from  {database_name}.{ai_schema_name}.ai_replenish_min_max_dc
+                                where   start_of_month = date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                              ) as armmd
+                        full join  previous_min_max_report                                                as pmmr
+                            on  armmd.article_code    =   pmmr.article_code
+                            and armmd.dc_code         =   pmmr.dc_code
+                    ) as armmd_all
+              inner join {database_name}.{ai_schema_name}.ai_article_master                               as aam
+                  on  armmd_all.article_code    = aam.article_code
+              inner join  ( select  dc_code
+                            ,       avg(inventory_cap_value_dc)                                           as inventory_cap_value_dc
+                            from  {database_name}.{ai_schema_name}.ai_franchise_master
+                            where   franchise_priority = 1
+                            group by 1
+                          ) as afm
+                  on  armmd_all.dc_code         =   afm.dc_code
+          )
+          on conflict ( dc_code, article_code ) do update
+                set   cat_mch3_code                           =   excluded.cat_mch3_code
+                ,     cat_mch2_code                           =   excluded.cat_mch2_code
+                ,     cat_mch1_code                           =   excluded.cat_mch1_code
+                ,     brand                                   =   excluded.brand
+                ,     moq                                     =   excluded.moq
+                ,     lead_time                               =   excluded.lead_time
+                ,     inventory_cap_value_dc                  =   excluded.inventory_cap_value_dc
+                ,     safety_stock                            =   excluded.safety_stock
+                ,     min_qty_previous                        =   excluded.min_qty_previous
+                ,     max_qty_previous                        =   excluded.max_qty_previous
+                ,     max_qty_custom_previous                 =   excluded.max_qty_custom_previous
+                ,     min_qty                                 =   excluded.min_qty
+                ,     max_qty                                 =   excluded.max_qty
+                ,     max_qty_custom                          =   excluded.max_qty_custom
+                ,     min_max_month                           =   excluded.min_max_month
+                ,     run_date                                =   excluded.run_date
+                ,     status_flag                             =   excluded.status_flag
+                ,     cat_mch1_code_brand                     =   excluded.cat_mch1_code_brand
+          where round(arpsmmd.inventory_cap_value_dc, 3)      <>  round(excluded.inventory_cap_value_dc, 3)
+          or    (     round(arpsmmd.safety_stock, 3)          <>  round(excluded.safety_stock, 3)
+                  and excluded.safety_stock                   >   0
+                )
+          or    (     round(arpsmmd.min_qty, 3)               <>  round(excluded.min_qty, 3)
+                  and excluded.min_qty                        >   0
+                )
+          or    (     round(arpsmmd.max_qty, 3)               <>  round(excluded.max_qty, 3)
+                  and excluded.max_qty                        >   0
+                )
+          or    (     round(arpsmmd.max_qty_custom, 3)        <>  round(excluded.max_qty_custom, 3)
+                  and excluded.max_qty_custom                 >   0
+                )
+          or    arpsmmd.min_max_month                         <>  excluded.min_max_month
+          "

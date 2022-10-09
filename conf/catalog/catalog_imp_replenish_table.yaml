@@ -1,0 +1,705 @@
+# ====================================
+# ----- imp_prod_cls_criteria_master
+# ====================================
+imp_prod_cls_criteria_master:
+  version: "2021-09-19"
+  create:
+    features:
+      class_a: "numeric( 24, 8 ) not null"
+      class_b: "numeric( 24, 8 ) not null"
+      class_c: "numeric( 24, 8 ) not null"
+      class_version: "smallserial"
+      class_convert_flag: "varchar( 32 ) default 'N'"
+      update_date: "timestamp not null"
+    primary_key: ['class_version', 'class_convert_flag']
+  initial:
+    parameter: ['run_date']
+    values:  "0.5, 0.8, 1.0, '{run_date} 00:00:00'"
+  function:
+    validate_criteria_value:
+      function: "application.vendor.replenishment.run_prod_cls_criteria"
+      load:
+        statement: "
+          select  class_a
+          ,       class_b
+          ,       class_c
+          ,       class_version
+          from    {database_name}.{ai_schema_name}.imp_prod_cls_criteria_master
+          where   class_version in (select max(class_version) as class_version from {database_name}.{ai_schema_name}.imp_prod_cls_criteria_master
+                                    where class_convert_flag = 'N')
+          and     class_convert_flag = 'N'
+          "
+      save:
+        parameter: ['function_value']
+        statement: "
+          with row_table as (
+              insert into {database_name}.{ai_schema_name}.imp_prod_cls_criteria_master as ipccm
+              (
+                      class_a
+                  ,   class_b
+                  ,   class_c
+                  ,   class_version
+                  ,   class_convert_flag
+                  ,   update_date
+              )
+              values {function_value}
+              on conflict( class_version, class_convert_flag ) do nothing
+              returning 1
+          )
+          select count(*) as row_number from row_table
+          "
+# ====================================
+# ----- imp_prod_cls_adjust_fc
+# ====================================
+imp_prod_cls_adjust_fc:
+  version: "2021-09-01"
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      product_class_adjust: "varchar( 32 )"
+      start_of_month: "date not null"
+      adjust_version: "smallint default -1"
+      update_date: "timestamp not null"
+    primary_key: ['article_code', 'dc_code', 'rdc_code', 'franchise_code', 'start_of_month', 'adjust_version']
+  update:
+    update_replenish_prod_cls_and_report_prod_cls_min_max_fc:
+      parameter: ['run_date']
+      statements:
+        with_update_prod_cls: "
+          update {database_name}.{ai_schema_name}.ai_replenish_prod_cls_fc                        as arpcf
+              set   product_class_adjust  =   coalesce(ipcaf.product_class_adjust, arpcf.product_class_adjust)
+          from  (   select  article_code
+                    ,       dc_code
+                    ,       rdc_code
+                    ,       franchise_code
+                    ,       nullif(trim(product_class_adjust), '')                                as product_class_adjust
+                    ,       start_of_month
+                    from  {database_name}.{ai_schema_name}.imp_prod_cls_adjust_fc
+                    where   adjust_version = -1
+                    and     nullif(trim(product_class_adjust), '') is not null
+                ) as ipcaf
+          where arpcf.article_code      =   ipcaf.article_code
+          and   arpcf.dc_code           =   ipcaf.dc_code
+          and   arpcf.rdc_code          =   ipcaf.rdc_code
+          and   arpcf.franchise_code    =   ipcaf.franchise_code
+          and   arpcf.start_of_month    =   ipcaf.start_of_month
+          returning arpcf.article_code, arpcf.dc_code, arpcf.rdc_code, arpcf.franchise_code, arpcf.start_of_month
+          "
+        with_update_report: "
+          update {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_fc                   as arpcmmf
+              set   product_class       =   coalesce(ipcaf.product_class_adjust, arpcmmf.product_class)
+              ,     run_date            =   '{run_date}'::date
+          from  (   select  ipcaf_all.article_code
+                    ,       ipcaf_all.dc_code
+                    ,       ipcaf_all.rdc_code
+                    ,       ipcaf_all.franchise_code
+                    ,       ipcaf_all.start_of_month
+                    ,       nullif(trim(product_class_adjust), '')                                as product_class_adjust
+                    from  {database_name}.{ai_schema_name}.imp_prod_cls_adjust_fc                 as ipcaf_all
+                    inner join update_prod_cls                                                    as upc
+                        on  ipcaf_all.article_code    =   upc.article_code
+                        and ipcaf_all.dc_code         =   upc.dc_code
+                        and ipcaf_all.rdc_code        =   upc.rdc_code
+                        and ipcaf_all.franchise_code  =   upc.franchise_code
+                        and ipcaf_all.start_of_month  =   upc.start_of_month
+                    where   adjust_version = -1
+                ) as ipcaf
+          where arpcmmf.article_code          =   ipcaf.article_code
+          and   arpcmmf.dc_code               =   ipcaf.dc_code
+          and   arpcmmf.rdc_code              =   ipcaf.rdc_code
+          and   arpcmmf.franchise_code        =   ipcaf.franchise_code
+          and   arpcmmf.product_class_month   =   ipcaf.start_of_month
+          returning 1
+          "
+        with_row_table: "
+          update {database_name}.{ai_schema_name}.imp_prod_cls_adjust_fc                          as ipcaf
+              set adjust_version	  =   lvt.latest_adjust_version + 1
+              ,   update_date       =   '{run_date} 00:00:00'::timestamp
+          from  (   select  ipcaf_all.article_code
+                    ,		  ipcaf_all.dc_code
+                    ,		  ipcaf_all.rdc_code
+                    ,		  ipcaf_all.franchise_code
+                    ,       ipcaf_all.start_of_month
+                    ,		  case when max(adjust_version) = -1 then 0
+                                 else max(adjust_version)
+                            end                                                                   as latest_adjust_version
+                    from  {database_name}.{ai_schema_name}.imp_prod_cls_adjust_fc                 as ipcaf_all
+                    inner join update_prod_cls                                                    as upc
+                        on  ipcaf_all.article_code    = upc.article_code
+                        and ipcaf_all.dc_code         = upc.dc_code
+                        and ipcaf_all.rdc_code        = upc.rdc_code
+                        and ipcaf_all.franchise_code  = upc.franchise_code
+                        and ipcaf_all.start_of_month  = upc.start_of_month
+                    group by 1,2,3,4,5
+                ) as lvt
+          where ipcaf.article_code      =   lvt.article_code
+          and   ipcaf.dc_code           =   lvt.dc_code
+          and   ipcaf.rdc_code          =   lvt.rdc_code
+          and   ipcaf.franchise_code    =   lvt.franchise_code
+          and   ipcaf.start_of_month    =   lvt.start_of_month
+          and	  ipcaf.adjust_version    =   -1
+          "
+# ====================================
+# ----- imp_prod_cls_adjust_rdc
+# ====================================
+imp_prod_cls_adjust_rdc:
+  version: "2021-09-01"
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      product_class_adjust: "varchar( 32 )"
+      start_of_month: "date not null"
+      adjust_version: "smallint default -1"
+      update_date: "timestamp not null"
+    primary_key: ['article_code', 'dc_code', 'rdc_code', 'start_of_month', 'adjust_version']
+  update:
+    update_prod_cls_adjust_to_report:
+      parameter: ['run_date']
+      statements:
+        with_update_prod_cls: "
+          update {database_name}.{ai_schema_name}.ai_replenish_prod_cls_rdc                        as arpcr
+              set   product_class_adjust  =   coalesce(ipcar.product_class_adjust, arpcr.product_class_adjust)
+          from  (   select  article_code
+                    ,       dc_code
+                    ,       rdc_code
+                    ,       nullif(trim(product_class_adjust), '')                                as product_class_adjust
+                    ,       start_of_month
+                    from  {database_name}.{ai_schema_name}.imp_prod_cls_adjust_rdc
+                    where   adjust_version = -1
+                    and     nullif(trim(product_class_adjust), '') is not null
+                ) as ipcar
+          where arpcr.article_code      =   ipcar.article_code
+          and   arpcr.dc_code           =   ipcar.dc_code
+          and   arpcr.rdc_code          =   ipcar.rdc_code
+          and   arpcr.start_of_month    =   ipcar.start_of_month
+          returning arpcr.article_code, arpcr.dc_code, arpcr.rdc_code, arpcr.start_of_month
+          "
+        with_update_report: "
+          update {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_rdc                   as arpcmmr
+              set   product_class       =   coalesce(ipcar.product_class_adjust, arpcmmr.product_class)
+              ,     run_date            =   '{run_date}'::date
+          from  (   select  ipcar_all.article_code
+                    ,       ipcar_all.dc_code
+                    ,       ipcar_all.rdc_code
+                    ,       ipcar_all.start_of_month
+                    ,       nullif(trim(product_class_adjust), '')                                as product_class_adjust
+                    from  {database_name}.{ai_schema_name}.imp_prod_cls_adjust_rdc                 as ipcar_all
+                    inner join update_prod_cls                                                    as upc
+                        on  ipcar_all.article_code    =   upc.article_code
+                        and ipcar_all.dc_code         =   upc.dc_code
+                        and ipcar_all.rdc_code        =   upc.rdc_code
+                        and ipcar_all.start_of_month  =   upc.start_of_month
+                    where   adjust_version = -1
+                ) as ipcar
+          where arpcmmr.article_code          =   ipcar.article_code
+          and   arpcmmr.dc_code               =   ipcar.dc_code
+          and   arpcmmr.rdc_code              =   ipcar.rdc_code
+          and   arpcmmr.product_class_month   =   ipcar.start_of_month
+          returning 1
+          "
+        with_row_table: "
+          update {database_name}.{ai_schema_name}.imp_prod_cls_adjust_rdc                          as ipcar
+              set adjust_version	  =   lvt.latest_adjust_version + 1
+              ,   update_date       =   '{run_date} 00:00:00'::timestamp
+          from  (   select  ipcar_all.article_code
+                    ,		  ipcar_all.dc_code
+                    ,		  ipcar_all.rdc_code
+                    ,       ipcar_all.start_of_month
+                    ,		  case when max(adjust_version) = -1 then 0
+                                 else max(adjust_version)
+                            end                                                                   as latest_adjust_version
+                    from  {database_name}.{ai_schema_name}.imp_prod_cls_adjust_rdc                 as ipcar_all
+                    inner join update_prod_cls                                                    as upc
+                        on  ipcar_all.article_code    = upc.article_code
+                        and ipcar_all.dc_code         = upc.dc_code
+                        and ipcar_all.rdc_code        = upc.rdc_code
+                        and ipcar_all.start_of_month  = upc.start_of_month
+                    group by 1,2,3,4
+                ) as lvt
+          where ipcar.article_code      =   lvt.article_code
+          and   ipcar.dc_code           =   lvt.dc_code
+          and   ipcar.rdc_code          =   lvt.rdc_code
+          and   ipcar.start_of_month    =   lvt.start_of_month
+          and	  ipcar.adjust_version    =   -1
+          "
+# ====================================
+# ----- imp_prod_cls_adjust_dc
+# ====================================
+imp_prod_cls_adjust_dc:
+  version: "2021-09-01"
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      dc_code: "varchar( 64 ) not null"
+      product_class_adjust: "varchar( 32 )"
+      start_of_month: "date not null"
+      adjust_version: "smallint default -1"
+      update_date: "timestamp not null"
+    primary_key: ['article_code', 'dc_code', 'start_of_month', 'adjust_version']
+  update:
+    update_prod_cls_adjust_to_report:
+      parameter: ['run_date']
+      statement: "
+        with update_prod_cls as (
+            update {database_name}.{ai_schema_name}.ai_replenish_prod_cls_dc                        as arpcd
+                set   product_class_adjust  =   coalesce(ipcad.product_class_adjust, arpcd.product_class_adjust)
+            from  (   select  article_code
+                      ,       dc_code
+                      ,       nullif(trim(product_class_adjust), '')                                as product_class_adjust
+                      ,       start_of_month
+                      from  {database_name}.{ai_schema_name}.imp_prod_cls_adjust_dc
+                      where   adjust_version = -1
+                      and     nullif(trim(product_class_adjust), '') is not null
+                  ) as ipcad
+            where arpcd.article_code      =   ipcad.article_code
+            and   arpcd.dc_code           =   ipcad.dc_code
+            and   arpcd.start_of_month    =   ipcad.start_of_month
+            returning arpcd.article_code, arpcd.dc_code, arpcd.start_of_month
+        ),
+        update_report as (
+            update {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_dc                   as arpcmmd
+                set   product_class       =   coalesce(ipcad.product_class_adjust, arpcmmd.product_class)
+                ,     run_date            =   '{run_date}'::date
+            from  (   select  ipcad_all.article_code
+                      ,       ipcad_all.dc_code
+                      ,       ipcad_all.start_of_month
+                      ,       nullif(trim(product_class_adjust), '')                                as product_class_adjust
+                      from  {database_name}.{ai_schema_name}.imp_prod_cls_adjust_dc                 as ipcad_all
+                      inner join update_prod_cls                                                    as upc
+                          on  ipcad_all.article_code    =   upc.article_code
+                          and ipcad_all.dc_code         =   upc.dc_code
+                          and ipcad_all.start_of_month  =   upc.start_of_month
+                      where   adjust_version = -1
+                  ) as ipcad
+            where arpcmmd.article_code          =   ipcad.article_code
+            and   arpcmmd.dc_code               =   ipcad.dc_code
+            and   arpcmmd.product_class_month   =   ipcad.start_of_month
+            returning 1
+        ),
+        row_table as (
+            update {database_name}.{ai_schema_name}.imp_prod_cls_adjust_dc                          as ipcad
+                set adjust_version	  =   lvt.latest_adjust_version + 1
+                ,   update_date       =   '{run_date} 00:00:00'::timestamp
+            from  (   select  ipcad_all.article_code
+                      ,		  ipcad_all.dc_code
+                      ,       ipcad_all.start_of_month
+                      ,		  case when max(adjust_version) = -1 then 0
+                                   else max(adjust_version)
+                              end                                                                   as latest_adjust_version
+                      from  {database_name}.{ai_schema_name}.imp_prod_cls_adjust_dc                 as ipcad_all
+                      inner join update_prod_cls                                                    as upc
+                          on  ipcad_all.article_code    = upc.article_code
+                          and ipcad_all.dc_code         = upc.dc_code
+                          and ipcad_all.start_of_month  = upc.start_of_month
+                      group by 1,2,3
+                  ) as lvt
+            where ipcad.article_code      =   lvt.article_code
+            and   ipcad.dc_code           =   lvt.dc_code
+            and   ipcad.start_of_month    =   lvt.start_of_month
+            and	  ipcad.adjust_version    =   -1
+            returning 1
+        )
+        select count(*) as row_number from row_table
+        "
+# ====================================
+# ----- imp_min_max_service_level
+# ====================================
+imp_min_max_service_level:
+  version: "2021-10-01"
+  create:
+    features:
+      class_a: "numeric( 24, 8 ) not null"
+      class_b: "numeric( 24, 8 ) not null"
+      class_c: "numeric( 24, 8 ) not null"
+      class_version: "smallserial"
+      class_convert_flag: "varchar( 32 ) default 'N'"
+      update_date: "timestamp not null"
+    primary_key: ['class_version', 'class_convert_flag']
+  initial:
+    parameter: ['update_date']
+    values: "0.95, 0.90, 0.85, '{update_date}a'"
+  function:
+    validate_service_level_value:
+      parameter: [
+          'service_level_type',
+          'service_level_round'
+      ]
+      function: "application.vendor.replenishment.run_min_max_service_level"
+      load:
+        statement: "
+          select  class_a
+          ,       class_b
+          ,       class_c
+          ,       class_version
+          from    {database_name}.{ai_schema_name}.imp_min_max_service_level
+          where   class_version in (  select  max(class_version)                    as class_version
+                                      from {database_name}.{ai_schema_name}.imp_min_max_service_level
+                                      where   class_convert_flag = 'N'
+                                   )
+          and     class_convert_flag = 'N'
+          "
+      save:
+        parameter: ['function_value']
+        statement: "
+          insert into {database_name}.{ai_schema_name}.imp_min_max_service_level as immsl
+          (
+                  class_a
+              ,   class_b
+              ,   class_c
+              ,   class_version
+              ,   class_convert_flag
+              ,   update_date
+          )
+          values {function_value}
+          on conflict( class_version, class_convert_flag ) do nothing
+          "
+# ====================================
+# ----- imp_min_max_adjust_fc
+# ====================================
+imp_min_max_adjust_fc:
+  version: '2021-09-01'
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      min_qty_adjust: "numeric( 20, 6 )"
+      max_qty_adjust: "numeric( 20, 6 )"
+      start_of_month: "date not null"
+      adjust_version: "smallint default -1"
+      update_date: "timestamp not null"
+    primary_key: ['article_code', 'dc_code', 'rdc_code', 'franchise_code', 'start_of_month', 'adjust_version']
+  update:
+    update_replenish_min_max_and_report_prod_cls_min_max_fc:
+      parameter: ['run_date']
+      statements:
+        with_update_min_max: "
+          update {database_name}.{ai_schema_name}.ai_replenish_min_max_fc                         as armmf
+              set   min_qty_adjust    =   coalesce(immaf.min_qty_adjust, armmf.min_qty_adjust)
+              ,     max_qty_adjust    =   coalesce(immaf.max_qty_adjust, armmf.max_qty_adjust)
+          from  (   select  article_code
+                    ,       dc_code
+                    ,       rdc_code
+                    ,       franchise_code
+                    ,       case when min_qty_adjust <= 0 then null
+                                 else ceil(min_qty_adjust)
+                            end                                                                   as min_qty_adjust
+                    ,       case when max_qty_adjust <= 0 then null
+                                 else ceil(max_qty_adjust)
+                            end                                                                   as max_qty_adjust
+                    ,       start_of_month
+                    from  {database_name}.{ai_schema_name}.imp_min_max_adjust_fc
+                    where   adjust_version = -1
+                    and   (     nullif(min_qty_adjust, 0) is not null
+                            or  nullif(max_qty_adjust, 0) is not null
+                          )
+                ) as immaf
+          where armmf.article_code      =   immaf.article_code
+          and   armmf.dc_code           =   immaf.dc_code
+          and   armmf.rdc_code          =   immaf.rdc_code
+          and   armmf.franchise_code    =   immaf.franchise_code
+          and   armmf.start_of_month    =   immaf.start_of_month
+          returning armmf.article_code, armmf.dc_code, armmf.rdc_code, armmf.franchise_code, armmf.start_of_month
+          "
+        with_update_report: "
+          update {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_fc                   as arpcmmf
+              set   min_qty       =   coalesce(immaf.min_qty_adjust, arpcmmf.min_qty)
+              ,     max_qty       =   coalesce(immaf.max_qty_adjust, arpcmmf.max_qty)
+              ,     run_date      =   '{run_date}'::date
+          from  (   select  immaf_all.article_code
+                    ,       immaf_all.dc_code
+                    ,       immaf_all.rdc_code
+                    ,       immaf_all.franchise_code
+                    ,       case when min_qty_adjust <= 0 then null
+                                 else ceil(min_qty_adjust)
+                            end                                                                   as min_qty_adjust
+                    ,       case when max_qty_adjust <= 0 then null
+                                 else ceil(max_qty_adjust)
+                            end                                                                   as max_qty_adjust
+                    ,       immaf_all.start_of_month
+                    from  {database_name}.{ai_schema_name}.imp_min_max_adjust_fc                  as immaf_all
+                    inner join update_min_max                                                     as umm
+                        on  immaf_all.article_code    =   umm.article_code
+                        and immaf_all.dc_code         =   umm.dc_code
+                        and immaf_all.rdc_code        =   umm.rdc_code
+                        and immaf_all.franchise_code  =   umm.franchise_code
+                        and immaf_all.start_of_month  =   umm.start_of_month
+                    where   adjust_version = -1
+                ) as immaf
+          where arpcmmf.article_code      =     immaf.article_code
+          and   arpcmmf.dc_code           =     immaf.dc_code
+          and   arpcmmf.rdc_code          =     immaf.rdc_code
+          and   arpcmmf.franchise_code    =     immaf.franchise_code
+          and   arpcmmf.min_max_month     =     immaf.start_of_month
+          returning 1
+          "
+        with_row_table: "
+          update {database_name}.{ai_schema_name}.imp_min_max_adjust_fc                           as immaf
+                set adjust_version	=   lvt.latest_adjust_version + 1
+                ,   update_date       =   '{run_date} 00:00:00'::timestamp
+          from  (   select  immaf_all.article_code
+                    ,		  immaf_all.dc_code
+                    ,		  immaf_all.rdc_code
+                    ,		  immaf_all.franchise_code
+                    ,       immaf_all.start_of_month
+                    ,		  case when max(adjust_version) = -1 then 0
+                                 else max(adjust_version)
+                            end                                                                   as latest_adjust_version
+                    from  {database_name}.{ai_schema_name}.imp_min_max_adjust_fc                  as immaf_all
+                    inner join update_min_max                                                     as umm
+                        on  immaf_all.article_code      =     umm.article_code
+                        and immaf_all.dc_code           =     umm.dc_code
+                        and immaf_all.rdc_code          =     umm.rdc_code
+                        and immaf_all.franchise_code    =     umm.franchise_code
+                        and immaf_all.start_of_month    =     umm.start_of_month
+                    group by 1,2,3,4,5
+                ) as lvt
+          where immaf.article_code      =   lvt.article_code
+          and   immaf.dc_code           =   lvt.dc_code
+          and   immaf.rdc_code          =   lvt.rdc_code
+          and   immaf.franchise_code    =   lvt.franchise_code
+          and   immaf.start_of_month    =   lvt.start_of_month
+          and	  immaf.adjust_version    =   -1
+          "
+# ====================================
+# ----- imp_min_max_adjust_rdc
+# ====================================
+imp_min_max_adjust_rdc:
+  version: '2021-09-01'
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      min_qty_adjust: "numeric( 20, 6 )"
+      max_qty_adjust: "numeric( 20, 6 )"
+      start_of_month: "date not null"
+      adjust_version: "smallint default -1"
+      update_date: "timestamp not null"
+    primary_key: ['article_code', 'dc_code', 'rdc_code', 'start_of_month', 'adjust_version']
+  update:
+    update_min_max_adjust_to_report:
+      parameter: ['run_date']
+      statements:
+        with_update_min_max: "
+          update {database_name}.{ai_schema_name}.ai_replenish_min_max_rdc                        as armmr
+              set   min_qty_adjust    =   coalesce(immar.min_qty_adjust, armmr.min_qty_adjust)
+              ,     max_qty_adjust    =   coalesce(immar.max_qty_adjust, armmr.max_qty_adjust)
+          from  (   select  article_code
+                    ,       dc_code
+                    ,       rdc_code
+                    ,       case when min_qty_adjust <= 0 then null
+                                 else ceil(min_qty_adjust)
+                            end                                                                   as min_qty_adjust
+                    ,       case when max_qty_adjust <= 0 then null
+                                 else ceil(max_qty_adjust)
+                            end                                                                   as max_qty_adjust
+                    ,       start_of_month
+                    from  {database_name}.{ai_schema_name}.imp_min_max_adjust_rdc
+                    where   adjust_version = -1
+                    and   (     nullif(min_qty_adjust, 0) is not null
+                            or  nullif(max_qty_adjust, 0) is not null
+                          )
+                ) as immar
+          where armmr.article_code      =   immar.article_code
+          and   armmr.dc_code           =   immar.dc_code
+          and   armmr.rdc_code          =   immar.rdc_code
+          and   armmr.start_of_month    =   immar.start_of_month
+          returning armmr.article_code, armmr.dc_code, armmr.rdc_code, armmr.start_of_month
+          "
+        with_update_report: "
+          update {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_rdc                  as arpcmmr
+              set   min_qty       =   coalesce(immar.min_qty_adjust, arpcmmr.min_qty)
+              ,     max_qty       =   coalesce(immar.max_qty_adjust, arpcmmr.max_qty)
+              ,     run_date      =   '{run_date}'::date
+          from  (   select  immar_all.article_code
+                    ,       immar_all.dc_code
+                    ,       immar_all.rdc_code
+                    ,       case when min_qty_adjust <= 0 then null
+                                 else ceil(min_qty_adjust)
+                            end                                                                   as min_qty_adjust
+                    ,       case when max_qty_adjust <= 0 then null
+                                 else ceil(max_qty_adjust)
+                            end                                                                   as max_qty_adjust
+                    ,       immar_all.start_of_month
+                    from  {database_name}.{ai_schema_name}.imp_min_max_adjust_rdc                 as immar_all
+                    inner join update_min_max                                                     as umm
+                        on  immar_all.article_code    =   umm.article_code
+                        and immar_all.dc_code         =   umm.dc_code
+                        and immar_all.rdc_code        =   umm.rdc_code
+                        and immar_all.start_of_month  =   umm.start_of_month
+                    where   adjust_version = -1
+                ) as immar
+          where arpcmmr.article_code      =     immar.article_code
+          and   arpcmmr.dc_code           =     immar.dc_code
+          and   arpcmmr.rdc_code          =     immar.rdc_code
+          and   arpcmmr.min_max_month     =     immar.start_of_month
+          returning 1
+          "
+        with_row_table: "
+          update {database_name}.{ai_schema_name}.imp_min_max_adjust_rdc                          as immar
+                set adjust_version	=   lvt.latest_adjust_version + 1
+                ,   update_date       =   '{run_date} 00:00:00'::timestamp
+          from  (   select  immar_all.article_code
+                    ,		  immar_all.dc_code
+                    ,		  immar_all.rdc_code
+                    ,       immar_all.start_of_month
+                    ,		  case when max(adjust_version) = -1 then 0
+                                 else max(adjust_version)
+                            end                                                                   as latest_adjust_version
+                    from  {database_name}.{ai_schema_name}.imp_min_max_adjust_rdc                 as immar_all
+                    inner join update_min_max                                                     as umm
+                        on  immar_all.article_code      =     umm.article_code
+                        and immar_all.dc_code           =     umm.dc_code
+                        and immar_all.rdc_code          =     umm.rdc_code
+                        and immar_all.start_of_month    =     umm.start_of_month
+                    group by 1,2,3,4
+                ) as lvt
+          where immar.article_code      =   lvt.article_code
+          and   immar.dc_code           =   lvt.dc_code
+          and   immar.rdc_code          =   lvt.rdc_code
+          and   immar.start_of_month    =   lvt.start_of_month
+          and	  immar.adjust_version    =   -1
+          "
+# ====================================
+# ----- imp_min_max_adjust_dc
+# ====================================
+imp_min_max_adjust_dc:
+  version: '2021-09-01'
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      dc_code: "varchar( 64 ) not null"
+      min_qty_adjust: "numeric( 20, 6 )"
+      max_qty_adjust: "numeric( 20, 6 )"
+      adjust_version: "smallint default -1"
+      start_of_month: "date not null"
+      update_date: "timestamp not null"
+    primary_key: ['article_code', 'dc_code', 'start_of_month', 'adjust_version']
+  update:
+    update_min_max_adjust_to_report:
+      parameter: ['run_date']
+      statements:
+        with_update_min_max: "
+          update {database_name}.{ai_schema_name}.ai_replenish_min_max_dc                         as armmd
+              set   min_qty_adjust    =   coalesce(immad.min_qty_adjust, armmd.min_qty_adjust)
+              ,     max_qty_adjust    =   coalesce(immad.max_qty_adjust, armmd.max_qty_adjust)
+          from  (   select  article_code
+                    ,       dc_code
+                    ,       case when min_qty_adjust <= 0 then null
+                                 else ceil(min_qty_adjust)
+                            end                                                                   as min_qty_adjust
+                    ,       case when max_qty_adjust <= 0 then null
+                                 else ceil(max_qty_adjust)
+                            end                                                                   as max_qty_adjust
+                    ,       start_of_month
+                    from  {database_name}.{ai_schema_name}.imp_min_max_adjust_dc
+                    where   adjust_version = -1
+                    and   (     nullif(min_qty_adjust, 0) is not null
+                            or  nullif(max_qty_adjust, 0) is not null
+                          )
+                ) as immad
+          where armmd.article_code      =   immad.article_code
+          and   armmd.dc_code           =   immad.dc_code
+          and   armmd.start_of_month    =   immad.start_of_month
+          returning armmd.article_code, armmd.dc_code, armmd.start_of_month
+          "
+        with_update_report: "
+          update {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_dc                   as arpcmmd
+              set   min_qty       =   coalesce(immad.min_qty_adjust, arpcmmd.min_qty)
+              ,     max_qty       =   coalesce(immad.max_qty_adjust, arpcmmd.max_qty)
+              ,     run_date      =   '{run_date}'::date
+          from  (   select  immad_all.article_code
+                    ,       immad_all.dc_code
+                    ,       case when min_qty_adjust <= 0 then null
+                                 else ceil(min_qty_adjust)
+                            end                                                                   as min_qty_adjust
+                    ,       case when max_qty_adjust <= 0 then null
+                                 else ceil(max_qty_adjust)
+                            end                                                                   as max_qty_adjust
+                    ,       immad_all.start_of_month
+                    from  {database_name}.{ai_schema_name}.imp_min_max_adjust_dc                  as immad_all
+                    inner join update_min_max                                                     as umm
+                        on  immad_all.article_code    =   umm.article_code
+                        and immad_all.dc_code         =   umm.dc_code
+                        and immad_all.start_of_month  =   umm.start_of_month
+                    where   adjust_version = -1
+                ) as immad
+          where arpcmmd.article_code      =     immad.article_code
+          and   arpcmmd.dc_code           =     immad.dc_code
+          and   arpcmmd.min_max_month     =     immad.start_of_month
+          returning 1
+          "
+        with_row_table: "
+          update {database_name}.{ai_schema_name}.imp_min_max_adjust_dc                           as immad
+                set adjust_version	=   lvt.latest_adjust_version + 1
+                ,   update_date       =   '{run_date} 00:00:00'::timestamp
+          from  (   select  immad_all.article_code
+                    ,		  immad_all.dc_code
+                    ,       immad_all.start_of_month
+                    ,		  case when max(adjust_version) = -1 then 0
+                                 else max(adjust_version)
+                            end                                                                   as latest_adjust_version
+                    from  {database_name}.{ai_schema_name}.imp_min_max_adjust_dc                  as immad_all
+                    inner join update_min_max                                                     as umm
+                        on  immad_all.article_code      =     umm.article_code
+                        and immad_all.dc_code           =     umm.dc_code
+                        and immad_all.start_of_month    =     umm.start_of_month
+                    group by 1,2,3
+                ) as lvt
+          where immad.article_code      =   lvt.article_code
+          and   immad.dc_code           =   lvt.dc_code
+          and   immad.start_of_month    =   lvt.start_of_month
+          and	  immad.adjust_version    =   -1
+          "
+# ================================
+# ----- imp_mix_max_mos_criteria_fc
+# ================================
+imp_mix_max_mos_criteria_fc:
+  version: '2022-05-10'
+  create:
+    features:
+      franchise_code: "varchar( 64 ) not null"
+      franchise_name: "varchar( 516 )"
+      class_a: "numeric( 24, 8 )"
+      class_b: "numeric( 24, 8 )"
+      class_c: "numeric( 24, 8 )"
+      criteria_active_flag: "varchar( 32 ) default 'Y'"
+      update_date: "timestamp not null"
+    primary_key: ['franchise_code']
+# ================================
+# ----- imp_mix_max_mos_criteria_rdc
+# ================================
+imp_mix_max_mos_criteria_rdc:
+  version: '2022-05-10'
+  create:
+    features:
+      rdc_code: "varchar( 64 ) not null"
+      rdc_name: "varchar( 516 )"
+      class_a: "numeric( 24, 8 )"
+      class_b: "numeric( 24, 8 )"
+      class_c: "numeric( 24, 8 )"
+      criteria_active_flag: "varchar( 32 ) default 'Y'"
+      update_date: "timestamp not null"
+    primary_key: ['rdc_code']
+# ================================
+# ----- imp_mix_max_mos_criteria_dc
+# ================================
+imp_mix_max_mos_criteria_dc:
+  version: '2022-05-10'
+  create:
+    features:
+      dc_code: "varchar( 64 ) not null"
+      dc_name: "varchar( 516 )"
+      class_a: "numeric( 24, 8 )"
+      class_b: "numeric( 24, 8 )"
+      class_c: "numeric( 24, 8 )"
+      criteria_active_flag: "varchar( 32 ) default 'Y'"
+      update_date: "timestamp not null"
+    primary_key: ['dc_code']

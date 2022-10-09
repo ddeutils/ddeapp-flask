@@ -1,0 +1,23 @@
+func_hash_32_bit:
+  version: "2022-06-18"
+  create: "
+    create or replace function {database_name}.{ai_schema_name}.func_hash_32_bit(_word text, out result int)
+    language plpgsql as
+      $func$
+        begin
+          select ('x'||substr(md5(_word),1,8))::bit(32)::int into result;
+        end;
+      $func$;
+    "
+
+func_hash_64_bit:
+  version: "2022-06-18"
+  create: "
+    create or replace function {database_name}.{ai_schema_name}.func_hash_64_bit(_word text, out result bigint)
+    language plpgsql as
+      $func$
+        begin
+          select ('x'||substr(md5(_word),1,16))::bit(64)::bigint;
+        end;
+      $func$;
+    "

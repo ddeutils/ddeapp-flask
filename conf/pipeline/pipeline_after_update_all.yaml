@@ -1,0 +1,108 @@
+after_update_inventory_lead_time:
+     id: 'imp_inventory'
+     priority: 10.1
+     schedule: 'everyday_at_00_05'
+     nodes:
+          - name: 'sql:ai_franchise_master'
+
+
+after_update_replacement:
+     id: 'imp_replace'
+     priority: 10.2
+     schedule: 'everyday_at_00_05'
+     nodes:
+          - name: 'sql:imp_article_replacement'
+
+
+after_update_adjust_forecast:
+     id: 'imp_adjust_forecast'
+     priority: 11
+     nodes:
+          - name: 'sql:imp_forecast_adjust'
+
+
+after_update_prod_cls_criteria:
+     id: 'imp_cls_criteria'
+     priority: 12.1
+     schedule: 'everyday_at_00_05'
+     trigger: ['ai_rp_actual']
+     nodes:
+          - name: 'py:imp_prod_cls_criteria_master'
+
+
+after_update_min_max_service_level:
+     id: 'imp_service_level'
+     priority: 12.2
+     schedule: 'everyday_at_00_05'
+     trigger: ['ai_rp_actual']
+     nodes:
+          - name: 'py:imp_min_max_service_level'
+
+
+after_update_sales_target:
+     id: 'imp_target'
+     priority: 13
+     nodes:
+          - name: 'sql:ai_sales_target_mch3'
+#          - name: 'sql:ai_sales_target_fc'
+#          - name: 'sql:ai_sales_target_mch3_fc'
+
+
+after_update_adjust_prod_cls_fc:
+     id: 'imp_adjust_cls_fc'
+     priority: 14.1
+#     alert: ['ai_rp_listing']
+     nodes:
+          - name: "sql:imp_prod_cls_adjust_fc"
+#          - name: "sql:ai_report_article_listing_master"
+#            choose: ['from_ai_article_master_join_report_prod_cls_min_max_fc']
+
+
+after_update_adjust_prod_cls_rdc:
+     id: 'imp_adjust_cls_rdc'
+     priority: 14.2
+#     alert: ['ai_rp_listing']
+     nodes:
+          - name: "sql:imp_prod_cls_adjust_rdc"
+#          - name: "sql:ai_report_article_listing_master"
+#            choose: ['from_ai_article_master_join_report_prod_cls_min_max_rdc']
+
+
+after_update_adjust_prod_cls_dc:
+     id: 'imp_adjust_cls_dc'
+     priority: 14.3
+#     alert: ['ai_rp_listing']
+     nodes:
+          - name: "sql:imp_prod_cls_adjust_dc"
+#          - name: "sql:ai_report_article_listing_master"
+#            choose: ['from_ai_article_master_join_report_prod_cls_min_max_dc']
+
+
+after_update_adjust_min_max_fc:
+     id: 'imp_adjust_min_max_fc'
+     priority: 15.1
+#     alert: ['ai_rp_listing']
+     nodes:
+          - name: "sql:imp_min_max_adjust_fc"
+#          - name: "sql:ai_report_article_listing_master"
+#            choose: ['from_ai_article_master_join_report_prod_cls_min_max_fc']
+
+
+after_update_adjust_min_max_rdc:
+     id: 'imp_adjust_min_max_rdc'
+     priority: 15.2
+#     alert: ['ai_rp_listing']
+     nodes:
+          - name: "sql:imp_min_max_adjust_rdc"
+#          - name: "sql:ai_report_article_listing_master"
+#            choose: ['from_ai_article_master_join_report_prod_cls_min_max_rdc']
+
+
+after_update_adjust_min_max_dc:
+     id: 'imp_adjust_min_max_dc'
+     priority: 15.3
+#     alert: ['ai_rp_listing']
+     nodes:
+          - name: "sql:imp_min_max_adjust_dc"
+#          - name: "sql:ai_report_article_listing_master"
+#            choose: ['from_ai_article_master_join_report_prod_cls_min_max_dc']

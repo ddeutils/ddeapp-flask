@@ -1,0 +1,250 @@
+# Parameters layer 1 for Table Catalog
+list_tbl_priority: ['ctr', 'src', 'ai', 'imp', 'plt']
+list_tbl_types: ['sql', 'py']
+list_tbl_prefix_must_have_process: ['ai']
+map_tbl_sys: {'ai': 'internal', 'src': 'external', 'imp': 'external', 'ctr': 'internal'}
+map_tbl_flag: {'A': 'ai_', 'S': 'src_', 'I': 'imp_', 'C': 'ctr_', 'P': 'plt_'}
+map_tbl_ps_date: {'daily': 'days', 'weekly': 'weeks', 'monthly': 'months', 'yearly': 'years'}
+map_tbl_run_type: {
+    'data_date': 'daily', 'start_of_week': 'weekly', 'start_of_month': 'monthly', 'start_of_year': 'yearly',
+    'run_date': 'daily', 'update_date': 'daily'
+}
+map_tbl_ps_sla:
+    daily: 'date_range_sla_day'
+    weekly: 'date_range_sla_week'
+    monthly: 'date_range_sla_month'
+    yearly: 'date_range_sla_year'
+map_tbl:
+    # Table Catalog configuration
+    desc: ["description", "descriptions"]
+    profile: ['create', 'profile', 'profiles']
+    process: ['update', 'process', 'processes', 'function', 'functions']
+    initial: ['initial', 'initial_load', 'mockup']
+    pk: ['primary_key', 'primary_keys', 'primary', 'primaries']
+    partition: ['partition_by_range', 'partition_by_list', 'partition_by_hash']
+    param: ['parameter', 'param', 'parameters', 'params']
+    stm: ['statement', 'statements']
+    func: ['function', 'functions']
+    # Node configuration
+    run_mode: ['common', 'rerun']
+    action_type: ['common', 'rerun', 'initial', 'retention']
+
+# Parameters layer 1 for Function Catalog
+list_func_types: ['func', 'view', 'mview', 'proc', 'query']
+list_func_priority: ['func', 'vw', 'mvw', 'proc', 'query']
+map_func_types: {
+    'func': 'function', 'view': 'view', 'mview': 'view', 'proc': 'function', 'query': 'adhoc'
+}
+map_func:
+    desc: ["description", "descriptions"]
+    create: ['create', 'statement', 'function', 'functions', 'query']
+    param: ['parameter', 'param', 'parameters', 'params']
+    stm: ['statement', 'statements']
+    input: ['input', 'input_df']
+
+# Parameters layer 1 for Pipeline Catalog
+list_pipe_types: ['slow', 'fast']
+map_pipe:
+    id: ['id', 'pipeline_id']
+    desc: ["description", "descriptions"]
+    nodes: ['node', 'nodes', 'table', 'tables']
+    choose: ['choose', 'chooses', 'filter']
+    type: ['type', 'mode']
+    schedule: ['schedule', 'scheduler']
+    trigger: ['trigger', 'triggers']
+    alert: ['alert', 'track']
+
+# Parameters layer 2 for Process
+list_run_mode:
+    node: ['common', 'rerun', 'setup', 'retention', 'ingestion']
+    pipe: ['common', 'rerun', 'setup', 'retention']
+    action: ['common']
+
+# Base Statement Parameters
+# Note: In this base, all statement will parsing format string 2 rounds.
+bs_stm:
+    drop:
+        tbl: "
+            drop table if exists {{database_name}}.{{ai_schema_name}}.{table_name} {cascade}
+            "
+        func: "
+            drop function if exists {{database_name}}.{{ai_schema_name}}.{func_name} {cascade}
+            "
+        view: "
+            drop view if exists {{database_name}}.{{ai_schema_name}}.{func_name} {cascade}
+            "
+        mview: "
+            drop materialized if exists {{database_name}}.{{ai_schema_name}}.{func_name} {cascade}
+            "
+        schema: "
+            drop schema if exists {schema_name} {cascade}
+            "
+    create:
+        schema: "
+            create schema if not exists {schema_name}
+            "
+    tbl_create: ""
+    tbl_ingest: ""
+    active_query: "
+        select pid
+        ,     age(clock_timestamp(), query_start)
+        ,     usename, query
+        from pg_stat_activity
+        where  state != 'idle'
+        and    query not ilike '%pg_stat_activity%'
+        order by query_start desc
+        "
+    block_query: "
+        select pid, pg_blocking_pids(pid) as blocked_by, query as blocked_query
+        from pg_stat_activity
+        where pg_blocking_pids(pid)::text != '{}'
+        "
+    cancel_pid: "
+       SELECT pg_cancel_backend(PID);
+       SELECT pg_terminate_backend(PID);
+       "
+
+# Process Statement Parameters
+ps_stm:
+    alter: "
+        alter table {database_name}.{ai_schema_name}.{table_name} {action}
+        "
+    pull_ctr: "
+        select {select_columns} from {database_name}.{ai_schema_name}.{table_name}
+        where {primary_key_filters} {active_flag} {condition}
+        "
+    pull_ctr_params: "
+        select  parameter_name                                                   as param_name
+        ,      parameter_type                                                   as param_type
+        ,      case when active_flg = 'N' then (case when parameter_type = 'int'  then '0'
+                                             when parameter_type = 'str'  then ''
+                                             when parameter_type = 'list' then '[]'
+                                         end)
+                   else parameter_value
+               end                                                            as param_value
+        from    {database_name}.{ai_schema_name}.ctr_data_parameter
+        where   module_type = {module_type}
+        "
+    pull_max_data_date: "
+        select    max_date from ( select   date(coalesce(max({ctr_rtt_col}), '9999-12-31'))  as max_date
+                             from {database_name}.{ai_schema_name}.{table_name} )      as result
+        where    max_date < '9999-01-01'
+        "
+    pull_count: "
+        select {ai_schema_name}.func_count_if_exists('{ai_schema_name}', '{table_name}') as row_number
+        "
+    pull_count_condition: "
+        select    count(1)      as row_number
+        from {database_name}.{ai_schema_name}.{table_name}
+        where    {condition}
+        "
+    pull_columns_datatype: "
+        select	ordinal_position
+        ,		column_name
+        ,		case when data_type = 'character varying' then concat('varchar( ', character_maximum_length, ' )')
+                     when data_type = 'numeric' then concat('numeric( ', numeric_precision, ', ', numeric_scale, ' )')
+                     when data_type = 'integer' then 'int'
+                     when data_type = 'timestamp without time zone' then 'timestamp'
+                     else data_type
+                end                                                          as data_type
+        ,		case when column_default is not null then 'False'
+                     when lower(is_nullable) = 'no' then 'False'
+                     else 'True'
+                end                                                          as nullable
+        from {database_name}.information_schema.columns
+        where    table_schema   =    '{ai_schema_name}'
+        and      table_name     =    '{table_name}'
+        "
+    exists:
+        tbl: "
+            select    case when exists( select from {database_name}.information_schema.tables
+                               where  table_schema   = '{ai_schema_name}'
+                               and    table_name    = '{table_name}'
+                             ) then 'True'
+                    else 'False' end as check_exists
+            "
+        func: "
+            select    case when exists( select proname, proargnames, prosrc
+                                   from pg_proc where proname = '{func_name}'
+                                 ) then 'True'
+                        else 'False' end as check_exists
+            "
+        schema: "
+            select    case when exists( select from {database_name}.information_schema.schemata
+                                   where schema_name = '{schema_name}'
+                                 )
+                        then 'True'
+                        else 'False' end as check_exists
+            "
+    push_drop: "
+        drop table if exists {database_name}.{ai_schema_name}.{table_name} {cascade}
+        "
+    push_merge: "
+        alter table {database_name}.{ai_schema_name}.{table_name} rename to {table_name}_old;
+        {stm_create};
+        insert into {database_name}.{ai_schema_name}.{table_name} ({{mapping_insert}})
+            select {{mapping_select}}
+            from {database_name}.{ai_schema_name}.{table_name}_old
+        ;
+        drop table {database_name}.{ai_schema_name}.{table_name}_old;
+        "
+    # ALTER TABLE tablename SET (FILLFACTOR = 70);
+    # VACUUM FULL tablename;
+    # REINDEX TABLE tablename;
+    push_vacuum: "
+        vacuum {option} {database_name}.{ai_schema_name}.{table_name}
+        "
+    push_ctr: "
+        insert into {database_name}.{ai_schema_name}.{table_name} as {table_name_sht}
+            (    {columns_pair}    )
+        values    (  {values}  )
+        on conflict ( {primary_key} ) do update
+            set {set_value_pairs}
+        {status_filter}
+        {row_record_filter}
+        {condition}
+        "
+    push_ctr_update: "
+        update {database_name}.{ai_schema_name}.{table_name} as {table_name_sht}
+        set  {update_values_pairs}
+        where {filter} {condition}
+        "
+    push_del_with_condition: "
+        delete from {database_name}.{ai_schema_name}.{table_name} where {condition}
+        "
+    push_del_with_date:
+        master_rtt: "
+            delete from {database_name}.{ai_schema_name}.{table_name}
+            where ({primary_key}, {ctr_rtt_col}::date) in (
+                select	{primary_key_mark_a}
+                ,		raw_date
+                from	( select	{primary_key}
+                      ,		{ctr_rtt_col}::date                                as raw_date
+                      from	{database_name}.{ai_schema_name}.{table_name}
+                    ) as a
+                inner join  ( select	{primary_key}
+                            ,		max({ctr_rtt_col})::date                         as max_date
+                            from    {database_name}.{ai_schema_name}.{table_name}
+                            group by {primary_key_group}
+                          ) as b
+                    {primary_key_join_a_and_b}
+                and	a.raw_date {del_operation} date_trunc('month', b.max_date - interval '{ctr_rtt_value} month')::date
+            )
+            "
+        master: "
+            delete from {database_name}.{ai_schema_name}.{table_name}
+            where {ctr_rtt_col}::date {del_operation} '{del_date}'::date
+            "
+        not_master: "
+            delete from {database_name}.{ai_schema_name}.{table_name}
+            where {ctr_rtt_col}::date {del_operation} '{del_date}'::date
+            "
+    push_backup: "
+        truncate table {database_name}.{ai_schema_name_backup}.{table_name_backup};
+        insert into {database_name}.{ai_schema_name_backup}.{table_name_backup}
+        (select * from {database_name}.{ai_schema_name}.{table_name})
+        "
+    explain: "
+        explain( format json, costs true, analyze true, verbose true,
+        settings true, summary true, buffers true) ( {query} )
+        "

@@ -1,0 +1,19 @@
+func_cast_to_int:
+    # :usage:
+    #       >> select cast('pancakes'::text as integer)
+    #       0
+    version: "2022-09-01"
+    create: "
+        create or replace {database_name}.{ai_schema_name}.function cast_to_int(text)
+        returns integer as
+            $func$
+            begin
+               -- Note the double casting to avoid infinite recursion.
+                return cast($1::varchar as integer);
+            exception
+                when invalid_text_representation then
+                return 0;
+            end;
+            $func$ language plpgsql immutable;
+        create cast (text as integer) with {database_name}.{ai_schema_name}.function cast_to_int(text);
+        "

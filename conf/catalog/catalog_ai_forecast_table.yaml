@@ -1,0 +1,197 @@
+# ====================================
+# ----- ai_forecast_mch3
+# ====================================
+ai_forecast_mch3:
+  version: '2021-08-27'
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      forecast_value: "numeric( 24, 8 )"
+      forecast_month: "date not null"
+      run_date: "date not null"
+      upload_date: "timestamp"
+    primary_key: ['cat_mch3_code', 'forecast_month']
+  function:
+    forecast_mch3_category:
+      parameter: [
+          'run_date',
+          'forecast_top_model',
+          'forecast_test_period',
+          'forecast_end_period',
+          'model',
+          'date_range_sla_month_forecast'
+      ]
+      function: "application.vendor.forecast.run_tbl_forecast"
+      load:
+        parameter: [
+            "run_date",
+            "date_range_sla_month",
+            "forecast_test_period"
+        ]
+        statement: "
+          select  cat_mch3_code                             as id
+          ,       actual_sales_value::double precision      as y
+          ,       start_of_month                            as ds
+          from    {database_name}.{ai_schema_name}.ai_actual_sales_mch3
+          where   start_of_month <= date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+          "
+      save:
+        parameter: ["function_value"]
+        statement: "
+          insert into {database_name}.{ai_schema_name}.ai_forecast_mch3 as afm
+          (
+                  cat_mch3_code
+              ,   forecast_value
+              ,   forecast_month
+              ,   run_date
+              ,   upload_date
+          )
+          values {function_value}
+          on conflict ( cat_mch3_code, forecast_month ) do update
+            set   forecast_value                =   excluded.forecast_value
+            ,     run_date                      =   excluded.run_date
+            ,     upload_date                   =   excluded.upload_date
+          where   afm.run_date                  <=  excluded.run_date
+          and     round(afm.forecast_value, 3)  <>  round(excluded.forecast_value, 3)
+          "
+# ====================================
+# ----- ai_forecast_article
+# ====================================
+ai_forecast_article:
+  version: "2021-08-27"
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      forecast_qty: "numeric( 24, 8 )"
+      forecast_value: "numeric( 24, 8 )"
+      forecast_qty_adjust: "numeric( 24, 8 )"
+      forecast_value_adjust: "numeric( 24, 8 )"
+      forecast_week: "date not null"
+      forecast_month: "date not null"
+      run_date: "date not null"
+    primary_key: ['article_code', 'franchise_code', 'forecast_week', 'forecast_month']
+  update:
+    from_ai_forecast_mch3_join_proportion:
+      priority: 1
+      parameter: ["run_date", "window_start", "window_end", "forecast_end_period", "date_range_sla_month", "allocate_prop_filter_forecast",
+                  "date_range_sla_month_forecast", "actual_sales_filter_sales_price", "forecast_item_flag_filter", "forecast_item_status_filter"]
+      statements:
+        with_ai_actual_sales_article_prop: "
+          select  cat_mch3_code
+          ,       article_code
+          ,       sales_price
+          ,       franchise_code
+          ,		  actual_sales_price
+          ,       actual_sales_qty_sum_rolling / adm.days                                               as actual_sales_qty_avg_rolling
+          ,       actual_sales_value_sum_rolling / adm.days                                             as actual_sales_value_avg_rolling
+          ,		  sum((actual_sales_value_sum_rolling / adm.days))
+                                  over (partition by cat_mch3_code)                                     as actual_sales_value_avg_mch3_rolling
+          ,		  coalesce((actual_sales_value_sum_rolling / adm.days)
+                                  / nullif(sum((actual_sales_value_sum_rolling / adm.days))
+                                  over (partition by cat_mch3_code
+                                  ), 0.0), 0.0)                                                         as actual_sales_value_prop
+          ,       aasa.day
+          from  ( select  aasa_temp.cat_mch3_code
+                  ,       aasa_temp.article_code
+                  ,       coalesce(avg(case when sales_price = 0.01
+                                            then nullif(actual_sales_price, 0.0)
+                                            else sales_price
+                                       end), 0.0)                                                       as sales_price
+                  ,       franchise_code
+                  ,		coalesce(avg(nullif(actual_sales_price, 0.0)), 0.0)                             as actual_sales_price
+                  ,		coalesce(sum(actual_sales_qty))::numeric                                        as actual_sales_qty_sum_rolling
+                  ,		coalesce(sum(actual_sales_value))::numeric                                      as actual_sales_value_sum_rolling
+                  ,		day::integer                                                                    as day
+                  from  {database_name}.{ai_schema_name}.ai_actual_sales_article                        as aasa_temp
+                  inner join  (   select  cat_mch3_code
+                                  ,       article_code
+                                  ,       bss_item_flag
+                                  ,       bss_item_status
+                                  from    {database_name}.{ai_schema_name}.ai_article_master
+                              ) as aam
+                      on  aasa_temp.article_code    =   aam.article_code
+                  and   ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{window_start} month' - interval '{date_range_sla_month} month'))::date
+                                         and     date_trunc('month', (date '{run_date}' - interval '{window_end}   month' - interval '{date_range_sla_month} month'))::date
+                        )
+                  and     sales_price >= 0.01
+                  {forecast_item_flag_filter}
+                  {forecast_item_status_filter}
+                  group by 1,2,4,8
+                ) as aasa
+          inner join  (   select  day::integer                                                                                as day
+                          ,       count(1)::numeric                                                                           as days
+                          from  {database_name}.{ai_schema_name}.ai_date_master
+                          where ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{window_start} month' - interval '{date_range_sla_month} month'))::date
+                                                 and     date_trunc('month', (date '{run_date}' - interval '{window_end}   month' - interval '{date_range_sla_month} month'))::date
+                                )
+                          group by 1
+                      ) as adm
+              on  aasa.day    =   adm.day
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_forecast_article as afa
+          (
+            select	article_code
+            ,		franchise_code
+            ,		sum(forecast_qty)					                                                                        as forecast_qty
+            ,		sum(forecast_value)				                                                                            as forecast_value
+            ,       null                                                                                                        as forecast_qty_adjust
+            ,       null                                                                                                        as forecast_value_adjust
+            ,		date_trunc('week', forecast_date)::date	                                                                    as forecast_week
+            ,		date_trunc('month', forecast_date)::date                                                                    as forecast_month
+            ,       run_date
+            from  (   select  franchise_code
+                      ,       article_code
+                      ,       sales_price
+                      ,       actual_sales_price
+                      ,		  ceil(case when sales_price <> 0 then
+                                             coalesce((forecast_value * actual_sales_value_prop
+                                             / nullif(sum(actual_sales_value_prop) over (
+                                             partition by forecast_month, afm.cat_mch3_code), 0.0))
+                                             / nullif(sales_price, 0.0), 0.0)
+                                        else coalesce((forecast_value * actual_sales_value_prop
+                                             / nullif(sum(actual_sales_value_prop) over (
+                                             partition by forecast_month, afm.cat_mch3_code), 0.0))
+                                             / (actual_sales_value_avg_rolling
+                                             / nullif(actual_sales_qty_avg_rolling, 0.0)), 0.0)
+                                    end)												                                        as forecast_qty
+                      ,       coalesce(forecast_value * actual_sales_value_prop
+                                              / nullif(sum(actual_sales_value_prop) over (
+                                              partition by forecast_month, afm.cat_mch3_code
+                                              ), 0.0), 0.0)                                                                     as forecast_value
+                      ,       make_date(date_part('year', forecast_month)::integer,
+                                              date_part('month', forecast_month)::integer,
+                                              day)                                                                              as forecast_date
+                      ,       '{run_date}'::date                                                                                as run_date
+                      from  (   select  cat_mch3_code
+                                ,       forecast_month
+                                ,       forecast_value
+                                from {database_name}.{ai_schema_name}.ai_forecast_mch3
+                                where ( forecast_month between date_trunc('month', (date '{run_date}' + interval '{date_range_sla_month_forecast} month'))::date
+                                                       and     date_trunc('month', (date '{run_date}' + interval '{forecast_end_period} month' + interval '{date_range_sla_month_forecast} month'))::date
+                                      )
+                            ) as afm
+                      inner join  ai_actual_sales_article_prop                                                                  as aasap
+                            on  afm.cat_mch3_code  = aasap.cat_mch3_code
+                      where   day <= extract(day from forecast_month + '1 month'::interval - '1 day'::interval)
+                      {actual_sales_filter_sales_price}
+                      {allocate_prop_filter_forecast}
+                  ) as afmp
+            group by 1,2,7,8,9
+          )
+          on conflict ( article_code, franchise_code, forecast_week, forecast_month ) do update
+                set	  forecast_qty		              =   excluded.forecast_qty
+                ,     forecast_value 	              =   excluded.forecast_value
+                ,     run_date                        =   excluded.run_date
+          where (     round(afa.forecast_qty, 3)      <>  round(excluded.forecast_qty, 3)
+                  and excluded.forecast_qty           >   0
+                )
+          or    (     round(afa.forecast_value, 3)    <>  round(excluded.forecast_value, 3)
+                  and excluded.forecast_value         >   0
+                )
+        "
+#    vacuum:
+#      statement: "
+#        vacuum full {database_name}.{ai_schema_name}.ai_forecast_article;
+#        "

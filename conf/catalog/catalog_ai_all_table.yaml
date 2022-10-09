@@ -1,0 +1,2144 @@
+# ====================================
+# ----- ai_article_master
+# ====================================
+ai_article_master:
+  version: "2020-08-10"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch3_desc: "varchar( 128 )"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch2_desc: "varchar( 128 )"
+      cat_mch1_code: "varchar( 32 ) not null"
+      cat_mch1_desc: "varchar( 128 )"
+      cat_mc_code: "varchar( 32 ) not null"
+      cat_mc_desc: "varchar( 128 )"
+      cat_group_id: "varchar( 128 )"
+      article_code: "varchar( 64 ) not null"
+      article_name: "varchar( 516 )"
+      article_replace_code: "varchar( 64 )"
+      brand: "varchar( 64 )"
+      sales_uom: "varchar( 32 )"
+      sales_price: "numeric( 20, 8 )"
+      sales_price_pro: "numeric( 20, 8 )"
+      sales_pro_start: "date"
+      sales_pro_end: "date"
+      vendor_code: "varchar( 64 )"
+      vendor_name: "varchar( 256 )"
+      vendor_article_code: "varchar( 256 )"
+      vendor_article_name: "varchar( 516 )"
+      vendor_barcode: "varchar( 64 )"
+      purchase_group: "varchar( 64 )"
+      purchase_uom: "varchar( 32 )"
+      purchase_price: "numeric( 20, 8 )"
+      purchase_start: "date"
+      purchase_end: "date"
+      moq: "numeric( 20, 8 )"
+      lead_time: "smallint"
+      tile_size: "varchar( 128 )"
+      batch_flag: "varchar( 32 )"
+      item_flag: "varchar( 64 )"
+      bss_item_flag: "varchar( 64 )"
+      bss_item_status: "varchar( 64 )"
+      bss_dc_item_flag: "varchar( 64 )"
+      bss_dc_stock: "varchar( 64 )"
+      bss_show_no_stock_flag: "varchar( 32 )"
+      bss_product_class: "varchar( 32 )"
+      bss_vmi_flag: "varchar( 32 )"
+      bss_showroom_flag: "varchar( 32 )"
+      bss_market_flag: "varchar( 32 )"
+      bss_shop_flag: "varchar( 32 )"
+      bss_shop_direct_ship_allow_flag: "varchar( 32 )"
+      start_out_of_stock: "date"
+      end_out_of_stock: "date"
+      replace_start: "date"
+      replace_end: "date"
+      update_date: "date not null"
+    primary_key: ['article_code']
+  update:
+    from_src_article_structure_to_ai_article_master:
+      priority: 1
+      parameter: [
+          "dt_format_src_article_structure",
+          "article_default_brand",
+          "article_mch3_length_filter",
+          "article_mch3_code_filter"
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_article_master                                as aam
+        (
+            select distinct cat_mch3_code
+            ,       cat_mch3_desc_text                                                                as cat_mch3_desc
+            ,       cat_mch2_code
+            ,       cat_mch2_desc_text                                                                as cat_mch2_desc
+            ,       cat_mch1_code
+            ,       cat_mch1_desc_text                                                                as cat_mch1_desc
+            ,       cat_mc_code
+            ,       cat_mc_desc_text                                                                  as cat_mc_desc
+            ,       null                                                                              as cat_group_id
+            ,       case when trim(sas.article) like '0%'
+                         then replace(ltrim(replace(trim(sas.article) ,'0',' ')),' ','0')
+                         else trim(sas.article)
+                    end                                                                               as article_code
+            ,       nullif(trim(article_name_text), '')                                               as article_name
+            ,       case when trim(sas.article) like '0%'
+                         then replace(ltrim(replace(trim(sas.article) ,'0',' ')),' ','0')
+                         else trim(sas.article)
+                    end                                                                               as article_replace_code
+            ,       upper(coalesce(nullif(trim(attribute_zbrand), ''), '{article_default_brand}'))    as brand
+            ,       uom_code                                                                          as sales_uom
+            ,       0                                                                                 as sales_price
+            ,       0                                                                                 as sales_price_pro
+            ,       '1990-01-01'::date                                                                as sales_pro_start
+            ,       '9999-12-31'::date                                                                as sales_pro_end
+            ,       null                                                                              as vendor_code
+            ,       null                                                                              as vendor_name
+            ,       null                                                                              as vendor_article_code
+            ,       null                                                                              as vendor_article_name
+            ,       null                                                                              as vendor_barcode
+            ,       null                                                                              as purchase_group
+            ,       null                                                                              as purchase_uom
+            ,       0                                                                                 as purchase_price
+            ,       '1990-01-01'::date                                                                as purchase_start
+            ,       '9999-12-31'::date                                                                as purchase_end
+            ,       0                                                                                 as moq
+            ,       0                                                                                 as lead_time
+            ,       nullif(trim(attribute_ztile_size), '')                                            as tile_size
+            ,       coalesce(nullif(
+                         coalesce(nullif(lower(trim(batch_flag)), ''), 'No'), 'x'), 'Yes'
+                         )                                                                            as batch_flag
+            ,       nullif(trim(attribute_zitem_flag), '')                                            as item_flag
+            ,       nullif(trim(bss_item_flag), '')                                                   as bss_item_flag
+            ,       case when lower(trim(bss_item_status)) = 'out of stock'
+                         and (     nullif(trim(start_out_of_stock), '') is null
+                               or  nullif(trim(end_out_of_stock), '')   is null
+                             )
+                         then 'READY'
+                         else nullif(trim(bss_item_status), '')
+                    end                                                                               as bss_item_status
+            ,       nullif(trim(bss_dc_item_flag), '')                                                as bss_dc_item_flag
+            ,       nullif(trim(bss_dc_stock), '')                                                    as bss_dc_stock
+            /* Note 01: if bss_dc_stock is not null then bss_show_no_stock_flag = 'N' else 'Y' */
+            ,       nullif(trim(bss_show_no_stock_flag), '')                                          as bss_show_no_stock_flag
+            ,       nullif(trim(bss_product_class), '')                                               as bss_product_class
+            ,       nullif(trim(bss_vmi_flag), '')                                                    as bss_vmi_flag
+            ,       nullif(trim(bss_showroom_flag), '')                                               as bss_showroom_flag
+            ,       nullif(trim(bss_market_flag), '')                                                 as bss_market_flag
+            ,       nullif(trim(bss_shop_flag), '')                                                   as bss_shop_flag
+            ,       nullif(trim(bss_shop_direct_ship_allow_flag), '')                                 as bss_shop_direct_ship_allow_flag
+            ,       nullif(trim(start_out_of_stock), '')::date                                        as start_out_of_stock
+            ,       nullif(trim(end_out_of_stock), '')::date                                          as end_out_of_stock
+            ,       null::date                                                                        as replace_start
+            ,       null::date                                                                        as replace_end
+            ,       to_date(sas.update_date, '{dt_format_src_article_structure}')                     as update_date
+            from  {database_name}.{ai_schema_name}.src_article_structure                              as sas
+            inner join  ( select  trim(article)                                                       as article
+                          ,       to_date(create_on, '{dt_format_src_article_structure}')             as create_on
+                          ,       to_date(update_date, '{dt_format_src_article_structure}')           as update_date
+                          ,       dense_rank() over (partition by trim(article)
+                                          order by to_date(create_on, '{dt_format_src_article_structure}') desc,
+                                          to_date(update_date, '{dt_format_src_article_structure}') desc
+                                          )                                                           as order_article
+                          from  {database_name}.{ai_schema_name}.src_article_structure
+                          where   nullif(trim(update_date), '') is not null
+                        ) as sas_max
+                on  sas_max.article         =    trim(sas.article)
+                and sas_max.create_on       =    to_date(sas.create_on,   '{dt_format_src_article_structure}')
+                and sas_max.update_date     =    to_date(sas.update_date, '{dt_format_src_article_structure}')
+            where nullif(trim(sas.update_date), '') is not null
+            and   nullif(trim(sas.article), '')     is not null
+            and   order_article                     =  1
+            {article_mch3_length_filter}
+            {article_mch3_code_filter}
+        )
+        on conflict ( article_code ) do update
+            set     cat_mch3_code                                         =   excluded.cat_mch3_code
+            ,       cat_mch3_desc                                         =   excluded.cat_mch3_desc
+            ,       cat_mch2_code                                         =   excluded.cat_mch2_code
+            ,       cat_mch2_desc                                         =   excluded.cat_mch2_desc
+            ,       cat_mch1_code                                         =   excluded.cat_mch1_code
+            ,       cat_mch1_desc                                         =   excluded.cat_mch1_desc
+            ,       cat_mc_code                                           =   excluded.cat_mc_code
+            ,       cat_mc_desc                                           =   excluded.cat_mc_desc
+            ,       article_name                                          =   excluded.article_name
+            ,       sales_uom                                             =   excluded.sales_uom
+            ,       brand                                                 =   excluded.brand
+            ,       tile_size                                             =   excluded.tile_size
+            ,       batch_flag                                            =   excluded.batch_flag
+            ,       item_flag                                             =   excluded.item_flag
+            ,       bss_item_status                                       =   excluded.bss_item_status
+            ,       bss_dc_item_flag                                      =   excluded.bss_dc_item_flag
+            ,       bss_dc_stock                                          =   excluded.bss_dc_stock
+            ,       bss_show_no_stock_flag                                =   excluded.bss_show_no_stock_flag
+            ,       bss_product_class                                     =   excluded.bss_product_class
+            ,       bss_vmi_flag                                          =   excluded.bss_vmi_flag
+            ,       bss_showroom_flag                                     =   excluded.bss_showroom_flag
+            ,       bss_market_flag                                       =   excluded.bss_market_flag
+            ,       bss_shop_flag                                         =   excluded.bss_shop_flag
+            ,       bss_shop_direct_ship_allow_flag                       =   excluded.bss_shop_direct_ship_allow_flag
+            ,       start_out_of_stock                                    =   excluded.start_out_of_stock
+            ,       end_out_of_stock                                      =   excluded.end_out_of_stock
+            ,       update_date                                           =   excluded.update_date
+        where aam.update_date::date                                       <=  excluded.update_date::date
+        and   (     aam.cat_mch3_code                                     <>  excluded.cat_mch3_code
+                or  coalesce(aam.cat_mch3_desc, '')                       <>  coalesce(excluded.cat_mch3_desc, '')
+                or  aam.cat_mch2_code                                     <>  excluded.cat_mch2_code
+                or  coalesce(aam.cat_mch2_desc, '')                       <>  coalesce(excluded.cat_mch2_desc, '')
+                or  aam.cat_mch1_code                                     <>  excluded.cat_mch1_code
+                or  coalesce(aam.cat_mch1_desc, '')                       <>  coalesce(excluded.cat_mch1_desc, '')
+                or  aam.cat_mc_code                                       <>  excluded.cat_mc_code
+                or  coalesce(aam.cat_mc_desc, '')                         <>  coalesce(excluded.cat_mc_desc, '')
+                or  coalesce(aam.article_name, '')                        <>  coalesce(excluded.article_name, '')
+                or  coalesce(aam.sales_uom, '')                           <>  coalesce(excluded.sales_uom, '')
+                or  coalesce(aam.brand, '')                               <>  coalesce(coalesce(excluded.brand, ''), '')
+                or  coalesce(aam.tile_size, '')                           <>  coalesce(excluded.tile_size, '')
+                or  coalesce(aam.batch_flag, '')                          <>  coalesce(excluded.batch_flag, '')
+                or  coalesce(aam.item_flag, '')                           <>  coalesce(excluded.item_flag, '')
+                or  coalesce(aam.bss_item_status, '')                     <>  coalesce(excluded.bss_item_status, '')
+                or  coalesce(aam.bss_dc_item_flag, '')                    <>  coalesce(excluded.bss_dc_item_flag, '')
+                or  coalesce(aam.bss_dc_stock, '')                        <>  coalesce(excluded.bss_dc_stock, '')
+                or  coalesce(aam.bss_show_no_stock_flag, '')              <>  coalesce(excluded.bss_show_no_stock_flag, '')
+                or  coalesce(aam.bss_product_class, '')                   <>  coalesce(excluded.bss_product_class, '')
+                or  coalesce(aam.bss_vmi_flag, '')                        <>  coalesce(excluded.bss_vmi_flag, '')
+                or  coalesce(aam.bss_showroom_flag, '')                   <>  coalesce(excluded.bss_showroom_flag, '')
+                or  coalesce(aam.bss_market_flag, '')                     <>  coalesce(excluded.bss_market_flag, '')
+                or  coalesce(aam.bss_shop_flag, '')                       <>  coalesce(excluded.bss_shop_flag, '')
+                or  coalesce(aam.bss_shop_direct_ship_allow_flag, '')     <>  coalesce(excluded.bss_shop_direct_ship_allow_flag, '')
+                or  coalesce(aam.start_out_of_stock, '1990-01-01')        <>  coalesce(excluded.start_out_of_stock, '1990-01-01')
+                or  coalesce(aam.end_out_of_stock, '9999-12-31')          <>  coalesce(excluded.end_out_of_stock, '9999-12-31')
+              )
+        "
+    from_src_article_sales_price_to_ai_article_master:
+      priority: 2
+      parameter: ['dt_format_src_article_sales_price']
+      statement: "
+        update {database_name}.{ai_schema_name}.ai_article_master                                                             as aam
+            set   sales_price           =   sasm.sales_price
+            ,	  sales_price_pro       =   sasm.sales_price_pro
+            ,     sales_pro_start       =   sasm.sales_pro_start
+            ,     sales_pro_end         =   sasm.sales_pro_end
+        from    (   select  case when trim(sasm_all.article) like '0%'
+                                 then replace(ltrim(replace(trim(sasm_all.article) ,'0',' ')),' ','0')
+                                 else trim(sasm_all.article)
+                            end                                                                                               as article
+                    ,       coalesce(nullif(trim(nullif(sales_normal_price, '#N/A')), ''), '0')::numeric                      as sales_price
+                    ,       coalesce(nullif(trim(nullif(sales_promotion_price, '#N/A')), ''), '0')::numeric                   as sales_price_pro
+                    ,       to_date(nullif(trim(sales_promotion_start_date), ''), '{dt_format_src_article_sales_price}')      as sales_pro_start
+                    ,       to_date(nullif(trim(sales_promotion_end_date), ''), '{dt_format_src_article_sales_price}')        as sales_pro_end
+                    ,       to_date(sasm_all.update_date, '{dt_format_src_article_sales_price}')                              as update_date
+                    from  {database_name}.{ai_schema_name}.src_article_sales_price                                            as sasm_all
+                    inner join	(   select  trim(article)                                                                     as article
+                                    ,       to_date(create_date, '{dt_format_src_article_sales_price}')                       as create_date
+                                    ,       to_date(update_date, '{dt_format_src_article_sales_price}')                       as update_date
+                                    ,       dense_rank() over (partition by trim(article)
+                                                    order by to_date(create_date, '{dt_format_src_article_sales_price}') desc,
+                                                    to_date(update_date, '{dt_format_src_article_sales_price}') desc,
+                                                    coalesce(nullif(trim(nullif(sales_normal_price, '#N/A')), ''), '0')::numeric desc
+                                                    )                                                                         as order_article
+                                    from {database_name}.{ai_schema_name}.src_article_sales_price
+                                    where   nullif(trim(update_date), '') is not null
+                                ) sasm_max
+                        on    sasm_max.article        = trim(sasm_all.article)
+                        and   sasm_max.create_date    = to_date(sasm_all.create_date, '{dt_format_src_article_sales_price}')
+                        and   sasm_max.update_date    = to_date(sasm_all.update_date, '{dt_format_src_article_sales_price}')
+                    where   nullif(trim(sasm_all.update_date), '') is not null
+                    and     nullif(trim(sasm_all.article), '')     is not null
+                    and     order_article                          =  1
+                )   as sasm
+        where aam.article_code                                      =     sasm.article
+        and   (     aam.sales_price                                 <>    sasm.sales_price
+                or  aam.sales_price_pro                             <>    sasm.sales_price_pro
+                or  coalesce(aam.sales_pro_start, '1990-01-01')     <>    coalesce(sasm.sales_pro_start, '1990-01-01')
+                or  coalesce(aam.sales_pro_end, '9999-12-31')       <>    coalesce(sasm.sales_pro_end, '9999-12-31')
+              )
+        "
+    from_src_article_info_record_to_ai_article_master:
+      priority: 3
+      parameter: ['dt_format_src_article_info_record']
+      statement: "
+        update {database_name}.{ai_schema_name}.ai_article_master                                                                 as aam
+            set   vendor_code           =   sair.vendor_code
+            ,     vendor_name           =   sair.vendor_name
+            ,     vendor_article_code   =   sair.vendor_article_code
+            ,     vendor_article_name   =   sair.vendor_article_name
+            ,     vendor_barcode        =   sair.vendor_barcode
+            ,     purchase_uom          =   sair.purchase_uom
+            ,     purchase_group        =   sair.purchase_group
+            ,     purchase_price        =   sair.purchase_price
+            ,		purchase_start 		  =   sair.purchase_start
+            ,		purchase_end 		  =   sair.purchase_end
+            ,     moq                   =   sair.moq
+            ,     lead_time             =   sair.lead_time
+        from    (   select  case when trim(sair_all.article) like '0%'
+                                 then replace(ltrim(replace(trim(sair_all.article) ,'0',' ')),' ','0')
+                                 else trim(sair_all.article)
+                            end                                                                                                   as article_code
+                    ,       nullif(trim(vendor_code), '')                                                                         as vendor_code
+                    ,       nullif(trim(vendor_name), '')                                                                         as vendor_name
+                    ,       nullif(trim(vendor_article_number), '')                                                               as vendor_article_code
+                    ,       article_name                                                                                          as vendor_article_name
+                    ,       nullif(trim(barcode), '')                                                                             as vendor_barcode
+                    ,       pur_group						                                                                      as purchase_group
+                    ,       purchase_uom					                                                                      as purchase_uom
+                    ,       coalesce(nullif(trim(nullif(po_price, '#N/A')), ''), '0')::numeric                                    as purchase_price
+                    ,       to_date(nullif(trim(sair_all.purchase_info_start_date), ''), '{dt_format_src_article_info_record}')   as purchase_start
+                    ,       to_date(nullif(trim(purchase_info_end_date), ''), '{dt_format_src_article_info_record}')              as purchase_end
+                    ,       coalesce(nullif(trim(moq), ''), '0')::numeric                                                         as moq
+                    ,       coalesce(nullif(trim(lead_time), ''), '0')::smallint                                                  as lead_time
+                    ,       dense_rank() over (partition by sair_all.article
+                                        order by left(coalesce(nullif(nullif(trim(vendor_code), ''), '0'), '9'), 1)::integer asc,
+                                        coalesce(nullif(trim(nullif(po_price, '#N/A')),''), '0')::numeric desc,
+                                        to_date(nullif(trim(purchase_info_end_date), ''), '{dt_format_src_article_info_record}') desc,
+                                        trim(vendor_name) asc)                                                                    as order_purchase_price
+                    from    {database_name}.{ai_schema_name}.src_article_info_record	                                          as sair_all
+                    inner join  (	select	trim(article)                                                                         as article
+                                  ,       max(to_date(create_date, '{dt_format_src_article_info_record}'))                        as create_date
+                                  ,       max(to_date(update_date, '{dt_format_src_article_info_record}'))                        as update_date
+                                  from    {database_name}.{ai_schema_name}.src_article_info_record
+                                  group by 1
+                                ) as sair_max
+                        on	sair_max.article		            =   trim(sair_all.article)
+                        and   sair_max.create_date              =   to_date(sair_all.create_date, '{dt_format_src_article_info_record}')
+                        and   sair_max.update_date              =   to_date(sair_all.update_date, '{dt_format_src_article_info_record}')
+                    where nullif(trim(sair_all.update_date), '') is not null
+                    and   nullif(trim(sair_all.article), '')     is not null
+                )   as sair
+        where aam.article_code                                =       sair.article_code
+        and   sair.order_purchase_price                       =       1
+        and (     coalesce(aam.vendor_code, '')               <>      coalesce(sair.vendor_code, '')
+              or  coalesce(aam.vendor_name, '')               <>      coalesce(sair.vendor_name, '')
+              or  coalesce(aam.vendor_article_code, '')       <>      coalesce(sair.vendor_article_code, '')
+              or  coalesce(aam.vendor_article_name, '')       <>      coalesce(sair.vendor_article_name, '')
+              or  coalesce(aam.vendor_barcode, '')            <>      coalesce(sair.vendor_barcode, '')
+              or  coalesce(aam.purchase_uom, '')              <>      coalesce(sair.purchase_uom, '')
+              or  coalesce(aam.purchase_group, '')            <>      coalesce(sair.purchase_group, '')
+              or  aam.purchase_price                          <>      sair.purchase_price
+              or  coalesce(aam.purchase_start, '1990-01-01')  <>      coalesce(sair.purchase_start, '1990-01-01')
+              or  coalesce(aam.purchase_end, '9999-12-31') 	  <>      coalesce(sair.purchase_end, '9999-12-31')
+              or  aam.moq                                     <>      sair.moq
+              or  aam.lead_time                               <>      sair.lead_time
+            )
+        "
+#    vacuum:
+#      statement: "
+#        vacuum full {database_name}.{ai_schema_name}.ai_article_master;
+#        "
+# ====================================
+# ----- ai_article_vendor_master
+# ====================================
+ai_article_vendor_master:
+  version: "2022-07-07"
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      vendor_code: "varchar( 64 ) not null"
+      vendor_name: "varchar( 256 )"
+      vendor_article_code: "varchar( 256 )"
+      vendor_article_name: "varchar( 516 )"
+      vendor_barcode: "varchar( 64 )"
+      purchase_uom: "varchar( 64 )"
+      purchase_group: "varchar( 32 )"
+      purchase_price: "numeric( 20, 8 )"
+      purchase_last_price: "numeric( 20, 8 )"
+      discount_1: "numeric( 6, 3 )"
+      discount_2: "numeric( 6, 3 )"
+      discount_3: "numeric( 6, 3 )"
+      discount_4: "numeric( 6, 3 )"
+      discount_5: "numeric( 6, 3 )"
+      discount_6: "numeric( 6, 3 )"
+      discount_7: "numeric( 6, 3 )"
+      discount_8: "numeric( 6, 3 )"
+      discount_9: "numeric( 6, 3 )"
+      discount_10: "numeric( 6, 3 )"
+      purchase_start: "date"
+      purchase_end: "date"
+      moq: "numeric( 20, 8 )"
+      lead_time: "smallint"
+      update_date: "date not null"
+    primary_key: ['vendor_code', 'article_code']
+  update:
+    from_src_article_info_record_to_ai_article_vendor_master:
+      parameter: ['dt_format_src_article_info_record']
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_article_vendor_master                                                     as aavm
+        (
+            select  article_code
+            ,       vendor_code
+            ,       vendor_name
+            ,       vendor_article_code
+            ,       vendor_article_name
+            ,       vendor_barcode
+            ,       purchase_uom
+            ,       purchase_group
+            ,       purchase_price
+            ,       purchase_last_price
+            ,       discount_1
+            ,       discount_2
+            ,       discount_3
+            ,       discount_4
+            ,       discount_5
+            ,       discount_6
+            ,       discount_7
+            ,       discount_8
+            ,       discount_9
+            ,       discount_10
+            ,       purchase_start
+            ,       purchase_end
+            ,       moq
+            ,       lead_time
+            ,       update_date
+            from  ( select  case when trim(sair_all.article) like '0%'
+                                 then replace(ltrim(replace(trim(sair_all.article) ,'0',' ')),' ','0')
+                                 else trim(sair_all.article)
+                            end                                                                                                   as article_code
+                    ,       trim(sair_all.vendor_code)                                                                            as vendor_code
+                    ,       nullif(trim(vendor_name), '')                                                                         as vendor_name
+                    ,       nullif(trim(vendor_article_number), '')                                                               as vendor_article_code
+                    ,       article_name                                                                                          as vendor_article_name
+                    ,       nullif(trim(barcode), '')                                                                             as vendor_barcode
+                    ,       pur_group						                                                                      as purchase_group
+                    ,       purchase_uom					                                                                      as purchase_uom
+                    ,       coalesce(nullif(trim(nullif(po_price, '#N/A')), ''), '0')::numeric                                    as purchase_price
+                    ,       coalesce(nullif(trim(nullif(lp_price, '#N/A')), ''), '0')::numeric                                    as purchase_last_price
+                    ,       case when right(trim(discount_1), 1) = '%'
+                                 then ((coalesce(nullif(replace(trim(discount_1), '%', ''), ''), '0')::numeric) + 100) / 100
+                                 else (coalesce(nullif(trim(discount_1), ''), '0')::numeric + 100) / 100
+                            end                                                                                                   as discount_1
+                    ,       case when right(trim(discount_2), 1) = '%'
+                                 then ((coalesce(nullif(replace(trim(discount_2), '%', ''), ''), '0')::numeric) + 100) / 100
+                                 else (coalesce(nullif(trim(discount_2), ''), '0')::numeric + 100) / 100
+                            end                                                                                                   as discount_2
+                    ,       case when right(trim(discount_3), 1) = '%'
+                                 then ((coalesce(nullif(replace(trim(discount_3), '%', ''), ''), '0')::numeric) + 100) / 100
+                                 else (coalesce(nullif(trim(discount_3), ''), '0')::numeric + 100) / 100
+                            end                                                                                                   as discount_3
+                    ,       case when right(trim(discount_4), 1) = '%'
+                                 then ((coalesce(nullif(replace(trim(discount_4), '%', ''), ''), '0')::numeric) + 100) / 100
+                                 else (coalesce(nullif(trim(discount_4), ''), '0')::numeric + 100) / 100
+                            end                                                                                                   as discount_4
+                    ,       case when right(trim(discount_5), 1) = '%'
+                                 then ((coalesce(nullif(replace(trim(discount_5), '%', ''), ''), '0')::numeric) + 100) / 100
+                                 else (coalesce(nullif(trim(discount_5), ''), '0')::numeric + 100) / 100
+                            end                                                                                                   as discount_5
+                    ,       case when right(trim(discount_6), 1) = '%'
+                                 then ((coalesce(nullif(replace(trim(discount_6), '%', ''), ''), '0')::numeric) + 100) / 100
+                                 else (coalesce(nullif(trim(discount_6), ''), '0')::numeric + 100) / 100
+                            end                                                                                                   as discount_6
+                    ,       case when right(trim(discount_7), 1) = '%'
+                                 then ((coalesce(nullif(replace(trim(discount_7), '%', ''), ''), '0')::numeric) + 100) / 100
+                                 else (coalesce(nullif(trim(discount_7), ''), '0')::numeric + 100) / 100
+                            end                                                                                                   as discount_7
+                    ,       case when right(trim(discount_8), 1) = '%'
+                                 then ((coalesce(nullif(replace(trim(discount_8), '%', ''), ''), '0')::numeric) + 100) / 100
+                                 else (coalesce(nullif(trim(discount_8), ''), '0')::numeric + 100) / 100
+                            end                                                                                                   as discount_8
+                    ,       case when right(trim(discount_9), 1) = '%'
+                                 then ((coalesce(nullif(replace(trim(discount_9), '%', ''), ''), '0')::numeric) + 100) / 100
+                                 else (coalesce(nullif(trim(discount_9), ''), '0')::numeric + 100) / 100
+                            end                                                                                                   as discount_9
+                    ,       case when right(trim(discount_10), 1) = '%'
+                                 then ((coalesce(nullif(replace(trim(discount_10), '%', ''), ''), '0')::numeric) + 100) / 100
+                                 else (coalesce(nullif(trim(discount_10), ''), '0')::numeric + 100) / 100
+                            end                                                                                                   as discount_10
+                    ,       to_date(nullif(trim(sair_all.purchase_info_start_date), ''), '{dt_format_src_article_info_record}')   as purchase_start
+                    ,       to_date(nullif(trim(purchase_info_end_date), ''), '{dt_format_src_article_info_record}')              as purchase_end
+                    ,       coalesce(nullif(trim(moq), ''), '0')::numeric                                                         as moq
+                    ,       coalesce(nullif(trim(lead_time), ''), '0')::smallint                                                  as lead_time
+                    ,       sair_max.update_date                                                                                  as update_date
+                    ,       dense_rank() over (partition by sair_max.article, sair_max.vendor_code
+                                        order by to_date(nullif(trim(purchase_info_end_date), ''), '{dt_format_src_article_info_record}') desc,
+                                        coalesce(nullif(trim(nullif(po_price, '#N/A')), ''), '0')::numeric desc,
+                                        trim(vendor_name) asc)                                                                    as order_purchase_price
+                    from    {database_name}.{ai_schema_name}.src_article_info_record	                                          as sair_all
+                    inner join  (	select	trim(article)                                                                         as article
+                                  ,       nullif(trim(vendor_code), '')                                                           as vendor_code
+                                  ,       max(to_date(create_date, '{dt_format_src_article_info_record}'))                        as create_date
+                                  ,       max(to_date(update_date, '{dt_format_src_article_info_record}'))                        as update_date
+                                  from  {database_name}.{ai_schema_name}.src_article_info_record
+                                  where   nullif(trim(article), '')     is not null
+                                  and     nullif(trim(vendor_code), '') is not null
+                                  group by 1,2
+                                ) as sair_max
+                        on	sair_max.article		              =   trim(sair_all.article)
+                        and   sair_max.vendor_code                =   trim(sair_all.vendor_code)
+                        and   sair_max.create_date                =   to_date(sair_all.create_date, '{dt_format_src_article_info_record}')
+                        and   sair_max.update_date                =   to_date(sair_all.update_date, '{dt_format_src_article_info_record}')
+                    where nullif(trim(sair_all.update_date), '')  is not null
+                    and   nullif(trim(sair_all.article), '')      is not null
+                    and   nullif(trim(sair_all.vendor_code), '')  is not null
+                  ) as sair
+            where order_purchase_price = 1
+        )
+        on conflict ( vendor_code, article_code ) do update
+            set     vendor_name                                =       excluded.vendor_name
+            ,       vendor_article_code                        =       excluded.vendor_article_code
+            ,       vendor_article_name                        =       excluded.vendor_article_name
+            ,       vendor_barcode                             =       excluded.vendor_barcode
+            ,       purchase_uom                               =       excluded.purchase_uom
+            ,       purchase_group                             =       excluded.purchase_group
+            ,       purchase_price                             =       excluded.purchase_price
+            ,       purchase_last_price                        =       excluded.purchase_last_price
+            ,       discount_1                                 =       excluded.discount_1
+            ,       discount_2                                 =       excluded.discount_2
+            ,       discount_3                                 =       excluded.discount_3
+            ,       discount_4                                 =       excluded.discount_4
+            ,       discount_5                                 =       excluded.discount_5
+            ,       discount_6                                 =       excluded.discount_6
+            ,       discount_7                                 =       excluded.discount_7
+            ,       discount_8                                 =       excluded.discount_8
+            ,       discount_9                                 =       excluded.discount_9
+            ,       discount_10                                =       excluded.discount_10
+            ,       purchase_start                             =       excluded.purchase_start
+            ,       purchase_end                               =       excluded.purchase_end
+            ,       moq                                        =       excluded.moq
+            ,       lead_time                                  =       excluded.lead_time
+            ,       update_date                                =       excluded.update_date
+        where aavm.update_date                                 <=      excluded.update_date
+        and (     coalesce(aavm.vendor_name, '')               <>      coalesce(excluded.vendor_name, '')
+              or  coalesce(aavm.vendor_article_code, '')       <>      coalesce(excluded.vendor_article_code, '')
+              or  coalesce(aavm.vendor_article_name, '')       <>      coalesce(excluded.vendor_article_name, '')
+              or  coalesce(aavm.vendor_barcode, '')            <>      coalesce(excluded.vendor_barcode, '')
+              or  coalesce(aavm.purchase_uom, '')              <>      coalesce(excluded.purchase_uom, '')
+              or  coalesce(aavm.purchase_group, '')            <>      coalesce(excluded.purchase_group, '')
+              or  aavm.purchase_price                          <>      excluded.purchase_price
+              or  aavm.purchase_last_price                     <>      excluded.purchase_last_price
+              or  aavm.discount_1                              <>      excluded.discount_1
+              or  aavm.discount_2                              <>      excluded.discount_2
+              or  aavm.discount_3                              <>      excluded.discount_3
+              or  aavm.discount_4                              <>      excluded.discount_4
+              or  aavm.discount_5                              <>      excluded.discount_5
+              or  aavm.discount_6                              <>      excluded.discount_6
+              or  aavm.discount_7                              <>      excluded.discount_7
+              or  aavm.discount_8                              <>      excluded.discount_8
+              or  aavm.discount_9                              <>      excluded.discount_9
+              or  aavm.discount_10                             <>      excluded.discount_10
+              or  coalesce(aavm.purchase_start, '1990-01-01')  <>      coalesce(excluded.purchase_start, '1990-01-01')
+              or  coalesce(aavm.purchase_end, '9999-12-31')    <>      coalesce(excluded.purchase_end, '9999-12-31')
+              or  aavm.moq                                     <>      excluded.moq
+              or  aavm.lead_time                               <>      excluded.lead_time
+            )
+        "
+# ====================================
+# ----- ai_article_mapping_fc
+# ====================================
+ai_article_mapping_fc:
+  version: "2020-08-10"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 )"
+      cat_mch2_code: "varchar( 32 )"
+      cat_mch1_code: "varchar( 32 )"
+      article_code: "varchar( 64 ) not null"
+      article_replace_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      sales_uom: "varchar( 32 )"
+      sales_price: "numeric( 20, 8 )"
+      sales_price_pro: "numeric( 20, 8 )"
+      sales_pro_start: "date"
+      sales_pro_end: "date"
+      purchase_uom: "varchar( 32 )"
+      purchase_price: "numeric( 20, 8 )"
+      purchase_start: "date"
+      purchase_end: "date"
+      franchise_code: "varchar( 64 ) not null"
+      replace_start: "date"
+      replace_end: "date"
+      update_date: "date not null"
+    primary_key: ['article_code', 'franchise_code']
+  update:
+    from_src_actual_sales_transaction_join_ai_article_master_to_ai_article_mapping_fc:
+      parameter: [
+          'run_date',
+          'dt_format_src_actual_sales_trans',
+          'actual_sales_search_period',
+          'date_range_sla_week'
+      ]
+      statements:
+        with_franchise_from_actual_sales: "
+          select  franchise_code
+          ,       article_code
+          ,       create_date
+          from  ( select  soff                                                              as franchise_code
+                  ,       case when trim(article_id) like '0%'
+                               then replace(ltrim(replace(trim(article_id), '0', ' ')), ' ', '0')
+                               else trim(article_id)
+                          end                                                               as article_code
+                  ,       max(to_date(create_date, '{dt_format_src_actual_sales_trans}'))   as create_date
+                  from  {database_name}.{ai_schema_name}.src_actual_sales_transaction
+                  where ( to_date(create_date, '{dt_format_src_actual_sales_trans}') between (date '{run_date}' - interval '{actual_sales_search_period} week')
+                                                                                     and     (date '{run_date}' + interval '{date_range_sla_week} week')
+                        )
+                  and   nullif(trim(article_id), '') is not null
+                  group by 1,2
+                ) as sast_tmp
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_article_mapping_fc  as aamf
+          (
+            select	aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.article_code
+            ,       aam.article_replace_code
+            ,       aam.brand
+            ,       aam.sales_uom
+            ,       aam.sales_price
+            ,       aam.sales_price_pro
+            ,       aam.sales_pro_start
+            ,       aam.sales_pro_end
+            ,       aam.purchase_uom
+            ,       aam.purchase_price
+            ,       aam.purchase_start
+            ,       aam.purchase_end
+            ,		sast.franchise_code
+            ,       aam.replace_start
+            ,       aam.replace_end
+            ,       greatest(aam.update_date, sast.create_date)               as update_date
+            from    {database_name}.{ai_schema_name}.ai_article_master        as aam
+            inner join  franchise_from_actual_sales                           as sast
+                on sast.article_code = aam.article_code
+          )
+          on conflict ( article_code, franchise_code ) do update
+              set cat_mch3_code                                       =   excluded.cat_mch3_code
+              ,   cat_mch2_code                                       =   excluded.cat_mch2_code
+              ,   cat_mch1_code                                       =   excluded.cat_mch1_code
+              ,   article_replace_code                                =   excluded.article_replace_code
+              ,   brand                                               =   excluded.brand
+              ,   sales_uom                                           =   excluded.sales_uom
+              ,   sales_price                                         =   excluded.sales_price
+              ,   sales_price_pro                                     =   excluded.sales_price_pro
+              ,   sales_pro_start                                     =   excluded.sales_pro_start
+              ,   sales_pro_end                                       =   excluded.sales_pro_end
+              ,   purchase_uom                                        =   excluded.purchase_uom
+              ,   purchase_price                                      =   excluded.purchase_price
+              ,   purchase_start                                      =   excluded.purchase_start
+              ,   purchase_end                                        =   excluded.purchase_end
+              ,   replace_start                                       =   excluded.replace_start
+              ,   replace_end                                         =   excluded.replace_end
+              ,	  update_date			                              =   excluded.update_date
+          where   aamf.update_date                                    <=  excluded.update_date
+          and (     aamf.cat_mch3_code                                <>  excluded.cat_mch3_code
+                or  aamf.cat_mch2_code                                <>  excluded.cat_mch2_code
+                or  aamf.cat_mch1_code                                <>  excluded.cat_mch1_code
+                or  coalesce(aamf.article_replace_code, '')           <>  coalesce(excluded.article_replace_code, '')
+                or  coalesce(aamf.brand, '')                          <>  coalesce(excluded.brand, '')
+                or  coalesce(aamf.sales_uom, '')                      <>  coalesce(excluded.sales_uom, '')
+                or  aamf.sales_price                                  <>  excluded.sales_price
+                or  aamf.sales_price_pro                              <>  excluded.sales_price_pro
+                or  coalesce(aamf.sales_pro_start, '1990-01-01')      <>  coalesce(excluded.sales_pro_start, '1990-01-01')
+                or  coalesce(aamf.sales_pro_end, '9999-12-31')        <>  coalesce(excluded.sales_pro_end, '9999-12-31')
+                or  coalesce(aamf.purchase_uom, '')                   <>  coalesce(excluded.purchase_uom, '')
+                or  aamf.purchase_price                               <>  excluded.purchase_price
+                or  coalesce(aamf.purchase_start, '1990-01-01')       <>  coalesce(excluded.purchase_start, '1990-01-01')
+                or  coalesce(aamf.purchase_end, '9999-12-31')         <>  coalesce(excluded.purchase_end, '9999-12-31')
+                or  coalesce(aamf.replace_start, '1990-01-01')        <>  coalesce(excluded.replace_start, '1990-01-01')
+                or  coalesce(aamf.replace_end, '9999-12-31')          <>  coalesce(excluded.replace_end, '9999-12-31')
+              )
+          "
+    from_ai_article_master_to_ai_article_mapping_fc:
+      statement: "
+        update {database_name}.{ai_schema_name}.ai_article_mapping_fc  as aamf
+            set   cat_mch3_code                                    =   aam.cat_mch3_code
+            ,     cat_mch2_code                                    =   aam.cat_mch2_code
+            ,     cat_mch1_code                                    =   aam.cat_mch1_code
+            ,     article_replace_code                             =   aam.article_replace_code
+            ,     brand                                            =   aam.brand
+            ,     sales_uom                                        =   aam.sales_uom
+            ,     sales_price                                      =   aam.sales_price
+            ,     sales_price_pro                                  =   aam.sales_price_pro
+            ,     sales_pro_start                                  =   aam.sales_pro_start
+            ,     sales_pro_end                                    =   aam.sales_pro_end
+            ,     purchase_uom                                     =   aam.purchase_uom
+            ,     purchase_price                                   =   aam.purchase_price
+            ,     purchase_start                                   =   aam.purchase_start
+            ,     purchase_end                                     =   aam.purchase_end
+            ,     replace_start                                    =   aam.replace_start
+            ,     replace_end                                      =   aam.replace_end
+            ,     update_date			                           =   aam.update_date
+        from  {database_name}.{ai_schema_name}.ai_article_master      as aam
+        where aam.article_code = aamf.article_code
+        and (     aam.cat_mch3_code                                <>  aamf.cat_mch3_code
+              or  aam.cat_mch2_code                                <>  aamf.cat_mch2_code
+              or  aam.cat_mch1_code                                <>  aamf.cat_mch1_code
+              or  coalesce(aam.article_replace_code, '')           <>  coalesce(aamf.article_replace_code, '')
+              or  coalesce(aam.brand, '')                          <>  coalesce(aamf.brand, '')
+              or  coalesce(aam.sales_uom, '')                      <>  coalesce(aamf.sales_uom, '')
+              or  aam.sales_price                                  <>  aamf.sales_price
+              or  aam.sales_price_pro                              <>  aamf.sales_price_pro
+              or  coalesce(aam.sales_pro_start, '1990-01-01')      <>  coalesce(aamf.sales_pro_start, '1990-01-01')
+              or  coalesce(aam.sales_pro_end, '9999-12-31')        <>  coalesce(aamf.sales_pro_end, '9999-12-31')
+              or  coalesce(aam.purchase_uom, '')                   <>  coalesce(aamf.purchase_uom, '')
+              or  aam.purchase_price                               <>  aamf.purchase_price
+              or  coalesce(aam.purchase_start, '1990-01-01')       <>  coalesce(aamf.purchase_start, '1990-01-01')
+              or  coalesce(aam.purchase_end, '9999-12-31')         <>  coalesce(aamf.purchase_end, '9999-12-31')
+              or  coalesce(aam.replace_start, '1990-01-01')        <>  coalesce(aamf.replace_start, '1990-01-01')
+              or  coalesce(aam.replace_end, '9999-12-31')          <>  coalesce(aamf.replace_end, '9999-12-31')
+            )
+        and	aamf.update_date              <=  aam.update_date
+        "
+# ====================================
+# ----- ai_date_master
+# ====================================
+ai_date_master:
+  version: "2021-08-10"
+  create:
+    features:
+      data_date: "date not null"
+      day: "smallint not null"
+      month: "smallint not null"
+      year: "smallint not null"
+      day_of_week: "smallint not null"
+      start_of_week: "date not null"
+      start_of_month: "date not null"
+#      end_of_week: "date not null"
+#      end_of_month: "date not null"
+    primary_key: ['data_date']
+#    partition_by_range: ['start_of_month']
+  update:
+    from_src_actual_sales_transaction_to_ai_date_master:
+      parameter: ["run_date", "data_date", "window_start", "date_range_sla_day_actual_sales", "dt_format_src_actual_sales_trans"]
+      statements:
+        with_src_actual_sales_transaction: "
+          select  date_trunc('month', max(to_date(create_date, '{dt_format_src_actual_sales_trans}')))::date    as data_max_date
+          ,       date_trunc('month', min(to_date(create_date, '{dt_format_src_actual_sales_trans}')))::date    as data_min_date
+          from    {database_name}.{ai_schema_name}.src_actual_sales_transaction
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_date_master                                           as adm
+          (
+            select  gndt.data_date::date							                                            as data_date
+            ,		date_part('day',    gndt.data_date)				                                            as day
+            ,		date_part('month',  gndt.data_date)				                                            as month
+            ,		date_part('year',   gndt.data_date)				                                            as year
+            ,		date_part('dow',    gndt.data_date) 				                                        as day_of_week
+            ,		date_trunc('week',  gndt.data_date)::date		                                            as start_of_week
+            ,		date_trunc('month', gndt.data_date)::date		                                            as start_of_month
+            from  ( select  generate_series(data_start_date, data_end_date, interval '1 day')                   as data_date
+                    from  ( select  case when '{data_date}'::date < data_min_date
+                                         then date_trunc('month', (date '{data_date}') - interval '{window_start} month')::date
+                                         else data_min_date - interval '{window_start} month'
+                                    end                                                                         as data_start_date
+                            ,       (date '{run_date}' + interval '1 week')::date                               as data_end_date
+                            from    src_actual_sales_transaction
+                          ) as sast
+                  ) as gndt
+            where gndt.data_date::date <= (date '{run_date}' - interval '{date_range_sla_day_actual_sales} day')
+          )
+          on conflict ( data_date ) do nothing
+        "
+# ====================================
+# ----- ai_franchise_master
+# ====================================
+ai_franchise_master:
+  version: '2021-09-01'
+  create:
+    features:
+      dc_code: "varchar( 64 ) not null"
+      dc_name: "varchar( 516 )"
+      rdc_code: "varchar( 64 ) not null"
+      rdc_name: "varchar( 516 )"
+      franchise_code: "varchar( 64 ) not null"
+      franchise_name: "varchar( 516 )"
+      franchise_priority: "smallint"
+      inventory_cap_value_fc: "numeric( 24, 8 )"
+      inventory_cap_value_rdc: "numeric( 24, 8 )"
+      inventory_cap_value_dc: "numeric( 24, 8 )"
+      lead_time_fc: "smallint"
+      lead_time_rdc: "smallint"
+      lead_time_dc: "smallint"
+      relation_flag: "varchar( 32 ) not null"
+      update_date: "date not null"
+    primary_key: ['franchise_code', 'franchise_priority']
+  update:
+    from_imp_inventory_cap_lead_time_fc_rdc_dc_to_ai_franchise_master:
+      statements:
+        with_franchise_latest: "
+          select  nullif(trim(dc_code), '')                                                                   as dc_code
+          ,	    nullif(trim(first_value(dc_name) over (
+                            partition by dc_code order by update_date desc
+                            )), '')                                                                           as dc_name
+          ,	    nullif(trim(rdc_code), '')                                                                  as rdc_code
+          ,	    nullif(trim(first_value(rdc_name) over (
+                            partition by rdc_code order by update_date desc
+                            )), '')                                                                           as rdc_name
+          ,	    trim(franchise_code)                                                                        as franchise_code
+          ,       nullif(trim(franchise_name), '')                                                            as franchise_name
+          ,       coalesce(inventory_cap_value_fc, 0.0)                                                       as inventory_cap_value_fc
+          ,       coalesce(lead_time_fc, 0)                                                                   as lead_time_fc
+          ,       update_date
+          from {database_name}.{ai_schema_name}.imp_lead_time_inventory_cap_fc
+          where   nullif(trim(franchise_code), '') is not null
+          "
+        with_rdc_latest: "
+          select  nullif(trim(dc_code), '')                                                                   as dc_code
+          ,	    nullif(trim(first_value(dc_name) over (
+                            partition by dc_code order by update_date desc
+                            )), '')                                                                           as dc_name
+          ,	    trim(rdc_code)                                                                              as rdc_code
+          ,	    nullif(trim(rdc_name), '')                                                                  as rdc_name
+          ,       coalesce(inventory_cap_value_rdc, 0.0)                                                      as inventory_cap_value_rdc
+          ,       coalesce(lead_time_rdc, 0)                                                                  as lead_time_rdc
+          ,       update_date
+          from {database_name}.{ai_schema_name}.imp_lead_time_inventory_cap_rdc
+          where   nullif(trim(rdc_code), '') is not null
+          "
+        with_dc_latest: "
+          select  trim(dc_code)                                                                               as dc_code
+          ,	    nullif(trim(dc_name), '')                                                                   as dc_name
+          ,       coalesce(inventory_cap_value_dc, 0.0)                                                       as inventory_cap_value_dc
+          ,       coalesce(lead_time_dc, 0)                                                                   as lead_time_dc
+          ,       update_date
+          from {database_name}.{ai_schema_name}.imp_lead_time_inventory_cap_dc
+          where   nullif(trim(dc_code), '') is not null
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_franchise_master                                      as afm
+          (
+              select  coalesce(dl.dc_code, fl.dc_code)						                                    as dc_code
+              ,       case when dl.update_date >= fl.update_date
+                           then coalesce(dl.dc_name, fl.dc_name)
+                           else fl.dc_name
+                      end                                                                                       as dc_name
+              ,       coalesce(rl.rdc_code, fl.rdc_code)						                                as rdc_code
+              ,       case when rl.update_date >= fl.update_date
+                           then coalesce(rl.rdc_name, fl.rdc_name)
+                           else fl.rdc_name
+                      end                                                                                       as rdc_name
+              ,		  franchise_code
+              ,		  franchise_name
+              ,       1                                                                                         as franchise_priority
+              ,       coalesce(inventory_cap_value_fc, 0.0)                                                     as inventory_cap_value_fc
+              ,       coalesce(inventory_cap_value_rdc, 0.0)                                                    as inventory_cap_value_rdc
+              ,       coalesce(inventory_cap_value_dc, 0.0)                                                     as inventory_cap_value_dc
+              ,       coalesce(lead_time_fc, 0)                                                                 as lead_time_fc
+              ,       coalesce(lead_time_rdc, 0)                                                                as lead_time_rdc
+              ,       coalesce(lead_time_dc, 0)                                                                 as lead_time_dc
+              ,       case when franchise_flag = 'F' and rdc_flag is null and dc_flag is null then 'F'
+                           /* when franchise_flag = 'DR' and rdc_flag is null and dc_flag is null then 'DF'
+                           when franchise_flag = 'DRF' and rdc_flag is null and dc_flag is null then 'DRF' */
+                           when franchise_flag = 'DR' and rdc_flag = 'DR' and dc_flag is null then 'RF'
+                           when franchise_flag = 'DR' and dc_flag = 'D' and rdc_flag is null then 'DF'
+                           when franchise_flag = 'DRF' and rdc_flag = 'DRC' and dc_flag = 'D' then 'DRF'
+                           when franchise_flag = 'F' and (rdc_flag is not null or dc_flag is not null) then 'X'
+                           when franchise_flag = 'X' then 'X'
+                           else '?'
+                      end                                                                                       as relation_flag
+              ,       fl.update_date::date                                                                      as update_date
+              from  (   select  coalesce(dc_code, coalesce(rdc_code, franchise_code))                           as dc_code
+                        ,       coalesce(dc_name, coalesce(rdc_name, franchise_name))                           as dc_name
+                        ,       coalesce(rdc_code, coalesce(dc_code, franchise_code))                           as rdc_code
+                        ,       coalesce(rdc_name, coalesce(dc_name, franchise_name))                           as rdc_name
+                        ,       franchise_code                                                                  as franchise_code
+                        ,       franchise_name                                                                  as franchise_name
+                        ,       inventory_cap_value_fc
+                        ,       lead_time_fc
+                        ,       update_date
+                        ,       case when dc_code = rdc_code and rdc_code = franchise_code  then 'F'
+                                     when dc_code = rdc_code and rdc_code <> franchise_code then 'DR'
+                                     when dc_code <> rdc_code and rdc_code <> franchise_code then 'DRF'
+                                     else 'X'
+                                end                                                                             as franchise_flag
+                        from  franchise_latest
+                    ) as fl
+              left join (   select  coalesce(dc_code, rdc_code)                                                 as dc_code
+                            ,       coalesce(dc_name, rdc_name)                                                 as dc_name
+                            ,       rdc_code                                                                    as rdc_code
+                            ,       rdc_name                                                                    as rdc_name
+                            ,       inventory_cap_value_rdc
+                            ,       lead_time_rdc
+                            ,       update_date
+                            ,       case when dc_code = rdc_code then 'DR'
+                                         else 'DRF'
+                                    end                                                                         as rdc_flag
+                            from  rdc_latest
+                        ) as rl
+                  on  fl.rdc_code   =   rl.rdc_code
+                  and fl.dc_code    =   rl.dc_code
+              left join (   select  dc_code
+                            ,       dc_name
+                            ,       inventory_cap_value_dc
+                            ,       lead_time_dc
+                            ,       update_date
+                            ,       'D'                                                                         as dc_flag
+                            from  dc_latest
+                        ) as dl
+                  on fl.dc_code     =   dl.dc_code
+          )
+          on conflict ( franchise_code, franchise_priority ) do update
+              set dc_code                       =     excluded.dc_code
+              ,   dc_name                       =     excluded.dc_name
+              ,   rdc_code                      =     excluded.rdc_code
+              ,   rdc_name                      =     excluded.rdc_name
+              ,   franchise_name                =     excluded.franchise_name
+              ,   inventory_cap_value_fc        =     excluded.inventory_cap_value_fc
+              ,   inventory_cap_value_rdc       =     excluded.inventory_cap_value_rdc
+              ,   inventory_cap_value_dc        =     excluded.inventory_cap_value_dc
+              ,   lead_time_fc                  =     excluded.lead_time_fc
+              ,   lead_time_rdc                 =     excluded.lead_time_rdc
+              ,   lead_time_dc                  =     excluded.lead_time_dc
+              ,   relation_flag                 =     excluded.relation_flag
+              ,   update_date                   =     excluded.update_date
+          where   afm.update_date               <=    excluded.update_date
+          and (     afm.dc_name                 <>    excluded.dc_name
+                or  afm.rdc_name                <>    excluded.rdc_name
+                or  afm.inventory_cap_value_fc  <>    excluded.inventory_cap_value_fc
+                or  afm.inventory_cap_value_rdc <>    excluded.inventory_cap_value_rdc
+                or  afm.inventory_cap_value_dc  <>    excluded.inventory_cap_value_dc
+                or  afm.lead_time_fc            <>    excluded.lead_time_fc
+                or  afm.lead_time_rdc           <>    excluded.lead_time_rdc
+                or  afm.lead_time_dc            <>    excluded.lead_time_dc
+                or  afm.relation_flag           <>    excluded.relation_flag
+              )
+          "
+# ====================================
+# ----- ai_actual_sales_article_outer
+# ====================================
+ai_actual_sales_article_outer:
+  version: "2022-02-05"
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 )"
+      actual_sales_price: "numeric( 24, 8 )"
+      actual_sales_qty: "numeric( 24, 8 )"
+      actual_sales_value: "numeric( 24, 8 )"
+      day: "smallint not null"
+      data_date: "date not null"
+      start_of_week: "date not null"
+      start_of_month: "date not null"
+    primary_key: ['article_code', 'franchise_code', 'data_date']
+#    partition_by_range: ['start_of_month']
+  update:
+    from_src_actual_sales_transaction:
+      parameter: [
+          "run_date",
+          "data_date",
+          "window_start",
+          "date_range_recheck_day",
+          "date_range_sla_day_actual_sales",
+          "dt_format_src_actual_sales_trans"
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_actual_sales_article_outer                    as aasao
+        (
+          select  sast.article_code
+          ,       sast.franchise_code
+          ,       coalesce(sast.actual_sales_value / nullif(sast.actual_sales_qty, 0.0), 0.0)         as actual_sales_price
+          ,       coalesce(sast.actual_sales_qty, 0.0)                                                as actual_sales_qty
+          ,       coalesce(sast.actual_sales_value, 0.0)                                              as actual_sales_value
+          ,       date_part('day', sast.create_date)                                                  as day
+          ,       sast.create_date                                                                    as data_date
+          ,		  date_trunc('week',  sast.create_date)::date		                                  as start_of_week
+          ,		  date_trunc('month', sast.create_date)::date		                                  as start_of_month
+          from    ( select  soff                                                                      as franchise_code
+                    ,       case when trim(article_id) like '00%'
+                                 then replace(ltrim(replace(trim(article_id),'0',' ')),' ','0')
+                                 else trim(article_id)
+                            end                                                                       as article_code
+                    ,       to_date(create_date, '{dt_format_src_actual_sales_trans}')                as create_date
+                    ,       sum(coalesce(nullif(trim(sale_qty), ''), '0')::numeric)                   as actual_sales_qty
+                    ,       sum(coalesce(nullif(trim(net_inc_tax), ''), '0')::numeric)                as actual_sales_value
+                    from  {database_name}.{ai_schema_name}.src_actual_sales_transaction
+                    where   nullif(trim(article_id), '') is not null
+                    and   ( to_date(create_date, '{dt_format_src_actual_sales_trans}') between (date '{data_date}' - interval '{date_range_recheck_day} day')
+                                                                                       and     (date '{run_date}'  - interval '{date_range_sla_day_actual_sales} day')
+                          )
+                    group by 1,2,3
+                  ) as sast
+          left join {database_name}.{ai_schema_name}.ai_article_master                                as aam
+              on  aam.article_code    =   sast.article_code
+          where   aam.article_code is null
+        )
+        on conflict ( article_code, franchise_code, data_date ) do update
+              set   actual_sales_price                  =   excluded.actual_sales_price
+              ,     actual_sales_qty                    =   excluded.actual_sales_qty
+              ,     actual_sales_value                  =   excluded.actual_sales_value
+        where (     round(aasao.actual_sales_qty, 3)    <>  round(excluded.actual_sales_qty, 3)
+                and excluded.actual_sales_qty           >   0
+              )
+        or    (     round(aasao.actual_sales_value, 3)  <>  round(excluded.actual_sales_value, 3)
+                and excluded.actual_sales_value         >   0
+              )
+        "
+# ====================================
+# ----- ai_actual_sales_article
+# ====================================
+ai_actual_sales_article:
+  version: "2020-08-10"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 )"
+      cat_mch2_code: "varchar( 32 )"
+      cat_mch1_code: "varchar( 32 )"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      sales_price: "numeric( 20, 8 )"
+      purchase_price: "numeric( 20, 8 )"
+      franchise_code: "varchar( 64 ) not null"
+      actual_sales_price: "numeric( 24, 8 )"
+      actual_sales_qty: "numeric( 24, 8 )"
+      actual_sales_value: "numeric( 24, 8 )"
+      actual_sales_order_count: "integer"
+      day: "smallint not null"
+      data_date: "date not null"
+      start_of_week: "date not null"
+      start_of_month: "date not null"
+    primary_key: ['article_code', 'franchise_code', 'data_date']
+#    partition_by_range: ['start_of_month']
+  update:
+    from_src_actual_sales_transaction_join_ai_article_master:
+      parameter: [
+          "run_date",
+          "data_date",
+          "window_start",
+          "date_range_recheck_day",
+          "date_range_sla_day_actual_sales",
+          "dt_format_src_actual_sales_trans"
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_actual_sales_article                              as aasa
+        (
+          select  cat_mch3_code
+          ,       cat_mch2_code
+          ,       cat_mch1_code
+          ,       article_code
+          ,       brand
+          ,       case when sales_price = 0.01 or sales_price = 0.0
+                       then actual_sales_price
+                       else sales_price
+                  end                                                                                     as sales_price
+          ,       case when purchase_price = 0.01 or purchase_price = 0.0
+                       then actual_sales_price * 0.8
+                       else purchase_price
+                  end                                                                                     as purchase_price
+          ,       franchise_code
+          ,       actual_sales_price
+          ,       actual_sales_qty
+          ,       actual_sales_value
+          ,       actual_sales_order_count
+          ,       day
+          ,       data_date
+          ,       start_of_week
+          ,       start_of_month
+          from  ( select  aam.cat_mch3_code
+                  ,       aam.cat_mch2_code
+                  ,       aam.cat_mch1_code
+                  ,		  case when ( sast_temp.create_date between aam.replace_start
+                                                            and     aam.replace_end
+                                    )
+                               then aam.article_replace_code
+                               else aam.article_code
+                          end																		        as article_code
+                  ,       aam.brand
+                  ,       case when ( sast_temp.create_date between aam.sales_pro_start
+                                                            and     aam.sales_pro_end
+                                    )
+                               then aam.sales_price_pro
+                               else aam.sales_price
+                          end                                                                             as sales_price
+                  ,       case when sast_temp.create_date <= aam.purchase_end
+                               then aam.purchase_price
+                               else 0::numeric
+                          end                                                                             as purchase_price
+                  ,		  sast_temp.franchise_code
+                  ,       coalesce(actual_sales_value / nullif(actual_sales_qty, 0.0), 0.0)               as actual_sales_price
+                  ,       coalesce(sast_temp.actual_sales_qty, 0.0)                                       as actual_sales_qty
+                  ,       coalesce(sast_temp.actual_sales_value, 0.0)                                     as actual_sales_value
+                  ,       coalesce(aasoa.actual_sales_order_count, 0)                                     as actual_sales_order_count
+                  ,       date_part('day', sast_temp.create_date)                                         as day
+                  ,       sast_temp.create_date                                                           as data_date
+                  ,		  date_trunc('week',  sast_temp.create_date)::date		                          as start_of_week
+                  ,		  date_trunc('month', sast_temp.create_date)::date		                          as start_of_month
+                  from  {database_name}.{ai_schema_name}.ai_article_master                                as aam
+                  inner join  ( select  trim(soff)                                                        as franchise_code
+                                ,       case when article_id like '00%'
+                                             then replace(ltrim(replace(trim(article_id),'0',' ')),' ','0')
+                                             else trim(article_id)
+                                        end                                                               as article_code
+                                ,       to_date(create_date, '{dt_format_src_actual_sales_trans}')        as create_date
+                                ,       sum(coalesce(nullif(trim(sale_qty), ''), '0')::numeric)           as actual_sales_qty
+                                ,       sum(coalesce(nullif(trim(net_inc_tax), ''), '0')::numeric)        as actual_sales_value
+                                from  {database_name}.{ai_schema_name}.src_actual_sales_transaction
+                                where   coalesce(nullif(trim(net_inc_tax), ''), '0')::numeric >= 0
+                                and     coalesce(nullif(trim(sale_qty), ''), '0')::numeric >= 0
+                                and     nullif(trim(article_id), '') is not null
+                                and     nullif(trim(soff), '') is not null
+                                and   ( to_date(create_date, '{dt_format_src_actual_sales_trans}') between (date '{data_date}' - interval '{date_range_recheck_day} day')
+                                                                                                   and     (date '{run_date}'  - interval '{date_range_sla_day_actual_sales} day')
+                                      )
+                                group by 1,2,3
+                              ) as sast_temp
+                      on  aam.article_code    =   sast_temp.article_code
+                  left join   ( select  franchise_code
+                                ,       article_code
+                                ,       data_date
+                                ,       sum(actual_sales_qty)                                             as actual_sales_order_qty
+                                ,       sum(actual_sales_value)                                           as actual_sales_order_value
+                                ,       sum(actual_sales_order_flag)                                      as actual_sales_order_count
+                                from  {database_name}.{ai_schema_name}.ai_actual_sales_order_article
+                                where ( data_date between (date '{data_date}' - interval '{date_range_recheck_day} day')
+                                                  and     (date '{run_date}'  - interval '{date_range_sla_day_actual_sales} day')
+                                      )
+                                group by 1,2,3
+                              ) as aasoa
+                      on  aasoa.franchise_code  =   sast_temp.franchise_code
+                      and aasoa.article_code    =   sast_temp.article_code
+                      and aasoa.data_date       =   sast_temp.create_date
+                ) as sast
+        )
+        on conflict ( article_code, franchise_code, data_date ) do update
+              set   cat_mch3_code                       =   excluded.cat_mch3_code
+              ,     cat_mch2_code                       =   excluded.cat_mch2_code
+              ,     cat_mch1_code                       =   excluded.cat_mch1_code
+              ,     brand                               =   excluded.brand
+              ,     sales_price                         =   excluded.sales_price
+              ,     purchase_price                      =   excluded.purchase_price
+              ,     actual_sales_price                  =   excluded.actual_sales_price
+              ,     actual_sales_qty                    =   excluded.actual_sales_qty
+              ,     actual_sales_value                  =   excluded.actual_sales_value
+              ,     actual_sales_order_count            =   excluded.actual_sales_order_count
+        where (     round(aasa.actual_sales_qty, 3)     <>  round(excluded.actual_sales_qty, 3)
+                and excluded.actual_sales_qty           >   0
+              )
+        or    (     round(aasa.actual_sales_value, 3)   <>  round(excluded.actual_sales_value, 3)
+                and excluded.actual_sales_value         >   0
+              )
+        or    aasa.actual_sales_order_count             <>  excluded.actual_sales_order_count
+        "
+# ====================================
+# ----- ai_actual_sales_mch3
+# ====================================
+ai_actual_sales_mch3:
+  version: "2020-08-10"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      actual_sales_qty: "numeric( 24, 8 )"
+      actual_sales_value: "numeric( 24, 8 )"
+      start_of_month: "date not null"
+    primary_key: ['cat_mch3_code', 'start_of_month']
+  update:
+    from_ai_actual_sales_article:
+      parameter: [
+          "data_date",
+          "run_date",
+          "date_range_recheck_month",
+          "date_range_sla_month"
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_actual_sales_mch3 as aasm
+        (
+            select  cat_mch3_code
+            ,       sum(actual_sales_qty)                                 as actual_sales_qty
+            ,       sum(actual_sales_value)                               as actual_sales_value
+            ,       start_of_month
+            from    {database_name}.{ai_schema_name}.ai_actual_sales_article
+            where ( start_of_month between date_trunc('month', (date '{data_date}') - interval '{date_range_recheck_month} month')::date
+                                   and     date_trunc('month', (date '{run_date}'   - interval '{date_range_sla_month} month'))::date
+                  )
+            group by 1,4
+        )
+        on conflict ( cat_mch3_code, start_of_month ) do update
+              set   actual_sales_qty	                  =   excluded.actual_sales_qty
+              ,     actual_sales_value	              =   excluded.actual_sales_value
+        where (     round(aasm.actual_sales_qty, 3)     <>  round(excluded.actual_sales_qty, 3)
+                and excluded.actual_sales_qty           >   0
+              )
+        or    (     round(aasm.actual_sales_value, 3)   <>  round(excluded.actual_sales_value, 3)
+                and excluded.actual_sales_value         >   0
+              )
+        "
+# ====================================
+# ----- ai_sales_target_mch3
+# ====================================
+ai_sales_target_mch3:
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      sales_target_value_previous: "numeric( 24, 8 )"
+      sales_target_value_current: "numeric( 24, 8 )"
+      start_of_month: "date not null"
+      update_date: "date not null"
+    primary_key: ['cat_mch3_code', 'start_of_month']
+  update:
+    from_imp_sales_target:
+      parameter: ["run_date"]
+      statements:
+        with_previous_target_value: "
+          select  cat_mch3_code
+          ,       sales_target_value_current                                                                    as sales_target_previous
+          ,       start_of_month
+          from {database_name}.{ai_schema_name}.ai_sales_target_mch3
+          where ( start_of_month between date_trunc('year', (date '{run_date}' - interval '1 year'))::date
+                                 and     date_trunc('year', (date '{run_date}' + interval '1 year'))::date
+                )
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_sales_target_mch3                                     as astm
+          (
+              select  ist.cat_mch3_code
+              ,       pist.sales_target_previous                                                                as sales_target_value_previous
+              ,       coalesce(coalesce(nullif(ist.sales_target_value,
+                                0.0), pist.sales_target_previous),
+                                0.0)                                                                            as sales_target_value_current
+              ,       ist.start_of_month
+              ,       ist.update_date
+
+              from  {database_name}.{ai_schema_name}.imp_sales_target                                           as ist
+              left join previous_target_value                                                                   as pist
+                  on  ist.cat_mch3_code     =   pist.cat_mch3_code
+                  and ist.start_of_month    =   pist.start_of_month
+              where ist.update_date in (  select  max(update_date)                                              as update_date
+                                          from {database_name}.{ai_schema_name}.imp_sales_target
+                                       )
+          )
+          on conflict ( cat_mch3_code, start_of_month ) do update
+                set   sales_target_value_previous       =   excluded.sales_target_value_previous
+                ,     sales_target_value_current        =   excluded.sales_target_value_current
+                ,     update_date                       =   excluded.update_date
+          /* NOTE: This line will filter when sales target value does not send new data */
+          where astm.update_date                        <   excluded.update_date
+          "
+# ====================================
+# ----- ai_sales_target_fc
+# ====================================
+ai_sales_target_fc:
+  create:
+    features:
+      franchise_code: "varchar( 64 ) not null"
+      sales_target_value_previous: "numeric( 24, 8 )"
+      sales_target_value_current: "numeric( 24, 8 )"
+      start_of_month: "date not null"
+      update_date: "date not null"
+    primary_key: ['franchise_code', 'start_of_month']
+  update:
+    from_imp_sales_target_fc:
+      parameter: ["run_date"]
+      statements:
+        with_previous_target_value: "
+          select  franchise_code
+          ,       sales_target_value_current                                                                  as sales_target_previous
+          ,       start_of_month
+          from  {database_name}.{ai_schema_name}.ai_sales_target_fc
+          where ( start_of_month between date_trunc('year', (date '{run_date}' - interval '1 year'))::date
+                                 and     date_trunc('year', (date '{run_date}' + interval '1 year'))::date
+                )
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_sales_target_fc                                       as astf
+          (
+              select  istf.franchise_code
+              ,       pistf.sales_target_previous                                                               as sales_target_value_previous
+              ,       coalesce(coalesce(nullif(istf.sales_target_value,
+                                0.0), pistf.sales_target_previous),
+                                0.0)                                                                            as sales_target_value_current
+              ,       istf.start_of_month
+              ,       istf.update_date
+              from  {database_name}.{ai_schema_name}.imp_sales_target_fc                                        as istf
+              left join previous_target_value                                                                   as pistf
+                  on  istf.franchise_code    =   pistf.franchise_code
+                  and istf.start_of_month    =   pistf.start_of_month
+              where istf.update_date in ( select  max(update_date)                                              as update_date
+                                          from {database_name}.{ai_schema_name}.imp_sales_target_fc
+                                        )
+          )
+          on conflict ( franchise_code, start_of_month ) do update
+                set   sales_target_value_previous       =   excluded.sales_target_value_previous
+                ,     sales_target_value_current        =   excluded.sales_target_value_current
+                ,     update_date                       =   excluded.update_date
+
+          /* NOTE: This line will filter when sales target value does not send new data */
+          where astf.update_date                        <   excluded.update_date
+          "
+# ====================================
+# ----- ai_sales_target_mch3_fc
+# ====================================
+ai_sales_target_mch3_fc:
+  version: "2021-12-15"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      sales_target_value: "numeric( 24, 8 )"
+      start_of_month: "date not null"
+      update_date: "date not null"
+    primary_key: ['cat_mch3_code', 'franchise_code', 'start_of_month']
+  update:
+    from_ai_sales_target_mch3_and_fc:
+      parameter: [
+          'run_date',
+          'window_start'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_sales_target_mch3_fc                                    as astmf
+        (
+            select  cat_mch3_code
+            ,		franchise_code
+            ,		coalesce(astm.sales_target_value
+                              * astf.sales_target_value
+                              / nullif(astf.sales_target_value_month, 0.0)
+                              , 0.0)                                                                            as sales_target_value
+            ,		astm.start_of_month
+            ,       '{run_date}'::date                                                                          as update_date
+            from  (   select  astm_all.cat_mch3_code
+                      ,       sales_target_value_current                                                        as sales_target_value
+                      ,       astm_all.start_of_month
+                      from  {database_name}.{ai_schema_name}.ai_sales_target_mch3                               as astm_all
+                      inner join  ( select  cat_mch3_code
+                                    ,       start_of_month
+                                    ,       max(update_date)                                                    as update_date
+                                    from  {database_name}.{ai_schema_name}.ai_sales_target_mch3
+                                    group by 1,2
+                                  ) as astm_max
+                          on  astm_all.cat_mch3_code     =   astm_max.cat_mch3_code
+                          and astm_all.start_of_month     =   astm_max.start_of_month
+                      where astm_all.start_of_month >= date_trunc('year', (date '{run_date}' - interval '{window_start} month' - interval '1 year'))::date
+                  ) as astm
+            inner join  ( select  astf_all.franchise_code
+                          ,		  sales_target_value_current                                                    as sales_target_value
+                          ,       astf_all.start_of_month
+                          ,		  sum(sales_target_value_current) over (
+                                        partition by astf_all.start_of_month
+                                        )                                                                       as sales_target_value_month
+                          from {database_name}.{ai_schema_name}.ai_sales_target_fc                              as astf_all
+                          inner join  ( select  franchise_code
+                                        ,       start_of_month
+                                        ,       max(update_date)                                                as update_date
+                                        from  {database_name}.{ai_schema_name}.ai_sales_target_fc
+                                        group by 1,2
+                                      ) as astf_max
+                              on  astf_all.franchise_code   =   astf_max.franchise_code
+                              and astf_all.start_of_month   =   astf_max.start_of_month
+                          where   astf_all.start_of_month >= date_trunc('year', (date '{run_date}' - interval '{window_start} month' - interval '1 year'))::date
+                        ) as astf
+                on astm.start_of_month = astf.start_of_month
+        )
+        on conflict ( cat_mch3_code, franchise_code, start_of_month ) do update
+              set   sales_target_value                  =   excluded.sales_target_value
+        where (     round(astmf.sales_target_value, 3)  <>  round(excluded.sales_target_value, 3)
+                and excluded.sales_target_value         >   0
+              )
+        "
+# ====================================
+# ----- ai_sales_target_article
+# ====================================
+ai_sales_target_article:
+  version: "2021-12-15"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      article_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      sales_target_value: "numeric( 24, 8 )"
+      start_of_week: "date not null"
+      start_of_month: "date not null"
+      run_date: "date not null"
+    primary_key: ['article_code', 'franchise_code', 'start_of_week', 'start_of_month']
+  update:
+    from_ai_sales_target_mch3_to_ai_sales_target_article:
+      parameter: [
+          "run_date",
+          "window_start",
+          "window_end",
+          "date_range_sla_month",
+          "date_range_sla_month_target",
+          "allocate_prop_filter_target",
+          "actual_sales_filter_sales_price"
+      ]
+      statements:
+        with ai_actual_sales_article_prop: "
+          select  cat_mch3_code
+          ,       article_code
+          ,       franchise_code
+          ,       actual_sales_qty_sum_rolling / adm.days                                                 as actual_sales_qty_avg_rolling
+          ,       actual_sales_value_sum_rolling / adm.days                                               as actual_sales_value_avg_rolling
+          ,		  coalesce((actual_sales_value_sum_rolling / adm.days)
+                              / nullif(sum((actual_sales_value_sum_rolling / adm.days))
+                              over ( partition by cat_mch3_code
+                              ), 0.0), 0.0)                                                               as actual_sales_value_prop
+          ,       aasa.day
+          from  (   select  cat_mch3_code
+                    ,       article_code
+                    ,       franchise_code
+                    ,       coalesce(sum(actual_sales_qty), 0.0)::numeric                                 as actual_sales_qty_sum_rolling
+                    ,       coalesce(sum(actual_sales_value), 0.0)::numeric                               as actual_sales_value_sum_rolling
+                    ,		  day::smallint                                                               as day
+                    from  {database_name}.{ai_schema_name}.ai_actual_sales_article
+                    where ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{window_start} month' - interval '{date_range_sla_month} month'))::date
+                                           and     date_trunc('month', (date '{run_date}' - interval '{window_end} month'   - interval '{date_range_sla_month} month'))::date
+                          )
+                    group by 1,2,3,6
+                ) as aasa
+          inner join  (   select  day::smallint                                                           as day
+                          ,       count(1)::numeric                                                       as days
+                          from  {database_name}.{ai_schema_name}.ai_date_master
+                          where ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{window_start} month' - interval '{date_range_sla_month} month'))::date
+                                                 and     date_trunc('month', (date '{run_date}' - interval '{window_end} month'   - interval '{date_range_sla_month} month'))::date
+                                )
+                          group by 1
+                      ) as adm
+              on  aasa.day    =   adm.day
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_sales_target_article                            as asta
+          (
+              select  cat_mch3_code
+              ,       cat_mch2_code
+              ,       cat_mch1_code
+              ,       article_code
+              ,       franchise_code
+              ,       sum(target_allocated_value)                                                         as sales_target_value
+              ,		  date_trunc('week', data_date)::date	                                              as start_of_week
+              ,		  date_trunc('month', data_date)::date                                                as start_of_month
+              ,       '{run_date}'::date                                                                  as run_date
+              from  (   select  aam.cat_mch3_code
+                        ,       aam.cat_mch2_code
+                        ,       aam.cat_mch1_code
+                        ,       aam.article_code
+                        ,       aasap.franchise_code
+                        ,       coalesce(sales_target_value * actual_sales_value_prop
+                                                / nullif(sum(actual_sales_value_prop) over (
+                                                partition by start_of_month, aam.cat_mch3_code
+                                                ), 0.0), 0.0)						                      as target_allocated_value
+                        ,       make_date(date_part('year', start_of_month)::integer,
+                                          date_part('month', start_of_month)::integer, day
+                                         )									                              as data_date
+                        from  (   select  cat_mch3_code
+                                  ,       sales_target_value_current                                      as sales_target_value
+                                  ,       start_of_month
+                                  from  {database_name}.{ai_schema_name}.ai_sales_target_mch3
+                                  where   start_of_month >= date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month_target} month'))::date
+                              ) as astmf
+                        inner join  ai_actual_sales_article_prop                                          as aasap
+                            on  astmf.cat_mch3_code       =    aasap.cat_mch3_code
+                        inner join  {database_name}.{ai_schema_name}.ai_article_master                    as aam
+                            on  aasap.cat_mch3_code       =    aam.cat_mch3_code
+                            and aasap.article_code        =    aam.article_code
+                        where day <= extract(day from start_of_month + '1 month'::interval - '1 day'::interval)
+                        {allocate_prop_filter_target}
+                    ) as istp
+              group by 1,2,3,4,5,7,8
+          )
+          on conflict ( article_code, franchise_code, start_of_week, start_of_month ) do update
+                set   cat_mch3_code                       =   excluded.cat_mch3_code
+                ,     cat_mch2_code                       =   excluded.cat_mch2_code
+                ,     cat_mch1_code                       =   excluded.cat_mch1_code
+                ,     sales_target_value                  =   excluded.sales_target_value
+                ,     run_date                            =   excluded.run_date
+          where (     round(asta.sales_target_value, 3)   <>  round(excluded.sales_target_value, 3)
+                  and excluded.sales_target_value         >   0
+                )
+          "
+    from_ai_sales_target_mch3_fc_to_ai_sales_target_article:
+      parameter: [
+          "run_date",
+          "window_start",
+          "window_end",
+          "date_range_sla_month",
+          "date_range_sla_month_target",
+          "allocate_prop_filter_target",
+          "actual_sales_filter_sales_price"
+      ]
+      statements:
+        with_ai_actual_sales_article_prop: "
+          select  cat_mch3_code
+          ,       article_code
+          ,       franchise_code
+          ,       actual_sales_qty_sum_rolling / adm.days                                                 as actual_sales_qty_avg_rolling
+          ,       actual_sales_value_sum_rolling / adm.days                                               as actual_sales_value_avg_rolling
+          ,		coalesce((actual_sales_value_sum_rolling / adm.days)
+                              / nullif(sum((actual_sales_value_sum_rolling / adm.days))
+                              over ( partition by cat_mch3_code, franchise_code
+                              ), 0.0), 0.0)                                                               as actual_sales_value_prop
+          ,       aasa.day
+          from  (   select  cat_mch3_code
+                    ,       article_code
+                    ,       franchise_code
+                    ,       coalesce(sum(actual_sales_qty), 0.0)::numeric                                 as actual_sales_qty_sum_rolling
+                    ,       coalesce(sum(actual_sales_value), 0.0)::numeric                               as actual_sales_value_sum_rolling
+                    ,		  day::smallint                                                               as day
+                    from  {database_name}.{ai_schema_name}.ai_actual_sales_article
+                    where ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{window_start} month' - interval '{date_range_sla_month} month'))::date
+                                           and     date_trunc('month', (date '{run_date}' - interval '{window_end} month'   - interval '{date_range_sla_month} month'))::date
+                          )
+                    group by 1,2,3,6
+                ) as aasa
+          inner join  (   select  day::smallint                                                           as day
+                          ,       count(1)::numeric                                                       as days
+                          from  {database_name}.{ai_schema_name}.ai_date_master
+                          where ( start_of_month between date_trunc('month', (date '{run_date}' - interval '{window_start} month' - interval '{date_range_sla_month} month'))::date
+                                                 and     date_trunc('month', (date '{run_date}' - interval '{window_end} month'   - interval '{date_range_sla_month} month'))::date
+                                )
+                          group by 1
+                      ) as adm
+              on  aasa.day    =   adm.day
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_sales_target_article                            as asta
+          (
+              select  cat_mch3_code
+              ,       cat_mch2_code
+              ,       cat_mch1_code
+              ,       article_code
+              ,       franchise_code
+              ,       sum(target_allocated_value)                                                         as sales_target_value
+              ,		  date_trunc('week', data_date)::date	                                              as start_of_week
+              ,		  date_trunc('month', data_date)::date                                                as start_of_month
+              ,       '{run_date}'::date                                                                  as run_date
+              from  (   select  aam.cat_mch3_code
+                        ,       aam.cat_mch2_code
+                        ,       aam.cat_mch1_code
+                        ,       aam.article_code
+                        ,       aasap.franchise_code
+                        ,       coalesce(sales_target_value * actual_sales_value_prop
+                                                / nullif(sum(actual_sales_value_prop) over (
+                                                partition by start_of_month, aam.cat_mch3_code, aasap.franchise_code
+                                                ), 0.0), 0.0)						                      as target_allocated_value
+                        ,       make_date(date_part('year', start_of_month)::integer,
+                                          date_part('month', start_of_month)::integer, day
+                                         )									                              as data_date
+                        from  (   select  cat_mch3_code
+                                  ,		  franchise_code
+                                  ,       sales_target_value
+                                  ,       start_of_month
+                                  from  {database_name}.{ai_schema_name}.ai_sales_target_mch3_fc
+                                  where   start_of_month >= date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month_target} month'))::date
+                              ) as astmf
+                        inner join  ai_actual_sales_article_prop                                          as aasap
+                            on  astmf.cat_mch3_code    =    aasap.cat_mch3_code
+                            and astmf.franchise_code   =    aasap.franchise_code
+                        inner join  {database_name}.{ai_schema_name}.ai_article_master                    as aam
+                            on  aasap.cat_mch3_code    =    aam.cat_mch3_code
+                            and aasap.article_code     =    aam.article_code
+                        where day <= extract(day from start_of_month + '1 month'::interval - '1 day'::interval)
+                        {allocate_prop_filter_target}
+                    ) as istp
+              group by 1,2,3,4,5,7,8
+          )
+          on conflict ( article_code, franchise_code, start_of_week, start_of_month ) do update
+                set   cat_mch3_code                       =   excluded.cat_mch3_code
+                ,     cat_mch2_code                       =   excluded.cat_mch2_code
+                ,     cat_mch1_code                       =   excluded.cat_mch1_code
+                ,     sales_target_value                  =   excluded.sales_target_value
+                ,     run_date                            =   excluded.run_date
+          where (     round(asta.sales_target_value, 3)   <>  round(excluded.sales_target_value, 3)
+                  and excluded.sales_target_value         >   0
+                )
+          "
+    from_ai_sales_target_mch3_fc_to_ai_sales_target_article_outer:
+      parameter: [
+          "run_date",
+          "window_start",
+          "window_end",
+          "date_range_sla_month",
+          "date_range_sla_month_target",
+          "allocate_prop_filter_target",
+          "actual_sales_filter_sales_price"
+      ]
+      statements:
+        with_ai_sales_target_article_prop: "
+          select	cat_mch3_code
+          ,		cat_mch2_code
+          ,		cat_mch1_code
+          ,		article_code
+          ,		coalesce(sales_target_value
+                            / nullif(sum(sales_target_value) over (
+                            partition by cat_mch3_code, start_of_month
+                            ), 0.0), 0.0)										              as sales_target_value_prop
+          ,		start_of_week
+          ,		start_of_month
+          from  (   select  cat_mch3_code
+                    ,       cat_mch2_code
+                    ,       cat_mch1_code
+                    ,       article_code
+                    ,       sum(sales_target_value)                                           as sales_target_value
+                    ,       start_of_week
+                    ,       start_of_month
+                    from  {database_name}.{ai_schema_name}.ai_sales_target_article
+                    where   start_of_month >= date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month_target} month'))::date
+                    group by 1,2,3,4,6,7
+                ) as asta_temp
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_sales_target_article                as asta
+          (
+              select  astap.cat_mch3_code
+              ,		  astap.cat_mch2_code
+              ,		  astap.cat_mch1_code
+              ,		  astap.article_code
+              ,		  astmf.franchise_code
+              ,		  astmf.sales_target_value * astap.sales_target_value_prop		          as sales_target_value
+              ,		  astap.start_of_week
+              ,       astmf.start_of_month
+              ,       '{run_date}'::date                                                      as run_date
+              from  (   select	astmf_temp.cat_mch3_code
+                        ,		astmf_temp.franchise_code
+                        ,		astmf_temp.sales_target_value							      as sales_target_value
+                        ,       astmf_temp.start_of_month
+                        from {database_name}.{ai_schema_name}.ai_sales_target_mch3_fc         as astmf_temp
+                        left join	(	select	cat_mch3_code
+                                        ,		franchise_code
+                                        ,		start_of_month
+                                        ,		sum(sales_target_value)			              as sales_target_value
+                                        from {database_name}.{ai_schema_name}.ai_sales_target_article
+                                        where start_of_month >= date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month_target} month'))::date
+                                        group by 1,2,3
+                                    ) as asta
+                            on	astmf_temp.cat_mch3_code = asta.cat_mch3_code
+                            and astmf_temp.franchise_code = asta.franchise_code
+                            and astmf_temp.start_of_month = asta.start_of_month
+                        where	asta.franchise_code is null
+                        and		astmf_temp.sales_target_value > 0
+                        and     astmf_temp.start_of_month >= date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month_target} month'))::date
+                    ) as astmf
+              inner join ai_sales_target_article_prop                                          as astap
+                  on  astmf.cat_mch3_code   =   astap.cat_mch3_code
+                  and astmf.start_of_month  =   astap.start_of_month
+          )
+          on conflict ( article_code, franchise_code, start_of_week, start_of_month ) do update
+                set   cat_mch3_code                       =   excluded.cat_mch3_code
+                ,     cat_mch2_code                       =   excluded.cat_mch2_code
+                ,     cat_mch1_code                       =   excluded.cat_mch1_code
+                ,     sales_target_value                  =   excluded.sales_target_value
+                ,     run_date                            =   excluded.run_date
+          where (     round(asta.sales_target_value, 3)   <>  round(excluded.sales_target_value, 3)
+                  and excluded.sales_target_value         >   0
+                )
+          "
+# ====================================
+# ----- ai_article_grouping
+# ====================================
+ai_article_grouping:
+  version: "2022-01-15"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      cat_mc_code: "varchar( 32 ) not null"
+      cat_group_id: "varchar( 64 ) not null"
+      tile_size: "varchar( 128 )"
+      sales_price_min: "numeric( 20, 8 )"
+      sales_price_max: "numeric( 20, 8 )"
+      table_map_key: "varchar( 128 ) not null"
+      update_date: "date not null"
+    primary_key: ['table_map_key']
+  update:
+    from_src_article_grouping:
+      priority: 1
+      parameter: ["dt_format_src_article_grouping"]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_article_grouping                        as aag
+        (
+            select  sagm.cat_mch3_code
+            ,       sagm.cat_mch2_code
+            ,       sagm.cat_mch1_code
+            ,       sagm.cat_mc_code
+            ,       concat(sagm.cat_mch3_code, '-GP-', sagm.group_id)                           as cat_group_id
+            ,       tile_size
+            ,       sales_price_min
+            ,       sales_price_max
+            ,       concat(sagm.cat_mc_code, '|', sagm.tbl_key)                                 as table_map_key
+            ,       sagm.update_date
+            from  (   select  cat_mch3_code
+                      ,       cat_mch2_code
+                      ,       cat_mch1_code
+                      ,       cat_mc_code
+                      ,       group_id
+                      ,       nullif(trim(upper(attribute_ztile_size)), '')                     as tile_size
+                      ,       nullif(trim(sales_price_min), '')::numeric                        as sales_price_min
+                      ,       nullif(trim(sales_price_max), '')::numeric                        as sales_price_max
+                      ,       case when nullif(trim(attribute_ztile_size), '') is null
+                                   then concat(sales_price_min, '|', sales_price_max)
+                                   else upper(trim(attribute_ztile_size))
+                              end                                                               as tbl_key
+                      ,       to_date(create_date, '{dt_format_src_article_grouping}')          as create_date
+                      ,       to_date(update_date, '{dt_format_src_article_grouping}')          as update_date
+                      from  {database_name}.{ai_schema_name}.src_article_grouping
+                      where nullif(group_id, '') is not null
+                      and   nullif(cat_mch1_code, '') is not null
+                      and   nullif(cat_mc_code, '') is not null
+                      and   nullif(trim(update_date), '') is not null
+                      and   (     sales_price_min <> 'ยกเลิก'
+                              or  sales_price_max <> 'ยกเลิก'
+                            )
+                  ) as sagm
+            inner join  ( select  cat_mch1_code
+                          ,       cat_mc_code
+                          ,       group_id
+                          ,       max(to_date(create_date, '{dt_format_src_article_grouping}'))   as create_date
+                          ,       max(to_date(update_date, '{dt_format_src_article_grouping}'))   as update_date
+                          from  {database_name}.{ai_schema_name}.src_article_grouping
+                          group by 1,2,3
+                        ) as sagm_max
+                on  sagm_max.cat_mch1_code     =   sagm.cat_mch1_code
+                and sagm_max.cat_mc_code       =   sagm.cat_mc_code
+                and sagm_max.group_id          =   sagm.group_id
+                and sagm_max.create_date       =   sagm.create_date
+                and sagm_max.update_date       =   sagm.update_date
+        )
+        on conflict ( table_map_key ) do update
+            set   cat_group_id                =   excluded.cat_group_id
+        where aag.update_date                  <=  excluded.update_date
+        and   coalesce(aag.cat_group_id, '')  <>  coalesce(excluded.cat_group_id, '')
+        "
+    update_to_ai_article_master_for_sales_price_range:
+      priority: 2
+      parameter: [
+          'prod_cls_mch3_grouping_by_sales_price',
+          'prod_cls_item_flag_filter',
+          'prod_cls_item_status_filter'
+      ]
+      statement: "
+        update {database_name}.{ai_schema_name}.ai_article_master as aam
+              set   cat_group_id       =   aag_map.cat_group_id
+        from  (   select  aam_temp.cat_mch3_code
+                  ,       aam_temp.cat_mch2_code
+                  ,       aam_temp.cat_mch1_code
+                  ,       aam_temp.cat_mc_code
+                  ,       cat_group_id
+                  ,       article_code
+                  from  ( select  cat_mch3_code
+                          ,       cat_mch2_code
+                          ,       cat_mch1_code
+                          ,       cat_mc_code
+                          ,       article_code
+                          ,       sales_price
+                          from    {database_name}.{ai_schema_name}.ai_article_master
+                          where cat_mch3_code in {prod_cls_mch3_grouping_by_sales_price}
+                          and   sales_price is not null
+                          {prod_cls_item_flag_filter}
+                          {prod_cls_item_status_filter}
+                        ) as aam_temp
+                  inner join  ( select  cat_mch3_code
+                                ,       cat_mch2_code
+                                ,       cat_mch1_code
+                                ,       cat_mc_code
+                                ,       cat_group_id
+                                ,       sales_price_min
+                                ,       sales_price_max
+                                from  {database_name}.{ai_schema_name}.ai_article_grouping
+                                where cat_mch3_code in {prod_cls_mch3_grouping_by_sales_price}
+                              ) as aag
+                      on  aam_temp.cat_mch3_code       =   aag.cat_mch3_code
+                      and aam_temp.cat_mch2_code       =   aag.cat_mch2_code
+                      and aam_temp.cat_mch1_code       =   aag.cat_mch1_code
+                      and aam_temp.cat_mc_code         =   aag.cat_mc_code
+                      and (     aam_temp.sales_price   >   aag.sales_price_min
+                            and aam_temp.sales_price   <=  aag.sales_price_max
+                          )
+              ) as aag_map
+        where aam.cat_mch3_code                    =   aag_map.cat_mch3_code
+        and   aam.cat_mch2_code                    =   aag_map.cat_mch2_code
+        and   aam.cat_mch1_code                    =   aag_map.cat_mch1_code
+        and   aam.cat_mc_code                      =   aag_map.cat_mc_code
+        and   aam.article_code                     =   aag_map.article_code
+        and (     coalesce(aam.cat_group_id, '')   <>  coalesce(aag_map.cat_group_id, '')
+              or  aam.cat_group_id                 is  null
+            )
+        "
+    update_to_ai_article_master_for_tile_size:
+      priority: 3
+      parameter: [
+          'prod_cls_mch3_grouping_by_tile_size',
+          'prod_cls_item_flag_filter',
+          'prod_cls_item_status_filter'
+      ]
+      statement: "
+        update {database_name}.{ai_schema_name}.ai_article_master                               as aam
+              set   cat_group_id       =   aag_map.cat_group_id
+        from  (   select  aam_temp.cat_mch3_code
+                  ,       aam_temp.cat_mch2_code
+                  ,       aam_temp.cat_mch1_code
+                  ,       aam_temp.cat_mc_code
+                  ,       cat_group_id
+                  ,       article_code
+                  from  ( select  cat_mch3_code
+                          ,       cat_mch2_code
+                          ,       cat_mch1_code
+                          ,       cat_mc_code
+                          ,       article_code
+                          ,       coalesce(nullif(trim(upper(tile_size)), ''), '(BLANK)')       as tile_size
+                          from  {database_name}.{ai_schema_name}.ai_article_master
+                          where cat_mch3_code in {prod_cls_mch3_grouping_by_tile_size}
+                          and	  tile_size is not null
+                          {prod_cls_item_flag_filter}
+                          {prod_cls_item_status_filter}
+                        ) as aam_temp
+                  inner join  ( select  cat_mch3_code
+                                ,       cat_mch2_code
+                                ,       cat_mch1_code
+                                ,       cat_mc_code
+                                ,       cat_group_id
+                                ,       coalesce(nullif(trim(upper(tile_size)), ''), '(BLANK)') as tile_size
+                                from  {database_name}.{ai_schema_name}.ai_article_grouping
+                                where   cat_mch3_code in {prod_cls_mch3_grouping_by_tile_size}
+                              ) as aag
+                      on  aam_temp.cat_mch3_code    =   aag.cat_mch3_code
+                      and aam_temp.cat_mch2_code    =   aag.cat_mch2_code
+                      and aam_temp.cat_mch1_code    =   aag.cat_mch1_code
+                      and aam_temp.cat_mc_code      =   aag.cat_mc_code
+                      and aam_temp.tile_size        =   aag.tile_size
+              ) as aag_map
+        where aam.cat_mch3_code                     =   aag_map.cat_mch3_code
+        and   aam.cat_mch2_code                     =   aag_map.cat_mch2_code
+        and   aam.cat_mch1_code                     =   aag_map.cat_mch1_code
+        and   aam.cat_mc_code                       =   aag_map.cat_mc_code
+        and   aam.article_code                      =   aag_map.article_code
+        and (     coalesce(aam.cat_group_id, '')    <>  coalesce(aag_map.cat_group_id, '')
+              or  aam.cat_group_id                  is  null
+            )
+        "
+# ====================================
+# ----- ai_sales_order_article
+# ====================================
+ai_sales_order_article:
+  version: "2022-05-10"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 )"
+      cat_mch2_code: "varchar( 32 )"
+      cat_mch1_code: "varchar( 32 )"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      franchise_code: "varchar( 64 ) not null"
+      sales_order_id: "varchar( 64 ) not null"
+      sales_order_price: "numeric( 24, 8 )"
+      sales_order_qty: "numeric( 24, 8 )"
+      sales_order_value: "numeric( 24, 8 )"
+      day: "smallint not null"
+      data_date: "date not null"
+      start_of_week: "date not null"
+      start_of_month: "date not null"
+    primary_key: ['franchise_code', 'article_code', 'sales_order_id', 'data_date']
+  update:
+    from_src_sales_order_transaction_join_ai_article_master:
+      parameter: [
+          'run_date',
+          'data_date',
+          'window_start',
+          'date_range_recheck_day',
+          'dt_format_src_sales_order_trans',
+          'date_range_sla_day_sales_order'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_sales_order_article                               as asoa
+        (
+          select  cat_mch3_code
+          ,       cat_mch2_code
+          ,       cat_mch1_code
+          ,       article_code
+          ,       brand
+          ,       franchise_code
+          ,       sales_order_id
+          ,       sales_order_price
+          ,       sales_order_qty
+          ,       sales_order_value
+          ,       day
+          ,       data_date
+          ,       start_of_week
+          ,       start_of_month
+          from  ( select  aam.cat_mch3_code
+                  ,       aam.cat_mch2_code
+                  ,       aam.cat_mch1_code
+                  ,		  aam.article_code
+                  ,       aam.brand
+                  ,		  sst_temp.franchise_code
+                  ,       sst_temp.sales_order_id
+                  ,       coalesce(sales_order_value / nullif(sales_order_qty, 0.0), 0.0)                 as sales_order_price
+                  ,       coalesce(sst_temp.sales_order_qty, 0.0)                                         as sales_order_qty
+                  ,       coalesce(sst_temp.sales_order_value, 0.0)                                       as sales_order_value
+                  ,       date_part('day', sst_temp.trans_date)                                           as day
+                  ,       sst_temp.trans_date                                                             as data_date
+                  ,		  date_trunc('week',  sst_temp.trans_date)::date		                          as start_of_week
+                  ,		  date_trunc('month', sst_temp.trans_date)::date		                          as start_of_month
+                  from  {database_name}.{ai_schema_name}.ai_article_master                                as aam
+                  inner join  ( select  trim(sale_order)                                                  as sales_order_id
+                                ,       trim(soff)                                                        as franchise_code
+                                ,       case when article_id like '00%'
+                                             then replace(ltrim(replace(trim(article_id),'0',' ')),' ','0')
+                                             else trim(article_id)
+                                        end                                                               as article_code
+                                ,       to_date(trans_date, '{dt_format_src_sales_order_trans}')          as trans_date
+                                ,       sum(coalesce(nullif(trim(sale_qty), ''), '0')::numeric)           as sales_order_qty
+                                ,       sum(coalesce(nullif(trim(net_inc_tax), ''), '0')::numeric)        as sales_order_value
+                                from  {database_name}.{ai_schema_name}.src_so_transaction
+                                where   coalesce(nullif(trim(net_inc_tax), ''), '0')::numeric >= 0
+                                and     coalesce(nullif(trim(sale_qty), ''), '0')::numeric >= 0
+                                and     nullif(trim(article_id), '') is not null
+                                and     nullif(trim(soff), '') is not null
+                                and     nullif(trim(sale_order), '') is not null
+                                and   ( to_date(trans_date, '{dt_format_src_sales_order_trans}') between (date '{data_date}' - interval '{date_range_recheck_day} day')
+                                                                                                 and     (date '{run_date}'  - interval '{date_range_sla_day_sales_order} day')
+                                      )
+                                group by 1,2,3,4
+                              ) as sst_temp
+                      on  aam.article_code    =   sst_temp.article_code
+                ) as sst
+        )
+        on conflict ( franchise_code, article_code, sales_order_id, data_date ) do update
+              set   cat_mch3_code                       =   excluded.cat_mch3_code
+              ,     cat_mch2_code                       =   excluded.cat_mch2_code
+              ,     cat_mch1_code                       =   excluded.cat_mch1_code
+              ,     brand                               =   excluded.brand
+              ,     sales_order_price                   =   excluded.sales_order_price
+              ,     sales_order_qty                     =   excluded.sales_order_qty
+              ,     sales_order_value                   =   excluded.sales_order_value
+        where (     round(asoa.sales_order_qty, 3)      <>  round(excluded.sales_order_qty, 3)
+                and excluded.sales_order_qty            >   0
+              )
+        or    (     round(asoa.sales_order_value, 3)    <>  round(excluded.sales_order_value, 3)
+                and excluded.sales_order_value          >   0
+              )
+        "
+# ====================================
+# ----- ai_sales_order_article_outer
+# ====================================
+ai_sales_order_article_outer:
+  version: "2022-05-10"
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 )"
+      sales_order_id: "varchar( 64 ) not null"
+      sales_order_qty: "numeric( 24, 8 )"
+      sales_order_value: "numeric( 24, 8 )"
+      day: "smallint not null"
+      data_date: "date not null"
+      start_of_week: "date not null"
+      start_of_month: "date not null"
+    primary_key: ['sales_order_id', 'franchise_code', 'article_code', 'data_date']
+  update:
+    from_ai_sales_order_article:
+      parameter: ['run_date', 'data_date', 'window_start', 'date_range_recheck_day', 'dt_format_src_sales_order_trans',
+                   'date_range_sla_day_sales_order']
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_sales_order_article_outer                     as asoao
+        (
+          select  sst.article_code
+          ,       sst.franchise_code
+          ,       sst.sales_order_id
+          ,       coalesce(sst.sales_order_qty, 0.0)                                                  as sales_order_qty
+          ,       coalesce(sst.sales_order_value, 0.0)                                                as sales_order_value
+          ,       date_part('day', sst.trans_date)                                                    as day
+          ,       sst.trans_date                                                                      as data_date
+          ,		  date_trunc('week',  sst.trans_date)::date		                                      as start_of_week
+          ,		  date_trunc('month', sst.trans_date)::date		                                      as start_of_month
+          from    ( select  sale_order                                                                as sales_order_id
+                    ,       soff                                                                      as franchise_code
+                    ,       case when trim(article_id) like '00%'
+                                 then replace(ltrim(replace(trim(article_id),'0',' ')),' ','0')
+                                 else trim(article_id)
+                            end                                                                       as article_code
+                    ,       to_date(trans_date, '{dt_format_src_sales_order_trans}')                  as trans_date
+                    ,       sum(coalesce(nullif(trim(sale_qty), ''), '0')::numeric)                   as sales_order_qty
+                    ,       sum(coalesce(nullif(trim(net_inc_tax), ''), '0')::numeric)                as sales_order_value
+                    from  {database_name}.{ai_schema_name}.src_so_transaction
+                    where   nullif(trim(article_id), '') is not null
+                    and     nullif(trim(sale_order), '') is not null
+                    and   ( to_date(trans_date, '{dt_format_src_sales_order_trans}') between (date '{data_date}' - interval '{date_range_recheck_day} day')
+                                                                                     and     (date '{run_date}'  - interval '{date_range_sla_day_sales_order} day')
+                          )
+                    group by 1,2,3,4
+                  ) as sst
+          left join {database_name}.{ai_schema_name}.ai_article_master                                as aam
+              on  aam.article_code    =   sst.article_code
+          where   aam.article_code is null
+        )
+        on conflict ( sales_order_id, article_code, franchise_code, data_date ) do update
+              set   sales_order_qty                     =   excluded.sales_order_qty
+              ,     sales_order_value                   =   excluded.sales_order_value
+        where (     round(asoao.sales_order_qty, 3)     <>  round(excluded.sales_order_qty, 3)
+                and excluded.sales_order_qty            >   0
+              )
+        or    (     round(asoao.sales_order_value, 3)   <>  round(excluded.sales_order_value, 3)
+                and excluded.sales_order_value          >   0
+              )
+        "
+# ====================================
+# ----- ai_sales_order_article_residue
+# ====================================
+ai_sales_order_article_residue:
+  version: "2022-05-10"
+  create:
+    features:
+      article_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      sales_order_id: "varchar( 64 ) not null"
+      sales_order_price: "numeric( 24, 8 )"
+      sales_order_qty: "numeric( 24, 8 )"
+      sales_order_value: "numeric( 24, 8 )"
+      day: "smallint not null"
+      data_date: "date not null"
+      start_of_week: "date not null"
+      start_of_month: "date not null"
+    primary_key: ['franchise_code', 'article_code', 'sales_order_id', 'data_date']
+  update:
+    from_ai_sales_order_article:
+      parameters: [
+          'run_date',
+          'data_date',
+          'window_start',
+          'date_range_recheck_day',
+          'dt_format_src_sales_order_trans',
+          'date_range_sla_day_sales_order'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_sales_order_article_residue       as asoar
+        (
+          select  article_code
+          ,       franchise_code
+          ,       sales_order_id
+          ,       sales_order_price
+          ,       sales_order_qty
+          ,       sales_order_value
+          ,       day
+          ,       data_date
+          ,       start_of_week
+          ,       start_of_month
+          from  {database_name}.{ai_schema_name}.ai_sales_order_article
+          where (     data_date >   (date '{data_date}' - interval '{date_range_recheck_day} day')
+                  and data_date <=  (date '{run_date}'  - interval '{date_range_sla_day_sales_order} day')
+                )
+        )
+        on conflict ( franchise_code, article_code, sales_order_id, data_date ) do update
+              set   sales_order_price                   =   excluded.sales_order_price
+              ,     sales_order_qty                     =   excluded.sales_order_qty
+              ,     sales_order_value                   =   excluded.sales_order_value
+        where (     round(asoar.sales_order_qty, 3)     <>  round(excluded.sales_order_qty, 3)
+                and excluded.sales_order_qty            >   0
+              )
+        or    (     round(asoar.sales_order_value, 3)   <>  round(excluded.sales_order_value, 3)
+                and excluded.sales_order_value          >   0
+              )
+        "
+# ====================================
+# ----- ai_actual_sales_order_article
+# ====================================
+ai_actual_sales_order_article:
+  version: "2022-05-10"
+  create:
+    features:
+      sales_order_id: "varchar( 64 ) not null"
+      article_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      actual_sales_qty: "numeric( 24, 8 )"
+      actual_sales_value: "numeric( 24, 8 )"
+      actual_sales_order_flag: "smallint not null"
+      actual_sales_order_date: "date"
+      day: "smallint not null"
+      data_date: "date not null"
+      start_of_week: "date not null"
+      start_of_month: "date not null"
+    primary_key: ['sales_order_id', 'franchise_code', 'article_code', 'data_date']
+  update:
+    from_ai_actual_sales_article_join_ai_sales_order_article:
+      parameter: [
+          "run_date",
+          "data_date",
+          "window_start",
+          "date_range_recheck_day",
+          "date_range_sla_day_actual_sales",
+          "dt_format_src_actual_sales_trans"
+      ]
+      statement: "
+        with row_table as (
+          insert into {database_name}.{ai_schema_name}.ai_actual_sales_order_article                              as aasoa
+          (
+            select	sales_order_id
+            ,		article_code
+            ,       franchise_code
+            ,       actual_sales_qty
+            ,       actual_sales_value
+            ,		case when actual_sales_priority > 1 or sales_order_date is null
+            			 then 0
+            			 else actual_sales_priority
+            		end 					                                                                      as actual_sales_order_flag
+            ,       case when actual_sales_priority > 1
+                         then null
+                         else sales_order_date
+                    end                                                                                           as actual_sales_order_date
+            ,       date_part('day', actual_sales_date)                                                           as day
+            ,       actual_sales_date                                                                             as data_date
+            ,		start_of_week
+            ,		start_of_month
+            from	(	select	aam.cat_mch3_code
+                        ,       aam.cat_mch2_code
+                        ,       aam.cat_mch1_code
+                        ,       aam.article_code
+            			,		sast.franchise_code
+            			,       sast.sales_order_id
+            			,		dense_rank() over (
+            							partition by sast.sales_order_id, sast.franchise_code, sast.article_code
+            							order by sast.actual_sales_date asc
+            							)				                                                          as actual_sales_priority
+            			,		actual_sales_qty
+            			,       actual_sales_value
+            			,		asoa.data_date			                                                          as sales_order_date
+            			,		sast.actual_sales_date		                                                      as actual_sales_date
+            			,		date_trunc('week',  sast.actual_sales_date)::date		                          as start_of_week
+                        ,		date_trunc('month', sast.actual_sales_date)::date		                          as start_of_month
+            			from  (   select  trim(sale_order)                                                        as sales_order_id
+            			          ,       trim(soff)                                                              as franchise_code
+                                  ,       case when article_id like '00%'
+                                               then replace(ltrim(replace(trim(article_id),'0',' ')),' ','0')
+                                               else trim(article_id)
+                                          end                                                                     as article_code
+                                  ,       to_date(create_date, '{dt_format_src_actual_sales_trans}')              as actual_sales_date
+                                  ,       sum(coalesce(nullif(trim(sale_qty), ''), '0')::numeric)                 as actual_sales_qty
+                                  ,       sum(coalesce(nullif(trim(net_inc_tax), ''), '0')::numeric)              as actual_sales_value
+                                  from  {database_name}.{ai_schema_name}.src_actual_sales_transaction
+            			          where   coalesce(nullif(trim(net_inc_tax), ''), '0')::numeric >= 0
+                                  and     coalesce(nullif(trim(sale_qty), ''), '0')::numeric >= 0
+                                  and     nullif(trim(article_id), '') is not null
+                                  and     nullif(trim(soff), '') is not null
+                                  and     nullif(trim(sale_order), '') is not null
+            			          and   ( to_date(create_date, '{dt_format_src_actual_sales_trans}') between (date '{data_date}' - interval '{date_range_recheck_day} day')
+                                                                                                     and     (date '{run_date}'  - interval '{date_range_sla_day_actual_sales} day')
+                                        )
+            			          group by 1,2,3,4
+            			      ) as sast
+            			inner join  {database_name}.{ai_schema_name}.ai_article_master                            as aam
+            			    on  aam.article_code      =   sast.article_code
+            			left join   ( select  sales_order_id
+            			              ,       franchise_code
+            			              ,       article_code
+            			              ,       data_date
+            			              from {database_name}.{ai_schema_name}.ai_sales_order_article_residue
+            			              where   data_date <= (date '{run_date}' - interval '{date_range_sla_day_actual_sales} day')
+            			            ) as asoa
+            			    on 	asoa.sales_order_id   =   sast.sales_order_id
+            				and asoa.franchise_code   =   sast.franchise_code
+            				and	asoa.article_code     =   sast.article_code
+            		) as sast_asoa
+          )
+          on conflict ( sales_order_id, franchise_code, article_code, data_date ) do update
+                set   actual_sales_qty                    =   excluded.actual_sales_qty
+                ,     actual_sales_value                  =   excluded.actual_sales_value
+                ,     actual_sales_order_flag             =   case when excluded.actual_sales_order_flag >= aasoa.actual_sales_order_flag
+                                                                   then excluded.actual_sales_order_flag
+                                                                   else aasoa.actual_sales_order_flag
+                                                              end
+          where (     round(aasoa.actual_sales_qty, 3)    <>  round(excluded.actual_sales_qty, 3)
+                  and excluded.actual_sales_qty           >   0
+                )
+          or    (     round(aasoa.actual_sales_value, 3)  <>  round(excluded.actual_sales_value, 3)
+                  and excluded.actual_sales_value         >   0
+                )
+          or    aasoa.actual_sales_order_flag             <   excluded.actual_sales_order_flag
+          returning sales_order_id, franchise_code, article_code, actual_sales_order_flag, actual_sales_order_date
+        ),
+        row_delete as (
+          delete from {database_name}.{ai_schema_name}.ai_sales_order_article_residue
+          where (sales_order_id, franchise_code, article_code, data_date) in (  select  sales_order_id
+                                                                                ,       franchise_code
+                                                                                ,       article_code
+                                                                                ,       actual_sales_order_date
+                                                                                from  row_table
+                                                                                where actual_sales_order_flag = 1 )
+          returning 1
+        )
+        select count(*) as row_number from row_table
+        "

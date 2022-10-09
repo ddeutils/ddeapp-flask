@@ -1,0 +1,2115 @@
+# ====================================
+# ----- ai_report_actual_sales_article
+# ====================================
+ai_report_actual_sales_article:
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      sales_uom: "varchar( 32 )"
+      sales_price: "numeric( 20, 8 )"
+      purchase_group: "varchar( 64 )"
+      purchase_uom: "varchar( 32 )"
+      purchase_price: "numeric( 20, 8 )"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      actual_sales_price: "numeric( 20, 8 )"
+      actual_sales_qty: "numeric( 24, 8 )"
+      actual_sales_value: "numeric( 24, 8 )"
+      start_of_week: "date not null"
+      start_of_month: "date not null"
+      run_date: "date not null"
+      status_flag: "varchar( 256 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+      start_of_week_sync: "date not null"
+    primary_key: ['dc_code', 'rdc_code', 'franchise_code', 'article_code', 'start_of_week', 'start_of_month']
+  update:
+    from_ai_actual_sales_article:
+      parameter: [
+          'data_date',
+          'run_date',
+          'date_range_sla_week',
+          'date_range_sla_month'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_actual_sales_article                   as arasa
+        (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.article_code
+            ,       aam.brand
+            ,       aam.sales_uom
+            ,       aam.sales_price
+            ,       aam.purchase_group
+            ,       aam.purchase_uom
+            ,       aam.purchase_price
+            ,       afm.dc_code
+            ,       afm.rdc_code
+            ,       afm.franchise_code
+            ,       aasa.actual_sales_price
+            ,       aasa.actual_sales_qty
+            ,       aasa.actual_sales_value
+            ,       aasa.start_of_week
+            ,       aasa.start_of_month
+            ,       aasa.run_date
+            ,       null                                                                              as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                         as cat_mch1_code_brand
+            ,       case when extract(month from start_of_week) <> extract(month from start_of_month)
+                         then start_of_month
+                         else start_of_week
+                    end                                                                               as start_of_week_sync
+            from {database_name}.{ai_schema_name}.ai_article_mapping_fc                               as aamf
+            inner join {database_name}.{ai_schema_name}.ai_article_master                             as aam
+                on aamf.article_code	= aam.article_code
+            inner join {database_name}.{ai_schema_name}.ai_franchise_master                           as afm
+                on aamf.franchise_code	= afm.franchise_code
+            inner join  (   select  article_code
+                            ,       franchise_code
+                            ,       avg(nullif(actual_sales_price, 0.0))                              as actual_sales_price
+                            ,       sum(actual_sales_qty)						                        as actual_sales_qty
+                            ,       sum(actual_sales_value)					                        as actual_sales_value
+                            ,       start_of_week
+                            ,       start_of_month
+                            ,       '{run_date}'::date                                                as run_date
+                            from  {database_name}.{ai_schema_name}.ai_actual_sales_article
+                            where	  ( start_of_month between date_trunc('month', (date '{data_date}'))
+                                                     and     date_trunc('month', (date '{run_date}'))
+                                    )
+                            and     start_of_week <= date_trunc('week', (date '{run_date}' - interval '{date_range_sla_week} week'))
+                            group by 1,2,6,7,8
+                        ) as aasa
+                on  aamf.article_code   = aasa.article_code
+                and aamf.franchise_code = aasa.franchise_code
+            where   franchise_priority = 1
+        )
+        on conflict ( dc_code, rdc_code, franchise_code, article_code, start_of_week, start_of_month ) do update
+            set   cat_mch3_code                         =   excluded.cat_mch3_code
+            ,     cat_mch2_code                         =   excluded.cat_mch2_code
+            ,     cat_mch1_code                         =   excluded.cat_mch1_code
+            ,     brand                                 =   excluded.brand
+            ,     sales_uom                             =   excluded.sales_uom
+            ,     sales_price                           =   excluded.sales_price
+            ,     purchase_group                        =   excluded.purchase_group
+            ,     purchase_uom                          =   excluded.purchase_uom
+            ,     purchase_price                        =   excluded.purchase_price
+            ,     actual_sales_price                    =   excluded.actual_sales_price
+            ,     actual_sales_qty                      =   excluded.actual_sales_qty
+            ,     actual_sales_value                    =   excluded.actual_sales_value
+            ,     run_date                              =   excluded.run_date
+            ,     status_flag                           =   excluded.status_flag
+            ,     cat_mch1_code_brand                   =   excluded.cat_mch1_code_brand
+            ,     start_of_week_sync                    =   excluded.start_of_week_sync
+        where (     round(arasa.actual_sales_price, 3)  <>  round(excluded.actual_sales_price, 3)
+                and excluded.actual_sales_price         >   0
+              )
+        or    (     round(arasa.actual_sales_qty, 3)    <>  round(excluded.actual_sales_qty, 3)
+                and excluded.actual_sales_qty           >   0
+              )
+        or    (     round(arasa.actual_sales_value, 3)  <>  round(excluded.actual_sales_value, 3)
+                and excluded.actual_sales_value         >   0
+              )
+        "
+# ====================================
+# ----- ai_report_actual_sales_article_weekly
+# ====================================
+ai_report_actual_sales_article_weekly:
+  version: "2021-10-01"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      sales_uom: "varchar( 32 )"
+      sales_price: "numeric( 20, 8 )"
+      purchase_group: "varchar( 64 )"
+      purchase_uom: "varchar( 32 )"
+      purchase_price: "numeric( 20, 8 )"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      actual_sales_price: "numeric( 20, 8 )"
+      actual_sales_qty: "numeric( 24, 8 )"
+      actual_sales_value: "numeric( 24, 8 )"
+      start_of_week: "date not null"
+      run_date: "date not null"
+      status_flag: "varchar( 256 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+    primary_key: ['dc_code', 'rdc_code', 'franchise_code', 'article_code', 'start_of_week']
+  update:
+    from_ai_actual_sales_article:
+      parameter: [
+          'data_date',
+          'run_date',
+          'date_range_sla_week',
+          'date_range_sla_month'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_actual_sales_article_weekly as arasa
+        (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.article_code
+            ,       aam.brand
+            ,       aam.sales_uom
+            ,       aam.sales_price
+            ,       aam.purchase_group
+            ,       aam.purchase_uom
+            ,       aam.purchase_price
+            ,       afm.dc_code
+            ,       afm.rdc_code
+            ,       afm.franchise_code
+            ,       aasa.actual_sales_price
+            ,       aasa.actual_sales_qty
+            ,       aasa.actual_sales_value
+            ,       aasa.start_of_week
+            ,       aasa.run_date
+            ,       null                                                                      as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                 as cat_mch1_code_brand
+            from {database_name}.{ai_schema_name}.ai_article_mapping_fc                       as aamf
+            inner join {database_name}.{ai_schema_name}.ai_article_master                     as aam
+                on aamf.article_code	= aam.article_code
+            inner join {database_name}.{ai_schema_name}.ai_franchise_master                   as afm
+                on aamf.franchise_code	= afm.franchise_code
+            inner join  (   select  article_code
+                            ,       franchise_code
+                            ,       avg(nullif(actual_sales_price, 0.0))                      as actual_sales_price
+                            ,       sum(actual_sales_qty)						                as actual_sales_qty
+                            ,       sum(actual_sales_value)					                as actual_sales_value
+                            ,       start_of_week
+                            ,       '{run_date}'::date                                        as run_date
+                            from  {database_name}.{ai_schema_name}.ai_actual_sales_article
+                            where	  ( start_of_month between date_trunc('month', (date '{data_date}'))
+                                                     and     date_trunc('month', (date '{run_date}'))
+                                    )
+                            and     start_of_week <= date_trunc('week', (date '{run_date}' - interval '{date_range_sla_week} week'))
+                            group by 1,2,6,7
+                        ) as aasa
+                on  aamf.article_code   = aasa.article_code
+                and aamf.franchise_code = aasa.franchise_code
+            where   franchise_priority = 1
+        )
+        on conflict ( dc_code, rdc_code, franchise_code, article_code, start_of_week ) do update
+            set   cat_mch3_code                         =   excluded.cat_mch3_code
+            ,     cat_mch2_code                         =   excluded.cat_mch2_code
+            ,     cat_mch1_code                         =   excluded.cat_mch1_code
+            ,     brand                                 =   excluded.brand
+            ,     sales_uom                             =   excluded.sales_uom
+            ,     sales_price                           =   excluded.sales_price
+            ,     purchase_group                        =   excluded.purchase_group
+            ,     purchase_uom                          =   excluded.purchase_uom
+            ,     purchase_price                        =   excluded.purchase_price
+            ,     actual_sales_price                    =   excluded.actual_sales_price
+            ,     actual_sales_qty                      =   excluded.actual_sales_qty
+            ,     actual_sales_value                    =   excluded.actual_sales_value
+            ,     run_date                              =   excluded.run_date
+            ,     status_flag                           =   excluded.status_flag
+            ,     cat_mch1_code_brand                   =   excluded.cat_mch1_code_brand
+        where (     round(arasa.actual_sales_price, 3)  <>  round(excluded.actual_sales_price, 3)
+                and excluded.actual_sales_price         >   0
+              )
+        or    (     round(arasa.actual_sales_qty, 3)    <>  round(excluded.actual_sales_qty, 3)
+                and excluded.actual_sales_qty           >   0
+              )
+        or    (     round(arasa.actual_sales_value, 3)  <>  round(excluded.actual_sales_value, 3)
+                and excluded.actual_sales_value         >   0
+              )
+        "
+# ====================================
+# ----- ai_report_actual_sales_article_monthly
+# ====================================
+ai_report_actual_sales_article_monthly:
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      actual_sales_price: "numeric( 20, 8 )"
+      actual_sales_qty: "numeric( 24, 8 )"
+      actual_sales_value: "numeric( 24, 8 )"
+      start_of_month: "date not null"
+      run_date: "date not null"
+      status_flag: "varchar( 256 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+    primary_key: ['dc_code', 'rdc_code', 'franchise_code', 'article_code', 'start_of_month']
+  update:
+    from_ai_actual_sales_article_to_ai_report_actual_sales_article_monthly:
+      parameter: [
+          'data_date',
+          'run_date',
+          'date_range_sla_month'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_actual_sales_article_monthly as arasam
+        (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.article_code
+            ,       aam.brand
+            ,       afm.dc_code
+            ,       afm.rdc_code
+            ,       afm.franchise_code
+            ,       aasa.actual_sales_price
+            ,       aasa.actual_sales_qty
+            ,       aasa.actual_sales_value
+            ,       aasa.start_of_month
+            ,       aasa.run_date
+            ,       null                                                                      as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                 as cat_mch1_code_brand
+            from {database_name}.{ai_schema_name}.ai_article_mapping_fc                       as aamf
+            inner join {database_name}.{ai_schema_name}.ai_article_master                     as aam
+                on aamf.article_code	= aam.article_code
+            inner join {database_name}.{ai_schema_name}.ai_franchise_master                   as afm
+                on aamf.franchise_code	= afm.franchise_code
+            inner join  (   select  article_code
+                            ,       franchise_code
+                            ,       avg(nullif(actual_sales_price, 0.0))                      as actual_sales_price
+                            ,       sum(actual_sales_qty)						                as actual_sales_qty
+                            ,       sum(actual_sales_value)					                as actual_sales_value
+                            ,       start_of_month
+                            ,       '{run_date}'::date                                        as run_date
+                            from    {database_name}.{ai_schema_name}.ai_actual_sales_article
+                            where	  ( start_of_month between date_trunc('month', (date '{data_date}'))
+                                                     and     date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))
+                                    )
+                            group by 1,2,6,7
+                        ) as aasa
+                on  aamf.article_code   = aasa.article_code
+                and aamf.franchise_code = aasa.franchise_code
+            where   franchise_priority = 1
+        )
+        on conflict ( dc_code, rdc_code, franchise_code, article_code, start_of_month ) do update
+            set   cat_mch3_code                         =   excluded.cat_mch3_code
+            ,     cat_mch2_code                         =   excluded.cat_mch2_code
+            ,     cat_mch1_code                         =   excluded.cat_mch1_code
+            ,     brand                                 =   excluded.brand
+            ,     actual_sales_price                    =   excluded.actual_sales_price
+            ,     actual_sales_qty                      =   excluded.actual_sales_qty
+            ,     actual_sales_value                    =   excluded.actual_sales_value
+            ,     run_date                              =   excluded.run_date
+            ,     status_flag                           =   excluded.status_flag
+            ,     cat_mch1_code_brand                   =   excluded.cat_mch1_code_brand
+        where (     round(arasam.actual_sales_price, 3) <>  round(excluded.actual_sales_price, 3)
+                and excluded.actual_sales_price         >   0
+              )
+        or    (     round(arasam.actual_sales_qty, 3)   <>  round(excluded.actual_sales_qty, 3)
+                and excluded.actual_sales_qty           >   0
+              )
+        or    (     round(arasam.actual_sales_value, 3) <>  round(excluded.actual_sales_value, 3)
+                and excluded.actual_sales_value         >   0
+              )
+        "
+# ====================================
+# ----- ai_report_sales_target_article
+# ====================================
+ai_report_sales_target_article:
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch1_code: "varchar( 32 ) not null"
+      article_code: "varchar( 64 ) not null"
+      brand: "varchar( 64 )"
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      sales_target_value: "numeric( 24, 8 )"
+      start_of_week: "date not null"
+      start_of_month: "date not null"
+      run_date: "date not null"
+      status_flag: "varchar( 16 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+      start_of_week_sync: "date not null"
+    primary_key: ['article_code', 'dc_code', 'rdc_code', 'franchise_code', 'start_of_week', 'start_of_month']
+  update:
+    from_imp_sales_target_to_ai_report_sales_target_article:
+      parameter: [
+          "run_date",
+          "window_start",
+          "window_end",
+          "date_range_sla_month_target",
+          "allocate_prop_filter_target",
+          "actual_sales_filter_sales_price",
+          "date_range_sla_month"
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_sales_target_article as ast
+        (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch1_code
+            ,       aam.article_code
+            ,       aam.brand
+            ,       afm.dc_code
+            ,       afm.rdc_code
+            ,       afm.franchise_code
+            ,       sales_target_value
+            ,       asta.start_of_week
+            ,       asta.start_of_month
+            ,       '{run_date}'::date                                          as run_date
+            ,       null                                                        as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                   as cat_mch1_code_brand
+            ,       case when extract(month from start_of_week) <> extract(month from start_of_month)
+                         then start_of_month
+                         else start_of_week
+                    end                                                         as start_of_week_sync
+            from  (   select  article_code
+                      ,       franchise_code
+                      ,       sum(sales_target_value)                           as sales_target_value
+                      ,		start_of_week
+                      ,       start_of_month
+                      from  {database_name}.{ai_schema_name}.ai_sales_target_article
+                      where start_of_month >= date_trunc('month', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                      group by 1,2,4,5
+                  ) as asta
+            inner join  {database_name}.{ai_schema_name}.ai_franchise_master    as afm
+                on asta.franchise_code  = afm.franchise_code
+            inner join  {database_name}.{ai_schema_name}.ai_article_master      as aam
+                on asta.article_code    = aam.article_code
+            where   franchise_priority = 1
+        )
+        on conflict ( article_code, dc_code, rdc_code, franchise_code, start_of_week, start_of_month ) do update
+              set   cat_mch3_code                     =   excluded.cat_mch3_code
+              ,     cat_mch2_code                     =   excluded.cat_mch2_code
+              ,     cat_mch1_code                     =   excluded.cat_mch1_code
+              ,     brand                             =   excluded.brand
+              ,     sales_target_value                =   excluded.sales_target_value
+              ,     status_flag                       =   excluded.status_flag
+              ,     cat_mch1_code_brand               =   excluded.cat_mch1_code_brand
+              ,     start_of_week_sync                =   excluded.start_of_week_sync
+        where (     ast.sales_target_value            <>  excluded.sales_target_value
+                and excluded.sales_target_value       >   0
+              )
+        "
+# ====================================
+# ----- ai_report_sales_target_brand
+# ====================================
+ai_report_sales_target_brand:
+  version: "2022-01-10"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch3_desc: "varchar( 128 )"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch2_desc: "varchar( 128 )"
+      cat_mch1_code: "varchar( 32 ) not null"
+      cat_mch1_desc: "varchar( 128 )"
+      brand: "varchar( 64 ) not null"
+      data_display_key: "varchar( 64 ) not null" # [actual, target]
+      data_display_value: "varchar( 64 ) not null" # [2020, 2021, current, previous]
+      jan: "numeric( 24, 8 )"
+      feb: "numeric( 24, 8 )"
+      mar: "numeric( 24, 8 )"
+      apr: "numeric( 24, 8 )"
+      may: "numeric( 24, 8 )"
+      jun: "numeric( 24, 8 )"
+      jul: "numeric( 24, 8 )"
+      aug: "numeric( 24, 8 )"
+      sep: "numeric( 24, 8 )"
+      oct: "numeric( 24, 8 )"
+      nov: "numeric( 24, 8 )"
+      dec: "numeric( 24, 8 )"
+      run_date: "date not null"
+      status_flag: "varchar( 16 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+    primary_key: ['cat_mch1_code', 'brand', 'data_display_key', 'data_display_value']
+  update:
+    from_ai_actual_sales_article:
+      parameter: ['run_date', 'date_range_sla_month']
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_sales_target_brand                     as arstb
+        (
+            select  cat_mch3_code
+            ,       cat_mch3_desc
+            ,       cat_mch2_code
+            ,       cat_mch2_desc
+            ,       cat_mch1_code
+            ,       cat_mch1_desc
+            ,       brand
+            ,       data_display_key
+            ,       data_display_value
+            ,	      coalesce((json_month_with_actual_sales_value ->> '1')::numeric, 0.0)	            as jan
+            ,	      coalesce((json_month_with_actual_sales_value ->> '2')::numeric, 0.0)	            as feb
+            ,	      coalesce((json_month_with_actual_sales_value ->> '3')::numeric, 0.0)	            as mar
+            ,	      coalesce((json_month_with_actual_sales_value ->> '4')::numeric, 0.0)	            as apr
+            ,	      coalesce((json_month_with_actual_sales_value ->> '5')::numeric, 0.0)	            as may
+            ,	      coalesce((json_month_with_actual_sales_value ->> '6')::numeric, 0.0)	            as jun
+            ,	      coalesce((json_month_with_actual_sales_value ->> '7')::numeric, 0.0)	            as jul
+            ,	      coalesce((json_month_with_actual_sales_value ->> '8')::numeric, 0.0)	            as aug
+            ,	      coalesce((json_month_with_actual_sales_value ->> '9')::numeric, 0.0)	            as sep
+            ,	      coalesce((json_month_with_actual_sales_value ->> '10')::numeric, 0.0)             as oct
+            ,	      coalesce((json_month_with_actual_sales_value ->> '11')::numeric, 0.0)             as nov
+            ,	      coalesce((json_month_with_actual_sales_value ->> '12')::numeric, 0.0)             as dec
+            ,       '{run_date}'::date                                                                as run_date
+            ,       null                                                                              as status_flag
+            ,       concat(cat_mch1_code, '|', brand)                                                 as cat_mch1_code_brand
+            from  (   select  aam.cat_mch3_code
+                      ,       aam.cat_mch3_desc
+                      ,       aam.cat_mch2_code
+                      ,       aam.cat_mch2_desc
+                      ,       aam.cat_mch1_code
+                      ,       aam.cat_mch1_desc
+                      ,       aam.brand
+                      ,       'actual'                                                                as data_display_key
+                      ,       data_display_value
+                      ,       jsonb_object_agg(month, actual_sales_value)                             as json_month_with_actual_sales_value
+                      from  (   select  cat_mch3_code
+                                ,       cat_mch2_code
+                                ,       cat_mch1_code
+                                ,       brand
+                                ,       sum(actual_sales_value)                                       as actual_sales_value
+                                ,       date_part('month', start_of_month)                            as month
+                                ,       date_part('year', start_of_month)                 	        as data_display_value
+                                from  {database_name}.{ai_schema_name}.ai_actual_sales_article
+                                where   start_of_month >= date_trunc('year', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                                group by 1,2,3,4,6,7
+                            ) as aasa
+                      inner join  (	select  cat_mch3_code
+                                      ,       cat_mch3_desc
+                                      ,       cat_mch2_code
+                                      ,       cat_mch2_desc
+                                      ,       cat_mch1_code
+                                      ,       cat_mch1_desc
+                                      ,       brand
+                                      from {database_name}.{ai_schema_name}.ai_article_master
+                                      group by 1,2,3,4,5,6,7
+                                  ) as aam
+                          on  aam.cat_mch3_code     =   aasa.cat_mch3_code
+                          and aam.cat_mch2_code     =   aasa.cat_mch2_code
+                          and aam.cat_mch1_code     =   aasa.cat_mch1_code
+                          and aam.brand			  =   aasa.brand
+                      group by 1,2,3,4,5,6,7,8,9
+                  ) as aasa_unpivot
+        )
+        on conflict ( cat_mch1_code, brand, data_display_key, data_display_value ) do update
+              set   cat_mch3_desc       =     excluded.cat_mch3_desc
+              ,     cat_mch2_desc       =     excluded.cat_mch2_desc
+              ,     cat_mch1_desc       =     excluded.cat_mch1_desc
+              ,     jan                 =     excluded.jan
+              ,     feb                 =     excluded.feb
+              ,     mar                 =     excluded.mar
+              ,     apr                 =     excluded.apr
+              ,     may                 =     excluded.may
+              ,     jun                 =     excluded.jun
+              ,     jul                 =     excluded.jul
+              ,     aug                 =     excluded.aug
+              ,     sep                 =     excluded.sep
+              ,     oct                 =     excluded.oct
+              ,     nov                 =     excluded.nov
+              ,     dec                 =     excluded.dec
+              ,     run_date            =     excluded.run_date
+              ,     status_flag         =     excluded.status_flag
+        where (     arstb.jan           <>    excluded.jan
+                or  arstb.feb           <>    excluded.feb
+                or  arstb.mar           <>    excluded.mar
+                or  arstb.apr           <>    excluded.apr
+                or  arstb.may           <>    excluded.may
+                or  arstb.jun           <>    excluded.jun
+                or  arstb.jul           <>    excluded.jul
+                or  arstb.aug           <>    excluded.aug
+                or  arstb.sep           <>    excluded.sep
+                or  arstb.oct           <>    excluded.oct
+                or  arstb.nov           <>    excluded.nov
+                or  arstb.dec           <>    excluded.dec
+              )
+        "
+    from_ai_sales_target_article:
+      parameter: [
+          'run_date',
+          'date_range_sla_month'
+      ]
+      statement: "
+        with previous_sales_target as (
+            select  cat_mch3_code
+            ,       cat_mch3_desc
+            ,       cat_mch2_code
+            ,       cat_mch2_desc
+            ,       cat_mch1_code
+            ,       cat_mch1_desc
+            ,       brand
+            ,		data_display_key
+	        ,		data_display_value
+            ,       jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec
+            ,       split_part(data_display_value, ':', 1)                          as year
+            ,       run_date
+            ,       cat_mch1_code_brand
+            from {database_name}.{ai_schema_name}.ai_report_sales_target_brand      as ast
+            where   data_display_key = 'target'
+            and     data_display_value like '%:current'
+            and     greatest(jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec) > 0
+        ),
+        row_table as (
+          insert into {database_name}.{ai_schema_name}.ai_report_sales_target_brand as arstb
+          (
+              select  cat_mch3_code
+              ,       cat_mch3_desc
+              ,       cat_mch2_code
+              ,       cat_mch2_desc
+              ,       cat_mch1_code
+              ,       cat_mch1_desc
+              ,       brand
+              ,       data_display_key
+              ,       data_display_value
+              ,	      coalesce((json_month_with_sales_target_value ->> '1')::numeric, 0.0)	            as jan
+              ,	      coalesce((json_month_with_sales_target_value ->> '2')::numeric, 0.0)	            as feb
+              ,	      coalesce((json_month_with_sales_target_value ->> '3')::numeric, 0.0)	            as mar
+              ,	      coalesce((json_month_with_sales_target_value ->> '4')::numeric, 0.0)	            as apr
+              ,	      coalesce((json_month_with_sales_target_value ->> '5')::numeric, 0.0)	            as may
+              ,	      coalesce((json_month_with_sales_target_value ->> '6')::numeric, 0.0)	            as jun
+              ,	      coalesce((json_month_with_sales_target_value ->> '7')::numeric, 0.0)	            as jul
+              ,	      coalesce((json_month_with_sales_target_value ->> '8')::numeric, 0.0)	            as aug
+              ,	      coalesce((json_month_with_sales_target_value ->> '9')::numeric, 0.0)	            as sep
+              ,	      coalesce((json_month_with_sales_target_value ->> '10')::numeric, 0.0)             as oct
+              ,	      coalesce((json_month_with_sales_target_value ->> '11')::numeric, 0.0)             as nov
+              ,	      coalesce((json_month_with_sales_target_value ->> '12')::numeric, 0.0)             as dec
+              ,       '{run_date}'::date                                                                as run_date
+              ,       null                                                                              as status_flag
+              ,       concat(cat_mch1_code, '|', brand)                                                 as cat_mch1_code_brand
+              from  (   select  cat_mch3_code
+                        ,       cat_mch3_desc
+                        ,       cat_mch2_code
+                        ,       cat_mch2_desc
+                        ,       cat_mch1_code
+                        ,       cat_mch1_desc
+                        ,       brand
+                        ,       jsonb_object_agg(month, sales_target_value)                             as json_month_with_sales_target_value
+                        ,       'target'                                                                as data_display_key
+                        ,       concat(asta_brand.year::varchar, ':', 'current')                        as data_display_value
+                        from  (   select  aam.cat_mch3_code
+                                  ,       aam.cat_mch3_desc
+                                  ,       aam.cat_mch2_code
+                                  ,       aam.cat_mch2_desc
+                                  ,       aam.cat_mch1_code
+                                  ,       aam.cat_mch1_desc
+                                  ,       aam.brand
+                                  ,       round(sum(sales_target_value))                                as sales_target_value
+                                  ,       date_part('month', asta.start_of_month)                       as month
+                                  ,       date_part('year', asta.start_of_month)                 	    as year
+                                  from  (   select  article_code
+                                            ,       sales_target_value
+                                            ,		start_of_month
+                                            from  {database_name}.{ai_schema_name}.ai_sales_target_article
+                                            where start_of_month >= date_trunc('year', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                                        ) as asta
+                                  inner join  {database_name}.{ai_schema_name}.ai_article_master        as aam
+                                      on asta.article_code    = aam.article_code
+                                  group by 1,2,3,4,5,6,7,9,10
+                              ) as asta_brand
+                        group by 1,2,3,4,5,6,7,9,10
+                    ) as asta_unpivot
+          )
+          on conflict ( cat_mch1_code, brand, data_display_key, data_display_value ) do update
+                set   cat_mch3_code            =   excluded.cat_mch3_code
+                ,     cat_mch3_desc            =   excluded.cat_mch3_desc
+                ,     cat_mch2_code            =   excluded.cat_mch2_code
+                ,     cat_mch2_desc            =   excluded.cat_mch2_desc
+                ,     cat_mch1_desc            =   excluded.cat_mch1_desc
+                ,     jan                       =   excluded.jan
+                ,     feb                       =   excluded.feb
+                ,     mar                       =   excluded.mar
+                ,     apr                       =   excluded.apr
+                ,     may                       =   excluded.may
+                ,     jun                       =   excluded.jun
+                ,     jul                       =   excluded.jul
+                ,     aug                       =   excluded.aug
+                ,     sep                       =   excluded.sep
+                ,     oct                       =   excluded.oct
+                ,     nov                       =   excluded.nov
+                ,     dec                       =   excluded.dec
+                ,     run_date                  =   excluded.run_date
+                ,     status_flag               =   excluded.status_flag
+          where (     arstb.jan                 <>  excluded.jan
+                  or  arstb.feb                 <>  excluded.feb
+                  or  arstb.mar                 <>  excluded.mar
+                  or  arstb.apr                 <>  excluded.apr
+                  or  arstb.may                 <>  excluded.may
+                  or  arstb.jun                 <>  excluded.jun
+                  or  arstb.jul                 <>  excluded.jul
+                  or  arstb.aug                 <>  excluded.aug
+                  or  arstb.sep                 <>  excluded.sep
+                  or  arstb.oct                 <>  excluded.oct
+                  or  arstb.nov                 <>  excluded.nov
+                  or  arstb.dec                 <>  excluded.dec
+                )
+          returning cat_mch1_code, brand, data_display_key, data_display_value
+        ),
+        row_table_update as (
+	      insert into {database_name}.{ai_schema_name}.ai_report_sales_target_brand	as arstb
+	      (
+	          select  cat_mch3_code
+	          ,       cat_mch3_desc
+	          ,       cat_mch2_code
+	          ,       cat_mch2_desc
+	          ,       cat_mch1_code
+	          ,       cat_mch1_desc
+	          ,       brand
+	          ,		  data_display_key
+	          ,		  concat(year, ':previous')		as		data_display_value
+	          ,       jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec
+	          ,       run_date
+	          ,		  null							as status_flag
+	          ,       cat_mch1_code_brand
+	          from  previous_sales_target
+	          where ( cat_mch1_code, brand, data_display_key, data_display_value ) in ( select cat_mch1_code, brand, data_display_key, data_display_value from row_table )
+	      )
+	      on conflict ( cat_mch1_code, brand, data_display_key, data_display_value ) do update
+              set   cat_mch3_code              =   excluded.cat_mch3_code
+              ,     cat_mch3_desc              =   excluded.cat_mch3_desc
+              ,     cat_mch2_code              =   excluded.cat_mch2_code
+              ,     cat_mch2_desc              =   excluded.cat_mch2_desc
+              ,     cat_mch1_desc              =   excluded.cat_mch1_desc
+              ,     jan                         =   excluded.jan
+              ,     feb                         =   excluded.feb
+              ,     mar                         =   excluded.mar
+              ,     apr                         =   excluded.apr
+              ,     may                         =   excluded.may
+              ,     jun                         =   excluded.jun
+              ,     jul                         =   excluded.jul
+              ,     aug                         =   excluded.aug
+              ,     sep                         =   excluded.sep
+              ,     oct                         =   excluded.oct
+              ,     nov                         =   excluded.nov
+              ,     dec                         =   excluded.dec
+              ,     run_date                    =   excluded.run_date
+              ,     status_flag                 =   excluded.status_flag
+          where (     arstb.jan                 <>  excluded.jan
+          		  or  arstb.feb                 <>  excluded.feb
+                  or  arstb.mar                 <>  excluded.mar
+                  or  arstb.apr                 <>  excluded.apr
+                  or  arstb.may                 <>  excluded.may
+                  or  arstb.jun                 <>  excluded.jun
+                  or  arstb.jul                 <>  excluded.jul
+                  or  arstb.aug                 <>  excluded.aug
+                  or  arstb.sep                 <>  excluded.sep
+                  or  arstb.oct                 <>  excluded.oct
+                  or  arstb.nov                 <>  excluded.nov
+                  or  arstb.dec                 <>  excluded.dec
+                  or  greatest(
+                        arstb.jan, arstb.feb, arstb.mar, arstb.apr, arstb.may, arstb.jun,
+                        arstb.jul, arstb.aug, arstb.sep, arstb.oct, arstb.nov, arstb.dec
+                      ) = 0
+                )
+          returning 1
+        )
+        select count(*) as row_number from row_table
+        "
+# ====================================
+# ----- ai_report_sales_target_mch3
+# ====================================
+ai_report_sales_target_mch3:
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch3_desc: "varchar( 128 )"
+      data_display_key: "varchar( 64 ) not null"
+      data_display_value: "varchar( 64 ) not null"
+      jan: "numeric( 24, 8 )"
+      feb: "numeric( 24, 8 )"
+      mar: "numeric( 24, 8 )"
+      apr: "numeric( 24, 8 )"
+      may: "numeric( 24, 8 )"
+      jun: "numeric( 24, 8 )"
+      jul: "numeric( 24, 8 )"
+      aug: "numeric( 24, 8 )"
+      sep: "numeric( 24, 8 )"
+      oct: "numeric( 24, 8 )"
+      nov: "numeric( 24, 8 )"
+      dec: "numeric( 24, 8 )"
+      run_date: "date not null"
+      status_flag: "varchar( 16 )"
+    primary_key: ['cat_mch3_code', 'data_display_key', 'data_display_value']
+  update:
+    from_ai_actual_sales_article:
+      parameter: [
+          'run_date',
+          'date_range_sla_month'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_sales_target_mch3 as arstm
+        (
+            select  cat_mch3_code
+            ,       cat_mch3_desc
+            ,       data_display_key
+            ,       data_display_value
+            ,	      coalesce((json_month_with_actual_sales_value ->> '1')::numeric, 0.0)	                  as jan
+            ,	      coalesce((json_month_with_actual_sales_value ->> '2')::numeric, 0.0)	                  as feb
+            ,	      coalesce((json_month_with_actual_sales_value ->> '3')::numeric, 0.0)	                  as mar
+            ,	      coalesce((json_month_with_actual_sales_value ->> '4')::numeric, 0.0)	                  as apr
+            ,	      coalesce((json_month_with_actual_sales_value ->> '5')::numeric, 0.0)	                  as may
+            ,	      coalesce((json_month_with_actual_sales_value ->> '6')::numeric, 0.0)	                  as jun
+            ,	      coalesce((json_month_with_actual_sales_value ->> '7')::numeric, 0.0)	                  as jul
+            ,	      coalesce((json_month_with_actual_sales_value ->> '8')::numeric, 0.0)	                  as aug
+            ,	      coalesce((json_month_with_actual_sales_value ->> '9')::numeric, 0.0)	                  as sep
+            ,	      coalesce((json_month_with_actual_sales_value ->> '10')::numeric, 0.0)                   as oct
+            ,	      coalesce((json_month_with_actual_sales_value ->> '11')::numeric, 0.0)                   as nov
+            ,	      coalesce((json_month_with_actual_sales_value ->> '12')::numeric, 0.0)                   as dec
+            ,       '{run_date}'::date                                                                      as run_date
+            ,       null                                                                                    as status_flag
+            from  (   select  aam.cat_mch3_code
+                      ,       aam.cat_mch3_desc
+                      ,       jsonb_object_agg(date_part('month', start_of_month), actual_sales_value)      as json_month_with_actual_sales_value
+                      ,       'actual'                                                                      as data_display_key
+                      ,       date_part('year', aasm.start_of_month)                                        as data_display_value
+                      from  (   select  cat_mch3_code
+                                ,       cat_mch3_desc
+                                from   {database_name}.{ai_schema_name}.ai_article_master
+                                group by 1,2
+                            ) as aam
+                      inner join  {database_name}.{ai_schema_name}.ai_actual_sales_mch3                     as aasm
+                          on  aam.cat_mch3_code    =   aasm.cat_mch3_code
+                      where   aasm.start_of_month >= date_trunc('year', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                      group by 1,2,4,5
+                  ) as arstm_unpivot
+        )
+        on conflict ( cat_mch3_code, data_display_key, data_display_value ) do update
+              set   cat_mch3_desc        =   excluded.cat_mch3_desc
+              ,     jan                   =   excluded.jan
+              ,     feb                   =   excluded.feb
+              ,     mar                   =   excluded.mar
+              ,     apr                   =   excluded.apr
+              ,     may                   =   excluded.may
+              ,     jun                   =   excluded.jun
+              ,     jul                   =   excluded.jul
+              ,     aug                   =   excluded.aug
+              ,     sep                   =   excluded.sep
+              ,     oct                   =   excluded.oct
+              ,     nov                   =   excluded.nov
+              ,     dec                   =   excluded.dec
+              ,     run_date              =   excluded.run_date
+              ,     status_flag           =   excluded.status_flag
+        where (     arstm.jan             <>  excluded.jan
+                or  arstm.feb             <>  excluded.feb
+                or  arstm.mar             <>  excluded.mar
+                or  arstm.apr             <>  excluded.apr
+                or  arstm.may             <>  excluded.may
+                or  arstm.jun             <>  excluded.jun
+                or  arstm.jul             <>  excluded.jul
+                or  arstm.aug             <>  excluded.aug
+                or  arstm.sep             <>  excluded.sep
+                or  arstm.oct             <>  excluded.oct
+                or  arstm.nov             <>  excluded.nov
+                or  arstm.dec             <>  excluded.dec
+              )
+        "
+    from_ai_sales_target_mch3:
+      parameter: [
+          'run_date',
+          'date_range_sla_month'
+      ]
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_sales_target_mch3 as arstm
+        (
+            select  aam.cat_mch3_code
+            ,       aam.cat_mch3_desc
+            ,       data_display_key
+            ,       data_display_value
+            ,	      coalesce((json_month_with_sales_target ->> '1')::numeric, 0.0)	                            as jan
+            ,	      coalesce((json_month_with_sales_target ->> '2')::numeric, 0.0)	                            as feb
+            ,	      coalesce((json_month_with_sales_target ->> '3')::numeric, 0.0)	                            as mar
+            ,	      coalesce((json_month_with_sales_target ->> '4')::numeric, 0.0)	                            as apr
+            ,	      coalesce((json_month_with_sales_target ->> '5')::numeric, 0.0)	                            as may
+            ,	      coalesce((json_month_with_sales_target ->> '6')::numeric, 0.0)	                            as jun
+            ,	      coalesce((json_month_with_sales_target ->> '7')::numeric, 0.0)	                            as jul
+            ,	      coalesce((json_month_with_sales_target ->> '8')::numeric, 0.0)	                            as aug
+            ,	      coalesce((json_month_with_sales_target ->> '9')::numeric, 0.0)	                            as sep
+            ,	      coalesce((json_month_with_sales_target ->> '10')::numeric, 0.0)                               as oct
+            ,	      coalesce((json_month_with_sales_target ->> '11')::numeric, 0.0)                               as nov
+            ,	      coalesce((json_month_with_sales_target ->> '12')::numeric, 0.0)                               as dec
+            ,       '{run_date}'::date                                                                            as run_date
+            ,       null                                                                                          as status_flag
+            from	(	select	cat_mch3_code
+                      ,       jsonb_object_agg(date_part('month', start_of_month), sales_target_value_previous)   as json_month_with_sales_target
+                      ,		'target'																			as data_display_key
+                      ,       concat(date_part('year', start_of_month)::varchar, ':', 'previous')                 as data_display_value
+                      from {database_name}.{ai_schema_name}.ai_sales_target_mch3
+                      where   start_of_month >= date_trunc('year', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                      group by 1,3,4
+                      union
+                      select	cat_mch3_code
+                      ,       jsonb_object_agg(date_part('month', start_of_month), sales_target_value_current)    as json_month_with_sales_target
+                      ,		'target'																			as data_display_key
+                      ,       concat(date_part('year', start_of_month)::varchar, ':', 'current')                 	as data_display_value
+                      from {database_name}.{ai_schema_name}.ai_sales_target_mch3
+                      where   start_of_month >= date_trunc('year', (date '{run_date}' - interval '{date_range_sla_month} month'))::date
+                      group by 1,3,4
+                  ) as astm_pre
+            inner join  (   select  cat_mch3_code
+                            ,       cat_mch3_desc
+                            from   {database_name}.{ai_schema_name}.ai_article_master
+                            group by 1,2
+                        ) as aam
+                on  aam.cat_mch3_code    =   astm_pre.cat_mch3_code
+        )
+        on conflict ( cat_mch3_code, data_display_key, data_display_value ) do update
+              set   cat_mch3_desc        =   excluded.cat_mch3_desc
+              ,     jan                   =   excluded.jan
+              ,     feb                   =   excluded.feb
+              ,     mar                   =   excluded.mar
+              ,     apr                   =   excluded.apr
+              ,     may                   =   excluded.may
+              ,     jun                   =   excluded.jun
+              ,     jul                   =   excluded.jul
+              ,     aug                   =   excluded.aug
+              ,     sep                   =   excluded.sep
+              ,     oct                   =   excluded.oct
+              ,     nov                   =   excluded.nov
+              ,     dec                   =   excluded.dec
+              ,     run_date              =   excluded.run_date
+              ,     status_flag           =   excluded.status_flag
+        where (     arstm.jan             <>  excluded.jan
+                or  arstm.feb             <>  excluded.feb
+                or  arstm.mar             <>  excluded.mar
+                or  arstm.apr             <>  excluded.apr
+                or  arstm.may             <>  excluded.may
+                or  arstm.jun             <>  excluded.jun
+                or  arstm.jul             <>  excluded.jul
+                or  arstm.aug             <>  excluded.aug
+                or  arstm.sep             <>  excluded.sep
+                or  arstm.oct             <>  excluded.oct
+                or  arstm.nov             <>  excluded.nov
+                or  arstm.dec             <>  excluded.dec
+              )
+        "
+# ====================================
+# ----- ai_report_article_grouping
+# ====================================
+ai_report_article_grouping:
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch3_desc: "varchar( 128 )"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch2_desc: "varchar( 128 )"
+      cat_mch1_code: "varchar( 32 ) not null"
+      cat_mch1_desc: "varchar( 128 )"
+      cat_mc_code: "varchar( 32 ) not null"
+      cat_mc_desc: "varchar( 128 )"
+      cat_group_id: "varchar( 64 ) not null"
+      tile_size: "varchar( 128 )"
+      sales_price_min: "numeric( 20, 8 )"
+      sales_price_max: "numeric( 20, 8 )"
+      table_map_key: "varchar( 128 ) not null"
+      run_date: "date not null"
+      status_flag: "varchar( 16 )"
+    primary_key: ['table_map_key']
+  update:
+    from_ai_article_grouping:
+      parameter: ['run_date']
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_article_grouping     as arag
+        (
+            select  aag.cat_mch3_code
+            ,       aam.cat_mch3_desc
+            ,       aag.cat_mch2_code
+            ,       aam.cat_mch2_desc
+            ,       aag.cat_mch1_code
+            ,       aam.cat_mch1_desc
+            ,       aag.cat_mc_code
+            ,       aam.cat_mc_desc
+            ,       substring(aag.cat_group_id, 6)                                 as cat_group_id
+            ,       coalesce(aag.tile_size, '(BLANK)')                              as tile_size
+            ,       aag.sales_price_min
+            ,       aag.sales_price_max
+            ,       aag.table_map_key
+            ,       '{run_date}'::date                                              as run_date
+            ,       null                                                            as status_flag
+            from  (   select  cat_mch3_code
+                      ,       cat_mch3_desc
+                      ,       cat_mch2_code
+                      ,       cat_mch2_desc
+                      ,       cat_mch1_code
+                      ,       cat_mch1_desc
+                      ,       cat_mc_code
+                      ,       cat_mc_desc
+                      from  {database_name}.{ai_schema_name}.ai_article_master
+                      group by 1,2,3,4,5,6,7,8
+                  ) as aam
+            right join  {database_name}.{ai_schema_name}.ai_article_grouping        as aag
+                on  aam.cat_mch3_code    =   aag.cat_mch3_code
+                and aam.cat_mch2_code    =   aag.cat_mch2_code
+                and aam.cat_mch1_code    =   aag.cat_mch1_code
+                and aam.cat_mc_code      =   aag.cat_mc_code
+        )
+        on conflict ( table_map_key ) do update
+              set   cat_mch3_desc                      =   excluded.cat_mch3_desc
+              ,     cat_mch2_desc                      =   excluded.cat_mch2_desc
+              ,     cat_mch1_desc                      =   excluded.cat_mch1_desc
+              ,     cat_mc_desc                        =   excluded.cat_mc_desc
+              ,     cat_group_id                       =   excluded.cat_group_id
+              ,     status_flag                        =   excluded.status_flag
+        where arag.run_date                            <=  excluded.run_date
+        and   (     coalesce(arag.cat_mch3_desc, '')   <>  coalesce(excluded.cat_mch3_desc, '')
+                or  coalesce(arag.cat_mch2_desc, '')   <>  coalesce(excluded.cat_mch2_desc, '')
+                or  coalesce(arag.cat_mch1_desc, '')   <>  coalesce(excluded.cat_mch1_desc, '')
+                or  coalesce(arag.cat_mc_desc, '')     <>  coalesce(excluded.cat_mc_desc, '')
+                or  coalesce(arag.cat_group_id, '')    <>  coalesce(excluded.cat_group_id, '')
+              )
+        "
+# ====================================
+# ----- ai_report_article_master
+# ====================================
+ai_report_article_master:
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch3_desc: "varchar( 128 )"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch2_desc: "varchar( 128 )"
+      cat_mch1_code: "varchar( 32 ) not null"
+      cat_mch1_desc: "varchar( 128 )"
+      cat_mc_code: "varchar( 32 ) not null"
+      cat_mc_desc: "varchar( 128 )"
+      cat_group_id: "varchar( 128 )"
+      article_code: "varchar( 64 ) not null"
+      article_name: "varchar( 516 )"
+      article_replace_code: "varchar( 64 )"
+      brand: "varchar( 64 )"
+      sales_uom: "varchar( 32 )"
+      sales_price: "numeric( 20, 8 )"
+      sales_price_pro: "numeric( 20, 8 )"
+      sales_pro_start: "date"
+      sales_pro_end: "date"
+      vendor_code: "varchar( 64 )"
+      vendor_name: "varchar( 256 )"
+      vendor_article_code: "varchar( 256 )"
+      purchase_group: "varchar( 64 )"
+      purchase_uom: "varchar( 32 )"
+      purchase_price: "numeric( 20, 8 )"
+      purchase_start: "date"
+      purchase_end: "date"
+      moq: "numeric( 20, 8 )"
+      lead_time: "smallint"
+      tile_size: "varchar( 128 )"
+      batch_flag: "varchar( 32 )"
+      item_flag: "varchar( 64 )"
+      bss_item_flag: "varchar( 64 )"
+      bss_item_status: "varchar( 64 )"
+      bss_dc_item_flag: "varchar( 64 )"
+      bss_dc_stock: "varchar( 64 )"
+      bss_show_no_stock_flag: "varchar( 32 )"
+      bss_product_class: "varchar( 32 )"
+      bss_vmi_flag: "varchar( 32 )"
+      bss_showroom_flag: "varchar( 32 )"
+      bss_market_flag: "varchar( 32 )"
+      bss_shop_flag: "varchar( 32 )"
+      bss_shop_direct_ship_allow_flag: "varchar( 32 )"
+      start_out_of_stock: "date"
+      end_out_of_stock: "date"
+      replace_start: "date"
+      replace_end: "date"
+      run_date: "date not null"
+      status_flag: "varchar( 16 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+    primary_key: ['article_code']
+  update:
+    from_ai_article_master:
+      parameter: ['run_date']
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_article_master   as aram
+        (
+            select  cat_mch3_code
+            ,       cat_mch3_desc
+            ,       cat_mch2_code
+            ,       cat_mch2_desc
+            ,       cat_mch1_code
+            ,       cat_mch1_desc
+            ,       cat_mc_code
+            ,       cat_mc_desc
+            ,       cat_group_id
+            ,       article_code
+            ,       article_name
+            ,       article_replace_code
+            ,       brand
+            ,       sales_uom
+            ,       sales_price
+            ,       sales_price_pro
+            ,       sales_pro_start
+            ,       sales_pro_end
+            ,       vendor_code
+            ,       vendor_name
+            ,       vendor_article_code
+            ,       purchase_group
+            ,       purchase_uom
+            ,       purchase_price
+            ,       purchase_start
+            ,       purchase_end
+            ,       moq
+            ,       lead_time
+            ,       tile_size
+            ,       batch_flag
+            ,       item_flag
+            ,       bss_item_flag
+            ,       bss_item_status
+            ,       bss_dc_item_flag
+            ,       bss_dc_stock
+            ,       bss_show_no_stock_flag
+            ,       bss_product_class
+            ,       bss_vmi_flag
+            ,       bss_showroom_flag
+            ,       bss_market_flag
+            ,       bss_shop_flag
+            ,       bss_shop_direct_ship_allow_flag
+            ,       start_out_of_stock
+            ,       end_out_of_stock
+            ,       replace_start
+            ,       replace_end
+            ,       '{run_date}'::date                                          as run_date
+            ,       null                                                        as status_flag
+            ,       concat(cat_mch1_code, '|', brand)                           as cat_mch1_code_brand
+            from  {database_name}.{ai_schema_name}.ai_article_master            as aam
+        )
+        on conflict ( article_code ) do update
+            set     cat_mch3_code                                         =   excluded.cat_mch3_code
+            ,       cat_mch3_desc                                         =   excluded.cat_mch3_desc
+            ,       cat_mch2_code                                         =   excluded.cat_mch2_code
+            ,       cat_mch2_desc                                         =   excluded.cat_mch2_desc
+            ,       cat_mch1_code                                         =   excluded.cat_mch1_code
+            ,       cat_mch1_desc                                         =   excluded.cat_mch1_desc
+            ,       cat_mc_code                                           =   excluded.cat_mc_code
+            ,       cat_mc_desc                                           =   excluded.cat_mc_desc
+            ,       cat_group_id                                          =   excluded.cat_group_id
+            ,       article_name                                          =   excluded.article_name
+            ,       article_replace_code                                  =   excluded.article_replace_code
+            ,       brand                                                 =   excluded.brand
+            ,       sales_uom                                             =   excluded.sales_uom
+            ,       sales_price                                           =   excluded.sales_price
+            ,       sales_price_pro                                       =   excluded.sales_price_pro
+            ,       sales_pro_start                                       =   excluded.sales_pro_start
+            ,       sales_pro_end                                         =   excluded.sales_pro_end
+            ,       vendor_code                                           =   excluded.vendor_code
+            ,       vendor_name                                           =   excluded.vendor_name
+            ,       vendor_article_code                                   =   excluded.vendor_article_code
+            ,       purchase_group                                        =   excluded.purchase_group
+            ,       purchase_uom                                          =   excluded.purchase_uom
+            ,       purchase_price                                        =   excluded.purchase_price
+            ,       purchase_start                                        =   excluded.purchase_start
+            ,       purchase_end                                          =   excluded.purchase_end
+            ,       moq                                                   =   excluded.moq
+            ,       lead_time                                             =   excluded.lead_time
+            ,       tile_size                                             =   excluded.tile_size
+            ,       batch_flag                                            =   excluded.batch_flag
+            ,       item_flag                                             =   excluded.item_flag
+            ,       bss_item_flag                                         =   excluded.bss_item_flag
+            ,       bss_item_status                                       =   excluded.bss_item_status
+            ,       bss_dc_item_flag                                      =   excluded.bss_dc_item_flag
+            ,       bss_dc_stock                                          =   excluded.bss_dc_stock
+            ,       bss_show_no_stock_flag                                =   excluded.bss_show_no_stock_flag
+            ,       bss_product_class                                     =   excluded.bss_product_class
+            ,       bss_vmi_flag                                          =   excluded.bss_vmi_flag
+            ,       bss_showroom_flag                                     =   excluded.bss_showroom_flag
+            ,       bss_market_flag                                       =   excluded.bss_market_flag
+            ,       bss_shop_flag                                         =   excluded.bss_shop_flag
+            ,       bss_shop_direct_ship_allow_flag                       =   excluded.bss_shop_direct_ship_allow_flag
+            ,       start_out_of_stock                                    =   excluded.start_out_of_stock
+            ,       end_out_of_stock                                      =   excluded.end_out_of_stock
+            ,       replace_start                                         =   excluded.replace_start
+            ,       replace_end                                           =   excluded.replace_end
+            ,       run_date                                              =   excluded.run_date
+            ,       status_flag                                           =   excluded.status_flag
+            ,       cat_mch1_code_brand                                   =   excluded.cat_mch1_code_brand
+        where aram.run_date                                               <=  excluded.run_date
+        and   (     aram.cat_mch3_code                                    <>  excluded.cat_mch3_code
+                or  coalesce(aram.cat_mch3_desc, '')                      <>  coalesce(excluded.cat_mch3_desc, '')
+                or  aram.cat_mch2_code                                    <>  excluded.cat_mch2_code
+                or  coalesce(aram.cat_mch2_desc, '')                      <>  coalesce(excluded.cat_mch2_desc, '')
+                or  aram.cat_mch1_code                                    <>  excluded.cat_mch1_code
+                or  coalesce(aram.cat_mch1_desc, '')                      <>  coalesce(excluded.cat_mch1_desc, '')
+                or  aram.cat_mc_code                                      <>  excluded.cat_mc_code
+                or  coalesce(aram.cat_mc_desc, '')                        <>  coalesce(excluded.cat_mc_desc, '')
+                or  coalesce(aram.cat_group_id, '')                       <>  coalesce(excluded.cat_group_id, '')
+                or  coalesce(aram.article_name, '')                       <>  coalesce(excluded.article_name, '')
+                or  coalesce(aram.article_replace_code, '')               <>  coalesce(excluded.article_replace_code, '')
+                or  coalesce(aram.brand, '')                              <>  coalesce(excluded.brand, '')
+                or  coalesce(aram.sales_uom, '')                          <>  coalesce(excluded.sales_uom, '')
+                or  aram.sales_price                                      <>  excluded.sales_price
+                or  aram.sales_price_pro                                  <>  excluded.sales_price_pro
+                or  coalesce(aram.sales_pro_start, '1999-01-01')          <>  coalesce(excluded.sales_pro_start, '1999-01-01')
+                or  coalesce(aram.sales_pro_end, '9999-12-31')            <>  coalesce(excluded.sales_pro_end, '9999-12-31')
+                or  coalesce(aram.vendor_code, '')                        <>  coalesce(excluded.vendor_code, '')
+                or  coalesce(aram.vendor_name, '')                        <>  coalesce(excluded.vendor_name, '')
+                or  coalesce(aram.vendor_article_code, '')                <>  coalesce(excluded.vendor_article_code, '')
+                or  coalesce(aram.purchase_group, '')                     <>  coalesce(excluded.purchase_group, '')
+                or  coalesce(aram.purchase_uom, '')                       <>  coalesce(excluded.purchase_uom, '')
+                or  aram.purchase_price                                   <>  excluded.purchase_price
+                or  coalesce(aram.purchase_start, '1999-01-01')           <>  coalesce(excluded.purchase_start, '1999-01-01')
+                or  coalesce(aram.purchase_end, '9999-12-31')             <>  coalesce(excluded.purchase_end, '9999-12-31')
+                or  aram.moq                                              <>  excluded.moq
+                or  aram.lead_time                                        <>  excluded.lead_time
+                or  coalesce(aram.tile_size, '')                          <>  coalesce(excluded.tile_size, '')
+                or  coalesce(aram.batch_flag, '')                         <>  coalesce(excluded.batch_flag, '')
+                or  coalesce(aram.item_flag, '')                          <>  coalesce(excluded.item_flag, '')
+                or  coalesce(aram.bss_item_flag, '')                      <>  coalesce(excluded.bss_item_flag, '')
+                or  coalesce(aram.bss_item_status, '')                    <>  coalesce(excluded.bss_item_status, '')
+                or  coalesce(aram.bss_dc_item_flag, '')                   <>  coalesce(excluded.bss_dc_item_flag, '')
+                or  coalesce(aram.bss_dc_stock, '')                       <>  coalesce(excluded.bss_dc_stock, '')
+                or  coalesce(aram.bss_show_no_stock_flag, '')             <>  coalesce(excluded.bss_show_no_stock_flag, '')
+                or  coalesce(aram.bss_product_class, '')                  <>  coalesce(excluded.bss_product_class, '')
+                or  coalesce(aram.bss_vmi_flag, '')                       <>  coalesce(excluded.bss_vmi_flag, '')
+                or  coalesce(aram.bss_showroom_flag, '')                  <>  coalesce(excluded.bss_showroom_flag, '')
+                or  coalesce(aram.bss_market_flag, '')                    <>  coalesce(excluded.bss_market_flag, '')
+                or  coalesce(aram.bss_shop_flag, '')                      <>  coalesce(excluded.bss_shop_flag, '')
+                or  coalesce(aram.bss_shop_direct_ship_allow_flag, '')    <>  coalesce(excluded.bss_shop_direct_ship_allow_flag, '')
+                or  coalesce(aram.start_out_of_stock, '1999-01-01')       <>  coalesce(excluded.start_out_of_stock, '1999-01-01')
+                or  coalesce(aram.end_out_of_stock, '9999-12-31')         <>  coalesce(excluded.end_out_of_stock, '9999-12-31')
+                or  coalesce(aram.replace_start, '1999-01-01')            <>  coalesce(excluded.replace_start, '1999-01-01')
+                or  coalesce(aram.replace_end, '9999-12-31')              <>  coalesce(excluded.replace_end, '9999-12-31')
+                or  aram.cat_mch1_code_brand                              <>  excluded.cat_mch1_code_brand
+              )
+        "
+# ====================================
+# ----- ai_report_category_master
+# ====================================
+ai_report_category_master:
+  version: "2022-05-10"
+  create:
+    features:
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch3_desc: "varchar( 128 )"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch2_desc: "varchar( 128 )"
+      cat_mch1_code: "varchar( 32 ) not null"
+      cat_mch1_desc: "varchar( 128 )"
+      brand: "varchar( 64 )"
+      run_date: "date not null"
+      status_flag: "varchar( 16 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+    primary_key: ['cat_mch1_code_brand']
+  update:
+    from_ai_article_master:
+      parameter: ['run_date']
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_category_master  as arcm
+        (
+            select  cat_mch3_code
+            ,       cat_mch3_desc
+            ,       cat_mch2_code
+            ,       cat_mch2_desc
+            ,       cat_mch1_code
+            ,       cat_mch1_desc
+            ,       brand
+            ,       '{run_date}'::date                                          as run_date
+            ,       null                                                        as status_flag
+            ,       concat(cat_mch1_code, '|', brand)                           as cat_mch1_code_brand
+            from  (   select  cat_mch3_code
+                      ,       cat_mch3_desc
+                      ,       cat_mch2_code
+                      ,       cat_mch2_desc
+                      ,       cat_mch1_code
+                      ,       cat_mch1_desc
+                      ,       brand
+                      from  {database_name}.{ai_schema_name}.ai_article_master
+                      group by 1,2,3,4,5,6,7
+                  ) as aam
+        )
+        on conflict ( cat_mch1_code_brand ) do update
+            set     cat_mch3_code                             =   excluded.cat_mch3_code
+            ,       cat_mch3_desc                             =   excluded.cat_mch3_desc
+            ,       cat_mch2_code                             =   excluded.cat_mch2_code
+            ,       cat_mch2_desc                             =   excluded.cat_mch2_desc
+            ,       cat_mch1_code                             =   excluded.cat_mch1_code
+            ,       cat_mch1_desc                             =   excluded.cat_mch1_desc
+            ,       brand                                     =   excluded.brand
+            ,       run_date                                  =   excluded.run_date
+        where   arcm.cat_mch3_code                            <>  excluded.cat_mch3_code
+        or      arcm.cat_mch3_desc                            <>  excluded.cat_mch3_desc
+        or      arcm.cat_mch2_code                            <>  excluded.cat_mch2_code
+        or      arcm.cat_mch2_desc                            <>  excluded.cat_mch2_desc
+        or      arcm.cat_mch1_desc                            <>  excluded.cat_mch1_desc
+        "
+# ====================================
+# ----- ai_report_article_listing_master
+# ====================================
+ai_report_article_listing_master:
+  version: "2022-05-10"
+  create:
+    features:
+      channel_code: "varchar( 64 ) not null"  # (franchise_code & rdc_code & dc_code & vendor_code)
+      channel_name: "varchar( 516 )"
+      channel_type: "varchar( 64 ) not null"
+      article_code: "varchar( 64 ) not null"
+      article_name: "varchar( 516 )"
+      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch3_desc: "varchar( 128 )"
+      cat_mch2_code: "varchar( 32 ) not null"
+      cat_mch2_desc: "varchar( 128 )"
+      cat_mch1_code: "varchar( 32 ) not null"
+      cat_mch1_desc: "varchar( 128 )"
+      brand: "varchar( 64 )"
+      vendor_article_code: "varchar( 256 )"
+      vendor_article_name: "varchar( 516 )"
+      vendor_article_barcode: "varchar( 256 )"
+      sales_uom: "varchar( 32 )"
+      sales_price: "numeric( 20, 8 )"
+      purchase_group: "varchar( 64 )"
+      purchase_uom: "varchar( 32 )"
+      purchase_price: "numeric( 20, 8 )"
+      moq: "numeric( 20, 8 )"
+      lead_time: "smallint"
+      batch_flag: "varchar( 32 )"
+      item_flag: "varchar( 64 )"
+      bss_item_flag: "varchar( 64 )"
+      bss_item_status: "varchar( 64 )"
+      bss_dc_item_flag: "varchar( 64 )"
+      bss_dc_stock: "varchar( 64 )"
+      bss_show_no_stock_flag: "varchar( 64 )"
+      article_replace_code: "varchar( 64 )"
+      replace_start: "date"
+      replace_end: "date"
+      product_class_previous: "varchar( 32 )"
+      product_class_frequency: "varchar( 32 )"
+      product_class_qty: "varchar( 32 )"
+      product_class_value: "varchar( 32 )"
+      product_class: "varchar( 32 )"
+      min_qty_previous: "numeric( 20, 6 )"
+      max_qty_previous: "numeric( 20, 6 )"
+      max_qty_custom_previous: "numeric( 20, 6 )"
+      min_qty: "numeric( 20, 6 )"
+      max_qty: "numeric( 20, 6 )"
+      max_qty_custom: "numeric( 20, 6 )"
+      run_date: "date not null"
+      status_flag: "varchar( 16 )"
+      cat_mch1_code_brand: "varchar( 256 )"
+      primary_id: "bigserial"
+#      primary_id: "integer"
+    primary_key: ['channel_code', 'channel_type', 'article_code']
+  update:
+    from_ai_article_master:
+      parameter: ['run_date']
+      statements:
+        with_row_delete: "
+          delete from {database_name}.{ai_schema_name}.ai_report_article_listing_master as aralm
+          where channel_type = 'VENDOR'
+          returning 1
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_report_article_listing_master as aralm
+          (
+            select  aavm.vendor_code                                                    as channel_code
+            ,       aam.vendor_name                                                     as channel_name
+            ,       'VENDOR'                                                            as channel_type
+            ,       aavm.article_code
+            ,       aam.article_name
+            ,       aam.cat_mch3_code
+            ,       aam.cat_mch3_desc
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch2_desc
+            ,       aam.cat_mch1_code
+            ,       aam.cat_mch1_desc
+            ,       aam.brand
+            ,       aavm.vendor_article_code
+            ,       aavm.vendor_article_name
+            ,       aavm.vendor_barcode                                                 as vendor_article_barcode
+            ,       aam.sales_uom
+            ,       aam.sales_price
+            ,       aavm.purchase_group
+            ,       aavm.purchase_uom
+            ,       aavm.purchase_price
+            ,       aavm.moq
+            ,       aavm.lead_time
+            ,       coalesce(nullif(
+                          coalesce(lower(aam.batch_flag), 'No'), 'x'), 'Yes'
+                          )                                                             as batch_flag
+            ,       aam.item_flag
+            ,       aam.bss_item_flag
+            ,       aam.bss_item_status
+            ,       aam.bss_dc_item_flag
+            ,       aam.bss_dc_stock
+            ,       aam.bss_show_no_stock_flag
+            ,       aam.article_replace_code
+            ,       aam.replace_start
+            ,       aam.replace_end
+            ,       null                                                                as product_class_previous
+            ,       null                                                                as product_class_frequency
+            ,       null                                                                as product_class_qty
+            ,       null                                                                as product_class_value
+            ,       null                                                                as product_class
+            ,       case when filter_flag then 0 else null end                          as min_qty_previous
+            ,       case when filter_flag then 0 else null end                          as max_qty_previous
+            ,       case when filter_flag then 0 else null end                          as max_qty_custom_previous
+            ,       case when filter_flag then 0 else null end                          as min_qty
+            ,       case when filter_flag then 0 else null end                          as max_qty
+            ,       case when filter_flag then 0 else null end                          as max_qty_custom
+            ,       '{run_date}'::date                                                  as run_date
+            ,       null                                                                as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                           as cat_mch1_code_brand
+
+            /* NOTE: `bigserial` is enough to help platform use it.
+            ,       hash_word_32(concat(aam.vendor_code, aam.vendor_name, aam.article_code))  as primary_id
+            */
+
+            from  (   select  article_code
+                      ,       vendor_code
+                      ,       vendor_article_code
+                      ,       vendor_article_name
+                      ,       vendor_barcode
+                      ,       purchase_uom
+                      ,       purchase_group
+                      ,       purchase_price
+                      ,       moq
+                      ,       lead_time
+                      from  {database_name}.{ai_schema_name}.ai_article_vendor_master
+                      where   update_date in ( select max(update_date)
+                                               from {database_name}.{ai_schema_name}.ai_article_vendor_master
+                                             )
+                  ) as aavm
+            inner join (   select  *
+                          ,       case when (     lower(bss_item_flag)   =  'standard'
+                                          and lower(bss_item_status) in ('ready', 'out of stock')
+                                        )
+                                   then true
+                                   else false
+                              end                                                         as filter_flag
+                          from
+                          {database_name}.{ai_schema_name}.ai_article_master
+                          where   trim(vendor_code) is not null
+                      ) as aam
+                on  aam.article_code    =   aavm.article_code
+          )
+          on conflict ( channel_code, channel_type, article_code ) do update
+              set   channel_name                                            =   excluded.channel_name
+              ,     article_name                                            =   excluded.article_name
+              ,     cat_mch3_code                                           =   excluded.cat_mch3_code
+              ,     cat_mch3_desc                                           =   excluded.cat_mch3_desc
+              ,     cat_mch2_code                                           =   excluded.cat_mch2_code
+              ,     cat_mch2_desc                                           =   excluded.cat_mch2_desc
+              ,     cat_mch1_code                                           =   excluded.cat_mch1_code
+              ,     cat_mch1_desc                                           =   excluded.cat_mch1_desc
+              ,     brand                                                   =   excluded.brand
+              ,     vendor_article_code                                     =   excluded.vendor_article_code
+              ,     vendor_article_name                                     =   excluded.vendor_article_name
+              ,     vendor_article_barcode                                  =   excluded.vendor_article_barcode
+              ,     sales_uom                                               =   excluded.sales_uom
+              ,     sales_price                                             =   excluded.sales_price
+              ,     purchase_group                                          =   excluded.purchase_group
+              ,     purchase_uom                                            =   excluded.purchase_uom
+              ,     purchase_price                                          =   excluded.purchase_price
+              ,     moq                                                     =   excluded.moq
+              ,     lead_time                                               =   excluded.lead_time
+              ,     batch_flag                                              =   excluded.batch_flag
+              ,     item_flag                                               =   excluded.item_flag
+              ,     bss_item_flag                                           =   excluded.bss_item_flag
+              ,     bss_item_status                                         =   excluded.bss_item_status
+              ,     bss_dc_item_flag                                        =   excluded.bss_dc_item_flag
+              ,     bss_dc_stock                                            =   excluded.bss_dc_stock
+              ,     bss_show_no_stock_flag                                  =   excluded.bss_show_no_stock_flag
+              ,     article_replace_code                                    =   excluded.article_replace_code
+              ,     replace_start                                           =   excluded.replace_start
+              ,     replace_end                                             =   excluded.replace_end
+              ,     run_date                                                =   excluded.run_date
+              ,     status_flag                                             =   excluded.status_flag
+              ,     cat_mch1_code_brand                                     =   excluded.cat_mch1_code_brand
+              /*
+              ,     primary_id                                              =   excluded.primary_id
+              */
+          where aralm.run_date                                              <=  excluded.run_date
+          and   (     coalesce(aralm.channel_name, '')                      <>  coalesce(excluded.channel_name, '')
+                  or  coalesce(aralm.article_name, '')                      <>  coalesce(excluded.article_name, '')
+                  or  aralm.cat_mch3_code                                   <>  excluded.cat_mch3_code
+                  or  coalesce(aralm.cat_mch3_desc, '')                     <>  coalesce(excluded.cat_mch3_desc, '')
+                  or  aralm.cat_mch2_code                                   <>  excluded.cat_mch2_code
+                  or  coalesce(aralm.cat_mch2_desc, '')                     <>  coalesce(excluded.cat_mch2_desc, '')
+                  or  aralm.cat_mch1_code                                   <>  excluded.cat_mch1_code
+                  or  coalesce(aralm.cat_mch1_desc, '')                     <>  coalesce(excluded.cat_mch1_desc, '')
+                  or  coalesce(aralm.brand, '')                             <>  coalesce(excluded.brand, '')
+                  or  coalesce(aralm.vendor_article_code, '')               <>  coalesce(excluded.vendor_article_code, '')
+                  or  coalesce(aralm.vendor_article_name, '')               <>  coalesce(excluded.vendor_article_name, '')
+                  or  coalesce(aralm.vendor_article_barcode, '')            <>  coalesce(excluded.vendor_article_barcode, '')
+                  or  coalesce(aralm.sales_uom, '')                         <>  coalesce(excluded.sales_uom, '')
+                  or  aralm.sales_price                                     <>  excluded.sales_price
+                  or  coalesce(aralm.purchase_group, '')                    <>  coalesce(excluded.purchase_group, '')
+                  or  coalesce(aralm.purchase_uom, '')                      <>  coalesce(excluded.purchase_uom, '')
+                  or  aralm.purchase_price                                  <>  excluded.purchase_price
+                  or  aralm.moq                                             <>  excluded.moq
+                  or  aralm.lead_time                                       <>  excluded.lead_time
+                  or  coalesce(aralm.batch_flag, '')                        <>  coalesce(excluded.batch_flag, '')
+                  or  coalesce(aralm.item_flag, '')                         <>  coalesce(excluded.item_flag, '')
+                  or  coalesce(aralm.bss_item_flag, '')                     <>  coalesce(excluded.bss_item_flag, '')
+                  or  coalesce(aralm.bss_item_status, '')                   <>  coalesce(excluded.bss_item_status, '')
+                  or  coalesce(aralm.bss_dc_item_flag, '')                  <>  coalesce(excluded.bss_dc_item_flag, '')
+                  or  coalesce(aralm.bss_dc_stock, '')                      <>  coalesce(excluded.bss_dc_stock, '')
+                  or  coalesce(aralm.bss_show_no_stock_flag, '')            <>  coalesce(excluded.bss_show_no_stock_flag, '')
+                  or  coalesce(aralm.article_replace_code, '')              <>  coalesce(excluded.article_replace_code, '')
+                  or  coalesce(aralm.replace_start, '1999-01-01')           <>  coalesce(excluded.replace_start, '1999-01-01')
+                  or  coalesce(aralm.replace_end, '9999-12-31')             <>  coalesce(excluded.replace_end, '9999-12-31')
+                  or  aralm.cat_mch1_code_brand                             <>  excluded.cat_mch1_code_brand
+                )
+          "
+    from_ai_article_master_join_report_prod_cls_min_max_fc:
+      parameter: ['run_date']
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_article_listing_master as aralm
+        (
+          select  afm.franchise_code                                                  as channel_code
+          ,       afm.franchise_name                                                  as channel_name
+          ,       'FC'                                                                as channel_type
+          ,       aam.article_code
+          ,       aam.article_name
+          ,       aam.cat_mch3_code
+          ,       aam.cat_mch3_desc
+          ,       aam.cat_mch2_code
+          ,       aam.cat_mch2_desc
+          ,       aam.cat_mch1_code
+          ,       aam.cat_mch1_desc
+          ,       aam.brand
+          ,       aam.vendor_article_code
+          ,       aam.vendor_article_name
+          ,       aam.vendor_barcode                                                  as vendor_article_barcode
+          ,       aam.sales_uom
+          ,       aam.sales_price
+          ,       aam.purchase_group
+          ,       aam.purchase_uom
+          ,       aam.purchase_price
+          ,       aam.moq
+          ,       aam.lead_time
+          ,       coalesce(nullif(
+                        coalesce(lower(aam.batch_flag), 'No'), 'x'), 'Yes'
+                        )                                                             as batch_flag
+          ,       aam.item_flag
+          ,       aam.bss_item_flag
+          ,       aam.bss_item_status
+          ,       aam.bss_dc_item_flag
+          ,       aam.bss_dc_stock
+          ,       aam.bss_show_no_stock_flag
+          ,       aam.article_replace_code
+          ,       aam.replace_start
+          ,       aam.replace_end
+          ,       product_class_previous
+          ,       product_class_freq                                                  as product_class_frequency
+          ,       product_class_qty
+          ,       product_class_value
+          ,       product_class
+          ,       coalesce(min_qty_previous, 0)                                       as min_qty_previous
+          ,       coalesce(max_qty_previous, 0)                                       as max_qty_previous
+          ,       coalesce(max_qty_custom_previous, 0)                                as max_qty_custom_previous
+          ,       coalesce(min_qty, 0)                                                as min_qty
+          ,       coalesce(max_qty, 0)                                                as max_qty
+          ,       coalesce(max_qty_custom, 0)                                         as max_qty_custom
+          ,       '{run_date}'::date                                                  as run_date
+          ,       null                                                                as status_flag
+          ,       concat(aam.cat_mch1_code, '|', aam.brand)                           as cat_mch1_code_brand
+          from  {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_fc        as arpcmmf
+          inner join {database_name}.{ai_schema_name}.ai_article_master               as aam
+              on aam.article_code   =   arpcmmf.article_code
+          inner join  ( select  franchise_code
+                        ,       franchise_name
+                        from  {database_name}.{ai_schema_name}.ai_franchise_master
+                        where   franchise_priority = 1
+                        group by 1,2
+                      ) as afm
+              on afm.franchise_code =   arpcmmf.franchise_code
+        )
+        on conflict ( channel_code, channel_type, article_code ) do update
+            set   channel_name                                            =   excluded.channel_name
+            ,     article_name                                            =   excluded.article_name
+            ,     cat_mch3_code                                           =   excluded.cat_mch3_code
+            ,     cat_mch3_desc                                           =   excluded.cat_mch3_desc
+            ,     cat_mch2_code                                           =   excluded.cat_mch2_code
+            ,     cat_mch2_desc                                           =   excluded.cat_mch2_desc
+            ,     cat_mch1_code                                           =   excluded.cat_mch1_code
+            ,     cat_mch1_desc                                           =   excluded.cat_mch1_desc
+            ,     brand                                                   =   excluded.brand
+            ,     vendor_article_code                                     =   excluded.vendor_article_code
+            ,     vendor_article_name                                     =   excluded.vendor_article_name
+            ,     vendor_article_barcode                                  =   excluded.vendor_article_barcode
+            ,     sales_uom                                               =   excluded.sales_uom
+            ,     sales_price                                             =   excluded.sales_price
+            ,     purchase_group                                          =   excluded.purchase_group
+            ,     purchase_uom                                            =   excluded.purchase_uom
+            ,     purchase_price                                          =   excluded.purchase_price
+            ,     moq                                                     =   excluded.moq
+            ,     lead_time                                               =   excluded.lead_time
+            ,     batch_flag                                              =   excluded.batch_flag
+            ,     item_flag                                               =   excluded.item_flag
+            ,     bss_item_flag                                           =   excluded.bss_item_flag
+            ,     bss_item_status                                         =   excluded.bss_item_status
+            ,     bss_dc_item_flag                                        =   excluded.bss_dc_item_flag
+            ,     bss_dc_stock                                            =   excluded.bss_dc_stock
+            ,     bss_show_no_stock_flag                                  =   excluded.bss_show_no_stock_flag
+            ,     article_replace_code                                    =   excluded.article_replace_code
+            ,     replace_start                                           =   excluded.replace_start
+            ,     replace_end                                             =   excluded.replace_end
+            ,     product_class_previous                                  =   excluded.product_class_previous
+            ,     product_class_frequency                                 =   excluded.product_class_frequency
+            ,     product_class_qty                                       =   excluded.product_class_qty
+            ,     product_class_value                                     =   excluded.product_class_value
+            ,     product_class                                           =   excluded.product_class
+            ,     min_qty_previous                                        =   excluded.min_qty_previous
+            ,     max_qty_previous                                        =   excluded.max_qty_previous
+            ,     max_qty_custom_previous                                 =   excluded.max_qty_custom_previous
+            ,     min_qty                                                 =   excluded.min_qty
+            ,     max_qty                                                 =   excluded.max_qty
+            ,     max_qty_custom                                          =   excluded.max_qty_custom
+            ,     run_date                                                =   excluded.run_date
+            ,     status_flag                                             =   excluded.status_flag
+            ,     cat_mch1_code_brand                                     =   excluded.cat_mch1_code_brand
+        where aralm.run_date                                              <=  excluded.run_date
+        and   (     coalesce(aralm.channel_name, '')                      <>  coalesce(excluded.channel_name, '')
+                or  coalesce(aralm.article_name, '')                      <>  coalesce(excluded.article_name, '')
+                or  aralm.cat_mch3_code                                   <>  excluded.cat_mch3_code
+                or  coalesce(aralm.cat_mch3_desc, '')                     <>  coalesce(excluded.cat_mch3_desc, '')
+                or  aralm.cat_mch2_code                                   <>  excluded.cat_mch2_code
+                or  coalesce(aralm.cat_mch2_desc, '')                     <>  coalesce(excluded.cat_mch2_desc, '')
+                or  aralm.cat_mch1_code                                   <>  excluded.cat_mch1_code
+                or  coalesce(aralm.cat_mch1_desc, '')                     <>  coalesce(excluded.cat_mch1_desc, '')
+                or  coalesce(aralm.brand, '')                             <>  coalesce(excluded.brand, '')
+                or  coalesce(aralm.vendor_article_code, '')               <>  coalesce(excluded.vendor_article_code, '')
+                or  coalesce(aralm.vendor_article_name, '')               <>  coalesce(excluded.vendor_article_name, '')
+                or  coalesce(aralm.vendor_article_barcode, '')            <>  coalesce(excluded.vendor_article_barcode, '')
+                or  coalesce(aralm.sales_uom, '')                         <>  coalesce(excluded.sales_uom, '')
+                or  aralm.sales_price                                     <>  excluded.sales_price
+                or  coalesce(aralm.purchase_group, '')                    <>  coalesce(excluded.purchase_group, '')
+                or  coalesce(aralm.purchase_uom, '')                      <>  coalesce(excluded.purchase_uom, '')
+                or  aralm.purchase_price                                  <>  excluded.purchase_price
+                or  aralm.moq                                             <>  excluded.moq
+                or  aralm.lead_time                                       <>  excluded.lead_time
+                or  coalesce(aralm.batch_flag, '')                        <>  coalesce(excluded.batch_flag, '')
+                or  coalesce(aralm.item_flag, '')                         <>  coalesce(excluded.item_flag, '')
+                or  coalesce(aralm.bss_item_flag, '')                     <>  coalesce(excluded.bss_item_flag, '')
+                or  coalesce(aralm.bss_item_status, '')                   <>  coalesce(excluded.bss_item_status, '')
+                or  coalesce(aralm.bss_dc_item_flag, '')                  <>  coalesce(excluded.bss_dc_item_flag, '')
+                or  coalesce(aralm.bss_dc_stock, '')                      <>  coalesce(excluded.bss_dc_stock, '')
+                or  coalesce(aralm.bss_show_no_stock_flag, '')            <>  coalesce(excluded.bss_show_no_stock_flag, '')
+                or  coalesce(aralm.article_replace_code, '')              <>  coalesce(excluded.article_replace_code, '')
+                or  coalesce(aralm.replace_start, '1999-01-01')           <>  coalesce(excluded.replace_start, '1999-01-01')
+                or  coalesce(aralm.replace_end, '9999-12-31')             <>  coalesce(excluded.replace_end, '9999-12-31')
+                or  coalesce(aralm.product_class_previous, '')            <>  coalesce(excluded.product_class_previous, '')
+                or  aralm.product_class_frequency                         <>  excluded.product_class_frequency
+                or  aralm.product_class_qty                               <>  excluded.product_class_qty
+                or  aralm.product_class_value                             <>  excluded.product_class_value
+                or  aralm.product_class                                   <>  excluded.product_class
+                or  coalesce(aralm.min_qty_previous, 0)                   <>  coalesce(excluded.min_qty_previous, 0)
+                or  coalesce(aralm.max_qty_previous, 0)                   <>  coalesce(excluded.max_qty_previous, 0)
+                or  coalesce(aralm.max_qty_custom_previous, 0)            <>  coalesce(excluded.max_qty_custom_previous, 0)
+                or  aralm.min_qty                                         <>  excluded.min_qty
+                or  aralm.max_qty                                         <>  excluded.max_qty
+                or  aralm.max_qty_custom                                  <>  excluded.max_qty_custom
+                or  aralm.cat_mch1_code_brand                             <>  excluded.cat_mch1_code_brand
+              )
+        "
+    from_ai_article_master_join_report_prod_cls_min_max_rdc:
+      parameter: ['run_date']
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_article_listing_master as aralm
+        (
+          select  afm.rdc_code                                                        as channel_code
+          ,       afm.rdc_name                                                        as channel_name
+          ,       'RDC'                                                               as channel_type
+          ,       aam.article_code
+          ,       aam.article_name
+          ,       aam.cat_mch3_code
+          ,       aam.cat_mch3_desc
+          ,       aam.cat_mch2_code
+          ,       aam.cat_mch2_desc
+          ,       aam.cat_mch1_code
+          ,       aam.cat_mch1_desc
+          ,       aam.brand
+          ,       aam.vendor_article_code
+          ,       aam.vendor_article_name
+          ,       aam.vendor_barcode                                                  as vendor_article_barcode
+          ,       aam.sales_uom
+          ,       aam.sales_price
+          ,       aam.purchase_group
+          ,       aam.purchase_uom
+          ,       aam.purchase_price
+          ,       aam.moq
+          ,       aam.lead_time
+          ,       coalesce(nullif(
+                        coalesce(lower(aam.batch_flag), 'No'), 'x'), 'Yes'
+                        )                                                             as batch_flag
+          ,       aam.item_flag
+          ,       aam.bss_item_flag
+          ,       aam.bss_item_status
+          ,       aam.bss_dc_item_flag
+          ,       aam.bss_dc_stock
+          ,       aam.bss_show_no_stock_flag
+          ,       aam.article_replace_code
+          ,       aam.replace_start
+          ,       aam.replace_end
+          ,       product_class_previous
+          ,       product_class_freq                                                  as product_class_frequency
+          ,       product_class_qty
+          ,       product_class_value
+          ,       product_class
+          ,       coalesce(min_qty_previous, 0)                                       as min_qty_previous
+          ,       coalesce(max_qty_previous, 0)                                       as max_qty_previous
+          ,       coalesce(max_qty_custom_previous, 0)                                as max_qty_custom_previous
+          ,       coalesce(min_qty, 0)                                                as min_qty
+          ,       coalesce(max_qty, 0)                                                as max_qty
+          ,       coalesce(max_qty_custom, 0)                                         as max_qty_custom
+          ,       '{run_date}'::date                                                  as run_date
+          ,       null                                                                as status_flag
+          ,       concat(aam.cat_mch1_code, '|', aam.brand)                           as cat_mch1_code_brand
+          from  {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_rdc       as arpcmmr
+          inner join {database_name}.{ai_schema_name}.ai_article_master               as aam
+              on aam.article_code   =   arpcmmr.article_code
+          inner join  ( select  rdc_code
+                        ,       rdc_name
+                        from  {database_name}.{ai_schema_name}.ai_franchise_master
+                        where   franchise_priority = 1
+                        and     rdc_code  <>  franchise_code
+                        and     relation_flag like '%R%'
+                        group by 1,2
+                      ) as afm
+              on afm.rdc_code   =   arpcmmr.rdc_code
+        )
+        on conflict ( channel_code, channel_type, article_code ) do update
+            set   channel_name                                            =   excluded.channel_name
+            ,     article_name                                            =   excluded.article_name
+            ,     cat_mch3_code                                           =   excluded.cat_mch3_code
+            ,     cat_mch3_desc                                           =   excluded.cat_mch3_desc
+            ,     cat_mch2_code                                           =   excluded.cat_mch2_code
+            ,     cat_mch2_desc                                           =   excluded.cat_mch2_desc
+            ,     cat_mch1_code                                           =   excluded.cat_mch1_code
+            ,     cat_mch1_desc                                           =   excluded.cat_mch1_desc
+            ,     brand                                                   =   excluded.brand
+            ,     vendor_article_code                                     =   excluded.vendor_article_code
+            ,     vendor_article_name                                     =   excluded.vendor_article_name
+            ,     vendor_article_barcode                                  =   excluded.vendor_article_barcode
+            ,     sales_uom                                               =   excluded.sales_uom
+            ,     sales_price                                             =   excluded.sales_price
+            ,     purchase_group                                          =   excluded.purchase_group
+            ,     purchase_uom                                            =   excluded.purchase_uom
+            ,     purchase_price                                          =   excluded.purchase_price
+            ,     moq                                                     =   excluded.moq
+            ,     lead_time                                               =   excluded.lead_time
+            ,     batch_flag                                              =   excluded.batch_flag
+            ,     item_flag                                               =   excluded.item_flag
+            ,     bss_item_flag                                           =   excluded.bss_item_flag
+            ,     bss_item_status                                         =   excluded.bss_item_status
+            ,     bss_dc_item_flag                                        =   excluded.bss_dc_item_flag
+            ,     bss_dc_stock                                            =   excluded.bss_dc_stock
+            ,     bss_show_no_stock_flag                                  =   excluded.bss_show_no_stock_flag
+            ,     article_replace_code                                    =   excluded.article_replace_code
+            ,     replace_start                                           =   excluded.replace_start
+            ,     replace_end                                             =   excluded.replace_end
+            ,     product_class_previous                                  =   excluded.product_class_previous
+            ,     product_class_frequency                                 =   excluded.product_class_frequency
+            ,     product_class_qty                                       =   excluded.product_class_qty
+            ,     product_class_value                                     =   excluded.product_class_value
+            ,     product_class                                           =   excluded.product_class
+            ,     min_qty_previous                                        =   excluded.min_qty_previous
+            ,     max_qty_previous                                        =   excluded.max_qty_previous
+            ,     max_qty_custom_previous                                 =   excluded.max_qty_custom_previous
+            ,     min_qty                                                 =   excluded.min_qty
+            ,     max_qty                                                 =   excluded.max_qty
+            ,     max_qty_custom                                          =   excluded.max_qty_custom
+            ,     run_date                                                =   excluded.run_date
+            ,     status_flag                                             =   excluded.status_flag
+            ,     cat_mch1_code_brand                                     =   excluded.cat_mch1_code_brand
+        where aralm.run_date                                              <=  excluded.run_date
+        and   (     coalesce(aralm.channel_name, '')                      <>  coalesce(excluded.channel_name, '')
+                or  coalesce(aralm.article_name, '')                      <>  coalesce(excluded.article_name, '')
+                or  aralm.cat_mch3_code                                   <>  excluded.cat_mch3_code
+                or  coalesce(aralm.cat_mch3_desc, '')                     <>  coalesce(excluded.cat_mch3_desc, '')
+                or  aralm.cat_mch2_code                                   <>  excluded.cat_mch2_code
+                or  coalesce(aralm.cat_mch2_desc, '')                     <>  coalesce(excluded.cat_mch2_desc, '')
+                or  aralm.cat_mch1_code                                   <>  excluded.cat_mch1_code
+                or  coalesce(aralm.cat_mch1_desc, '')                     <>  coalesce(excluded.cat_mch1_desc, '')
+                or  coalesce(aralm.brand, '')                             <>  coalesce(excluded.brand, '')
+                or  coalesce(aralm.vendor_article_code, '')               <>  coalesce(excluded.vendor_article_code, '')
+                or  coalesce(aralm.vendor_article_name, '')               <>  coalesce(excluded.vendor_article_name, '')
+                or  coalesce(aralm.vendor_article_barcode, '')            <>  coalesce(excluded.vendor_article_barcode, '')
+                or  coalesce(aralm.sales_uom, '')                         <>  coalesce(excluded.sales_uom, '')
+                or  aralm.sales_price                                     <>  excluded.sales_price
+                or  coalesce(aralm.purchase_group, '')                    <>  coalesce(excluded.purchase_group, '')
+                or  coalesce(aralm.purchase_uom, '')                      <>  coalesce(excluded.purchase_uom, '')
+                or  aralm.purchase_price                                  <>  excluded.purchase_price
+                or  aralm.moq                                             <>  excluded.moq
+                or  aralm.lead_time                                       <>  excluded.lead_time
+                or  coalesce(aralm.batch_flag, '')                        <>  coalesce(excluded.batch_flag, '')
+                or  coalesce(aralm.item_flag, '')                         <>  coalesce(excluded.item_flag, '')
+                or  coalesce(aralm.bss_item_flag, '')                     <>  coalesce(excluded.bss_item_flag, '')
+                or  coalesce(aralm.bss_item_status, '')                   <>  coalesce(excluded.bss_item_status, '')
+                or  coalesce(aralm.bss_dc_item_flag, '')                  <>  coalesce(excluded.bss_dc_item_flag, '')
+                or  coalesce(aralm.bss_dc_stock, '')                      <>  coalesce(excluded.bss_dc_stock, '')
+                or  coalesce(aralm.bss_show_no_stock_flag, '')            <>  coalesce(excluded.bss_show_no_stock_flag, '')
+                or  coalesce(aralm.article_replace_code, '')              <>  coalesce(excluded.article_replace_code, '')
+                or  coalesce(aralm.replace_start, '1999-01-01')           <>  coalesce(excluded.replace_start, '1999-01-01')
+                or  coalesce(aralm.replace_end, '9999-12-31')             <>  coalesce(excluded.replace_end, '9999-12-31')
+                or  coalesce(aralm.product_class_previous, '')            <>  coalesce(excluded.product_class_previous, '')
+                or  aralm.product_class_frequency                         <>  excluded.product_class_frequency
+                or  aralm.product_class_qty                               <>  excluded.product_class_qty
+                or  aralm.product_class_value                             <>  excluded.product_class_value
+                or  aralm.product_class                                   <>  excluded.product_class
+                or  coalesce(aralm.min_qty_previous, 0)                   <>  coalesce(excluded.min_qty_previous, 0)
+                or  coalesce(aralm.max_qty_previous, 0)                   <>  coalesce(excluded.max_qty_previous, 0)
+                or  coalesce(aralm.max_qty_custom_previous, 0)            <>  coalesce(excluded.max_qty_custom_previous, 0)
+                or  aralm.min_qty                                         <>  excluded.min_qty
+                or  aralm.max_qty                                         <>  excluded.max_qty
+                or  aralm.max_qty_custom                                  <>  excluded.max_qty_custom
+                or  aralm.cat_mch1_code_brand                             <>  excluded.cat_mch1_code_brand
+              )
+        "
+    from_ai_article_master_join_report_prod_cls_min_max_dc:
+      parameter: ['run_date']
+      statement: "
+        insert into {database_name}.{ai_schema_name}.ai_report_article_listing_master as aralm
+        (
+          select  afm.dc_code                                                         as channel_code
+          ,       afm.dc_name                                                         as channel_name
+          ,       'DC'                                                                as channel_type
+          ,       aam.article_code
+          ,       aam.article_name
+          ,       aam.cat_mch3_code
+          ,       aam.cat_mch3_desc
+          ,       aam.cat_mch2_code
+          ,       aam.cat_mch2_desc
+          ,       aam.cat_mch1_code
+          ,       aam.cat_mch1_desc
+          ,       aam.brand
+          ,       aam.vendor_article_code
+          ,       aam.vendor_article_name
+          ,       aam.vendor_barcode                                                  as vendor_article_barcode
+          ,       aam.sales_uom
+          ,       aam.sales_price
+          ,       aam.purchase_group
+          ,       aam.purchase_uom
+          ,       aam.purchase_price
+          ,       aam.moq
+          ,       aam.lead_time
+          ,       coalesce(nullif(
+                        coalesce(lower(aam.batch_flag), 'No'), 'x'), 'Yes'
+                        )                                                             as batch_flag
+          ,       aam.item_flag
+          ,       aam.bss_item_flag
+          ,       aam.bss_item_status
+          ,       aam.bss_dc_item_flag
+          ,       aam.bss_dc_stock
+          ,       aam.bss_show_no_stock_flag
+          ,       aam.article_replace_code
+          ,       aam.replace_start
+          ,       aam.replace_end
+          ,       product_class_previous
+          ,       product_class_freq                                                  as product_class_frequency
+          ,       product_class_qty
+          ,       product_class_value
+          ,       product_class
+          ,       coalesce(min_qty_previous, 0)                                       as min_qty_previous
+          ,       coalesce(max_qty_previous, 0)                                       as max_qty_previous
+          ,       coalesce(max_qty_custom_previous, 0)                                as max_qty_custom_previous
+          ,       coalesce(min_qty, 0)                                                as min_qty
+          ,       coalesce(max_qty, 0)                                                as max_qty
+          ,       coalesce(max_qty_custom, 0)                                         as max_qty_custom
+          ,       '{run_date}'::date                                                  as run_date
+          ,       null                                                                as status_flag
+          ,       concat(aam.cat_mch1_code, '|', aam.brand)                           as cat_mch1_code_brand
+          from  {database_name}.{ai_schema_name}.ai_report_prod_cls_min_max_dc        as arpcmmd
+          inner join {database_name}.{ai_schema_name}.ai_article_master               as aam
+              on aam.article_code   =   arpcmmd.article_code
+          inner join  ( select  dc_code
+                        ,       dc_name
+                        from  {database_name}.{ai_schema_name}.ai_franchise_master
+                        where   franchise_priority = 1
+                        and     dc_code   <>  franchise_code
+                        and     relation_flag like '%D%'
+                        group by 1,2
+                      ) as afm
+              on afm.dc_code    =   arpcmmd.dc_code
+        )
+        on conflict ( channel_code, channel_type, article_code ) do update
+            set   channel_name                                            =   excluded.channel_name
+            ,     article_name                                            =   excluded.article_name
+            ,     cat_mch3_code                                           =   excluded.cat_mch3_code
+            ,     cat_mch3_desc                                           =   excluded.cat_mch3_desc
+            ,     cat_mch2_code                                           =   excluded.cat_mch2_code
+            ,     cat_mch2_desc                                           =   excluded.cat_mch2_desc
+            ,     cat_mch1_code                                           =   excluded.cat_mch1_code
+            ,     cat_mch1_desc                                           =   excluded.cat_mch1_desc
+            ,     brand                                                   =   excluded.brand
+            ,     vendor_article_code                                     =   excluded.vendor_article_code
+            ,     vendor_article_name                                     =   excluded.vendor_article_name
+            ,     vendor_article_barcode                                  =   excluded.vendor_article_barcode
+            ,     sales_uom                                               =   excluded.sales_uom
+            ,     sales_price                                             =   excluded.sales_price
+            ,     purchase_group                                          =   excluded.purchase_group
+            ,     purchase_uom                                            =   excluded.purchase_uom
+            ,     purchase_price                                          =   excluded.purchase_price
+            ,     moq                                                     =   excluded.moq
+            ,     lead_time                                               =   excluded.lead_time
+            ,     batch_flag                                              =   excluded.batch_flag
+            ,     item_flag                                               =   excluded.item_flag
+            ,     bss_item_flag                                           =   excluded.bss_item_flag
+            ,     bss_item_status                                         =   excluded.bss_item_status
+            ,     bss_dc_item_flag                                        =   excluded.bss_dc_item_flag
+            ,     bss_dc_stock                                            =   excluded.bss_dc_stock
+            ,     bss_show_no_stock_flag                                  =   excluded.bss_show_no_stock_flag
+            ,     article_replace_code                                    =   excluded.article_replace_code
+            ,     replace_start                                           =   excluded.replace_start
+            ,     replace_end                                             =   excluded.replace_end
+            ,     product_class_previous                                  =   excluded.product_class_previous
+            ,     product_class_frequency                                 =   excluded.product_class_frequency
+            ,     product_class_qty                                       =   excluded.product_class_qty
+            ,     product_class_value                                     =   excluded.product_class_value
+            ,     product_class                                           =   excluded.product_class
+            ,     min_qty_previous                                        =   excluded.min_qty_previous
+            ,     max_qty_previous                                        =   excluded.max_qty_previous
+            ,     max_qty_custom_previous                                 =   excluded.max_qty_custom_previous
+            ,     min_qty                                                 =   excluded.min_qty
+            ,     max_qty                                                 =   excluded.max_qty
+            ,     max_qty_custom                                          =   excluded.max_qty_custom
+            ,     run_date                                                =   excluded.run_date
+            ,     status_flag                                             =   excluded.status_flag
+            ,     cat_mch1_code_brand                                     =   excluded.cat_mch1_code_brand
+        where aralm.run_date                                              <=  excluded.run_date
+        and   (     coalesce(aralm.channel_name, '')                      <>  coalesce(excluded.channel_name, '')
+                or  coalesce(aralm.article_name, '')                      <>  coalesce(excluded.article_name, '')
+                or  aralm.cat_mch3_code                                   <>  excluded.cat_mch3_code
+                or  coalesce(aralm.cat_mch3_desc, '')                     <>  coalesce(excluded.cat_mch3_desc, '')
+                or  aralm.cat_mch2_code                                   <>  excluded.cat_mch2_code
+                or  coalesce(aralm.cat_mch2_desc, '')                     <>  coalesce(excluded.cat_mch2_desc, '')
+                or  aralm.cat_mch1_code                                   <>  excluded.cat_mch1_code
+                or  coalesce(aralm.cat_mch1_desc, '')                     <>  coalesce(excluded.cat_mch1_desc, '')
+                or  coalesce(aralm.brand, '')                             <>  coalesce(excluded.brand, '')
+                or  coalesce(aralm.vendor_article_code, '')               <>  coalesce(excluded.vendor_article_code, '')
+                or  coalesce(aralm.vendor_article_name, '')               <>  coalesce(excluded.vendor_article_name, '')
+                or  coalesce(aralm.vendor_article_barcode, '')            <>  coalesce(excluded.vendor_article_barcode, '')
+                or  coalesce(aralm.sales_uom, '')                         <>  coalesce(excluded.sales_uom, '')
+                or  aralm.sales_price                                     <>  excluded.sales_price
+                or  coalesce(aralm.purchase_group, '')                    <>  coalesce(excluded.purchase_group, '')
+                or  coalesce(aralm.purchase_uom, '')                      <>  coalesce(excluded.purchase_uom, '')
+                or  aralm.purchase_price                                  <>  excluded.purchase_price
+                or  aralm.moq                                             <>  excluded.moq
+                or  aralm.lead_time                                       <>  excluded.lead_time
+                or  coalesce(aralm.batch_flag, '')                        <>  coalesce(excluded.batch_flag, '')
+                or  coalesce(aralm.item_flag, '')                         <>  coalesce(excluded.item_flag, '')
+                or  coalesce(aralm.bss_item_flag, '')                    <>  coalesce(excluded.bss_item_flag, '')
+                or  coalesce(aralm.bss_item_status, '')                  <>  coalesce(excluded.bss_item_status, '')
+                or  coalesce(aralm.bss_dc_item_flag, '')                 <>  coalesce(excluded.bss_dc_item_flag, '')
+                or  coalesce(aralm.bss_dc_stock, '')                     <>  coalesce(excluded.bss_dc_stock, '')
+                or  coalesce(aralm.bss_show_no_stock_flag, '')           <>  coalesce(excluded.bss_show_no_stock_flag, '')
+                or  coalesce(aralm.article_replace_code, '')              <>  coalesce(excluded.article_replace_code, '')
+                or  coalesce(aralm.replace_start, '1999-01-01')           <>  coalesce(excluded.replace_start, '1999-01-01')
+                or  coalesce(aralm.replace_end, '9999-12-31')             <>  coalesce(excluded.replace_end, '9999-12-31')
+                or  coalesce(aralm.product_class_previous, '')            <>  coalesce(excluded.product_class_previous, '')
+                or  aralm.product_class_frequency                         <>  excluded.product_class_frequency
+                or  aralm.product_class_qty                               <>  excluded.product_class_qty
+                or  aralm.product_class_value                             <>  excluded.product_class_value
+                or  aralm.product_class                                   <>  excluded.product_class
+                or  coalesce(aralm.min_qty_previous, 0)                   <>  coalesce(excluded.min_qty_previous, 0)
+                or  coalesce(aralm.max_qty_previous, 0)                   <>  coalesce(excluded.max_qty_previous, 0)
+                or  coalesce(aralm.max_qty_custom_previous, 0)            <>  coalesce(excluded.max_qty_custom_previous, 0)
+                or  aralm.min_qty                                         <>  excluded.min_qty
+                or  aralm.max_qty                                         <>  excluded.max_qty
+                or  aralm.max_qty_custom                                  <>  excluded.max_qty_custom
+                or  aralm.cat_mch1_code_brand                            <>  excluded.cat_mch1_code_brand
+              )
+        "
+    from_ai_article_master_join_ai_article_franchise:
+      parameter: [
+          'run_date',
+          'actual_sales_filter_sales_price',
+          'actual_sales_filter_purchase_price'
+      ]
+      statements:
+        with_actual_franchise: "
+          select  franchise_code
+          from  {database_name}.{ai_schema_name}.ai_article_mapping_fc
+          group by 1
+          "
+        with_from_fc_mapping: "
+          select  afm.franchise_code                                                          as channel_code
+          ,       last_value(franchise_name) over (
+                                  partition by afm.franchise_code
+                                  order by update_date
+                                  )                                                           as channel_name
+          ,       'FC'                                                                        as channel_type
+          from  {database_name}.{ai_schema_name}.ai_franchise_master                          as afm
+          inner join actual_franchise                                                         as af
+                on  af.franchise_code   =   afm.franchise_code
+          where   franchise_priority = 1
+          "
+        with_from_rdc_mapping: "
+          select  rdc_code                                                                    as channel_code
+          ,       last_value(rdc_name) over (
+                                  partition by rdc_name
+                                  order by update_date
+                                  )                                                           as channel_name
+          ,       'RDC'                                                                       as channel_type
+          from  {database_name}.{ai_schema_name}.ai_franchise_master                          as afm
+          inner join actual_franchise                                                         as af
+                on  af.franchise_code   =   afm.franchise_code
+          where   franchise_priority = 1
+          and     rdc_code  <>  afm.franchise_code
+          and     relation_flag like '%R%'
+          "
+        with_from_dc_mapping: "
+          select  dc_code                                                                     as channel_code
+          ,       last_value(dc_name) over (
+                                  partition by dc_name
+                                  order by update_date
+                                  )                                                           as channel_name
+          ,       'DC'                                                                        as channel_type
+          from  {database_name}.{ai_schema_name}.ai_franchise_master                          as afm
+          inner join actual_franchise                                                         as af
+                on  af.franchise_code   =   afm.franchise_code
+          where   franchise_priority = 1
+          and     dc_code   <>  afm.franchise_code
+          and     relation_flag like '%D%'
+          "
+        with_row_table: "
+          insert into {database_name}.{ai_schema_name}.ai_report_article_listing_master         as aralm
+          (
+            select  channel_code
+            ,       channel_name
+            ,       channel_type
+            ,       aam.article_code
+            ,       aam.article_name
+            ,       aam.cat_mch3_code
+            ,       aam.cat_mch3_desc
+            ,       aam.cat_mch2_code
+            ,       aam.cat_mch2_desc
+            ,       aam.cat_mch1_code
+            ,       aam.cat_mch1_desc
+            ,       aam.brand
+            ,       aam.vendor_article_code
+            ,       aam.vendor_article_name
+            ,       aam.vendor_barcode                                                          as vendor_article_barcode
+            ,       aam.sales_uom
+            ,       aam.sales_price
+            ,       aam.purchase_group
+            ,       aam.purchase_uom
+            ,       aam.purchase_price
+            ,       aam.moq
+            ,       aam.lead_time
+            ,       coalesce(nullif(
+                          coalesce(lower(aam.batch_flag), 'No'), 'x'), 'Yes'
+                          )                                                                     as batch_flag
+            ,       aam.item_flag
+            ,       aam.bss_item_flag
+            ,       aam.bss_item_status
+            ,       aam.bss_dc_item_flag
+            ,       aam.bss_dc_stock
+            ,       aam.bss_show_no_stock_flag
+            ,       aam.article_replace_code
+            ,       aam.replace_start
+            ,       aam.replace_end
+            ,       null                                                                        as product_class_previous
+            ,       null                                                                        as product_class_frequency
+            ,       null                                                                        as product_class_qty
+            ,       null                                                                        as product_class_value
+            ,       null                                                                        as product_class
+            ,       case when filter_flag then 0 else null end                                  as min_qty_previous
+            ,       case when filter_flag then 0 else null end                                  as max_qty_previous
+            ,       case when filter_flag then 0 else null end                                  as max_qty_custom_previous
+            ,       case when filter_flag then 0 else null end                                  as min_qty
+            ,       case when filter_flag then 0 else null end                                  as max_qty
+            ,       case when filter_flag then 0 else null end                                  as max_qty_custom
+            ,       '{run_date}'::date                                                          as run_date
+            ,       null                                                                        as status_flag
+            ,       concat(aam.cat_mch1_code, '|', aam.brand)                                   as cat_mch1_code_brand
+            from  (   select  article_code
+                      from  {database_name}.{ai_schema_name}.ai_article_mapping_fc
+                      group by 1
+                  ) as aamf
+            inner join  (   select  *
+                            ,       case when (     lower(bss_item_flag)   =  'standard'
+                                                and lower(bss_item_status) in ('ready', 'out of stock')
+                                              )
+                                         then true
+                                         else false
+                                    end                                                         as filter_flag
+                            from  {database_name}.{ai_schema_name}.ai_article_master
+                        ) as aam
+                  on  aamf.article_code     =     aam.article_code
+            cross join  (   select  channel_code, channel_type, max(channel_name) as channel_name
+                            from  from_fc_mapping
+                            group by 1,2
+                            union
+                            select  channel_code, channel_type, max(channel_name) as channel_name
+                            from  from_rdc_mapping
+                            group by 1,2
+                            union
+                            select  channel_code, channel_type, max(channel_name) as channel_name
+                            from  from_dc_mapping
+                            group by 1,2
+                        ) as mapping_channel
+          )
+          on conflict ( channel_code, channel_type, article_code ) do update
+              set   channel_name                                            =   excluded.channel_name
+              ,     article_name                                            =   excluded.article_name
+              ,     cat_mch3_code                                           =   excluded.cat_mch3_code
+              ,     cat_mch3_desc                                           =   excluded.cat_mch3_desc
+              ,     cat_mch2_code                                           =   excluded.cat_mch2_code
+              ,     cat_mch2_desc                                           =   excluded.cat_mch2_desc
+              ,     cat_mch1_code                                           =   excluded.cat_mch1_code
+              ,     cat_mch1_desc                                           =   excluded.cat_mch1_desc
+              ,     brand                                                   =   excluded.brand
+              ,     vendor_article_code                                     =   excluded.vendor_article_code
+              ,     vendor_article_name                                     =   excluded.vendor_article_name
+              ,     vendor_article_barcode                                  =   excluded.vendor_article_barcode
+              ,     sales_uom                                               =   excluded.sales_uom
+              ,     sales_price                                             =   excluded.sales_price
+              ,     purchase_group                                          =   excluded.purchase_group
+              ,     purchase_uom                                            =   excluded.purchase_uom
+              ,     purchase_price                                          =   excluded.purchase_price
+              ,     moq                                                     =   excluded.moq
+              ,     lead_time                                               =   excluded.lead_time
+              ,     batch_flag                                              =   excluded.batch_flag
+              ,     item_flag                                               =   excluded.item_flag
+              ,     bss_item_flag                                           =   excluded.bss_item_flag
+              ,     bss_item_status                                         =   excluded.bss_item_status
+              ,     bss_dc_item_flag                                        =   excluded.bss_dc_item_flag
+              ,     bss_dc_stock                                            =   excluded.bss_dc_stock
+              ,     bss_show_no_stock_flag                                  =   excluded.bss_show_no_stock_flag
+              ,     article_replace_code                                    =   excluded.article_replace_code
+              ,     replace_start                                           =   excluded.replace_start
+              ,     replace_end                                             =   excluded.replace_end
+              ,     run_date                                                =   excluded.run_date
+              ,     status_flag                                             =   excluded.status_flag
+              ,     cat_mch1_code_brand                                     =   excluded.cat_mch1_code_brand
+          where aralm.run_date                                              <=  excluded.run_date
+          and   (     coalesce(aralm.channel_name, '')                      <>  coalesce(excluded.channel_name, '')
+                  or  coalesce(aralm.article_name, '')                      <>  coalesce(excluded.article_name, '')
+                  or  aralm.cat_mch3_code                                   <>  excluded.cat_mch3_code
+                  or  coalesce(aralm.cat_mch3_desc, '')                     <>  coalesce(excluded.cat_mch3_desc, '')
+                  or  aralm.cat_mch2_code                                   <>  excluded.cat_mch2_code
+                  or  coalesce(aralm.cat_mch2_desc, '')                     <>  coalesce(excluded.cat_mch2_desc, '')
+                  or  aralm.cat_mch1_code                                   <>  excluded.cat_mch1_code
+                  or  coalesce(aralm.cat_mch1_desc, '')                     <>  coalesce(excluded.cat_mch1_desc, '')
+                  or  coalesce(aralm.brand, '')                             <>  coalesce(excluded.brand, '')
+                  or  coalesce(aralm.vendor_article_code, '')               <>  coalesce(excluded.vendor_article_code, '')
+                  or  coalesce(aralm.vendor_article_name, '')               <>  coalesce(excluded.vendor_article_name, '')
+                  or  coalesce(aralm.vendor_article_barcode, '')            <>  coalesce(excluded.vendor_article_barcode, '')
+                  or  coalesce(aralm.sales_uom, '')                         <>  coalesce(excluded.sales_uom, '')
+                  or  aralm.sales_price                                     <>  excluded.sales_price
+                  or  coalesce(aralm.purchase_group, '')                    <>  coalesce(excluded.purchase_group, '')
+                  or  coalesce(aralm.purchase_uom, '')                      <>  coalesce(excluded.purchase_uom, '')
+                  or  aralm.purchase_price                                  <>  excluded.purchase_price
+                  or  aralm.moq                                             <>  excluded.moq
+                  or  aralm.lead_time                                       <>  excluded.lead_time
+                  or  coalesce(aralm.batch_flag, '')                        <>  coalesce(excluded.batch_flag, '')
+                  or  coalesce(aralm.item_flag, '')                         <>  coalesce(excluded.item_flag, '')
+                  or  coalesce(aralm.bss_item_flag, '')                     <>  coalesce(excluded.bss_item_flag, '')
+                  or  coalesce(aralm.bss_item_status, '')                   <>  coalesce(excluded.bss_item_status, '')
+                  or  coalesce(aralm.bss_dc_item_flag, '')                  <>  coalesce(excluded.bss_dc_item_flag, '')
+                  or  coalesce(aralm.bss_dc_stock, '')                      <>  coalesce(excluded.bss_dc_stock, '')
+                  or  coalesce(aralm.bss_show_no_stock_flag, '')            <>  coalesce(excluded.bss_show_no_stock_flag, '')
+                  or  coalesce(aralm.article_replace_code, '')              <>  coalesce(excluded.article_replace_code, '')
+                  or  coalesce(aralm.replace_start, '1999-01-01')           <>  coalesce(excluded.replace_start, '1999-01-01')
+                  or  coalesce(aralm.replace_end, '9999-12-31')             <>  coalesce(excluded.replace_end, '9999-12-31')
+                  or  aralm.cat_mch1_code_brand                             <>  excluded.cat_mch1_code_brand
+                )
+          "
+    restart_sequence:
+      statement: "
+        alter sequence {database_name}.{ai_schema_name}.ai_report_article_listing_master_primary_id_seq restart with 1;
+        update {database_name}.{ai_schema_name}.ai_report_article_listing_master
+            set primary_id = nextval('{database_name}.{ai_schema_name}.ai_report_article_listing_master_primary_id_seq'::regclass);
+        "
+#    vacuum:
+#      statement: "
+#        vacuum full {database_name}.{ai_schema_name}.ai_report_article_listing_master;
+#        "

@@ -1,0 +1,81 @@
+# ====================================
+# ----- imp_current_stock_fc
+# ====================================
+imp_current_stock_fc:
+  version: "2021-09-01"
+  create:
+    features:
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      article_code: "varchar( 64 ) not null"
+      current_stock_fc: "numeric( 20, 6)"
+      data_date: "timestamp not null"
+    primary_key: ['dc_code', 'rdc_code', 'franchise_code', 'article_code', 'data_date']
+# ====================================
+# ----- imp_current_stock_rdc
+# ====================================
+imp_current_stock_rdc:
+  version: "2021-09-01"
+  create:
+    features:
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      article_code: "varchar( 64 ) not null"
+      current_stock_rdc: "numeric( 20, 6)"
+      data_date: "timestamp not null"
+    primary_key: ['dc_code', 'rdc_code', 'article_code', 'data_date']
+# ====================================
+# ----- imp_current_stock_dc
+# ====================================
+imp_current_stock_dc:
+  version: "2021-09-01"
+  create:
+    features:
+      dc_code: "varchar( 64 ) not null"
+      article_code: "varchar( 64 ) not null"
+      current_stock_dc: "numeric( 20, 6)"
+      data_date: "timestamp not null"
+    primary_key: ['dc_code', 'article_code', 'data_date']
+# ====================================
+# ----- imp_sto_po_status_fc
+# ====================================
+imp_sto_po_status_fc:
+  version: "2021-10-01"
+  create:
+    features:
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      franchise_code: "varchar( 64 ) not null"
+      article_code: "varchar( 64 ) not null"
+      stock_price: "numeric( 20, 8)"
+      stock_transfer_fc: "numeric( 20, 6)"
+      data_date: "timestamp not null"
+    primary_key: ['dc_code', 'rdc_code', 'franchise_code', 'article_code', 'data_date']
+# ====================================
+# ----- imp_sto_po_status_rdc
+# ====================================
+imp_sto_po_status_rdc:
+  version: "2021-10-01"
+  create:
+    features:
+      dc_code: "varchar( 64 ) not null"
+      rdc_code: "varchar( 64 ) not null"
+      article_code: "varchar( 64 ) not null"
+      stock_price: "numeric( 20, 8)"
+      stock_transfer_rdc: "numeric( 20, 6)"
+      data_date: "timestamp not null"
+    primary_key: ['dc_code', 'rdc_code', 'article_code', 'data_date']
+# ====================================
+# ----- imp_sto_po_status_dc
+# ====================================
+imp_sto_po_status_dc:
+  version: "2021-10-01"
+  create:
+    features:
+      dc_code: "varchar( 64 ) not null"
+      article_code: "varchar( 64 ) not null"
+      stock_price: "numeric( 20, 8)"
+      stock_transfer_dc: "numeric( 20, 6)"
+      data_date: "timestamp not null"
+    primary_key: ['dc_code', 'article_code', 'data_date']
