@@ -87,7 +87,8 @@ scipy==1.7.3
 scikit-learn==1.0.2
 ```
 
-*Note: we were set `requirements.pre.txt` because the `prophet` library issue.*
+> **Note:**\
+> the`requirements.pre.txt` were created because the installation of `prophet` library issue.
 
 ---
 
@@ -172,7 +173,9 @@ sudo docker ps
 # 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
 ```
 
-*Note: Other way to run this application in local is the Docker Compose with docker-compose.yml file*
+> **Note:**\
+> Other way to run this application in local is the Docker Compose with docker-compose.yml file
+
 
 ---
 

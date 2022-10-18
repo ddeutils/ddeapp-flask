@@ -3,7 +3,6 @@
 ; git config --global diff.ppt.textconv catppt
 ; Note: If you only want these locally in your project, either use the .git/config
 ;       local configuration file, or just strip the --global flags
-
 *.doc diff=doc
 *.xls diff=xls
 *.ppt diff=ppt
