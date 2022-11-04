@@ -79,7 +79,9 @@ yaml==0.2.5
 python-dateutil==2.8.2
 markupsafe==2.1.1
 click==8.1.3
+```
 
+```text
 # Optional for vendor plug-in function
 prophet==1.0.1
 statsmodels==0.13.1
@@ -99,83 +101,82 @@ There are 2 ways to build application with input parameters.
 If both types were created at the same time, the application
 inherits from `environment parameter` first.
 
-### (i) Built with setting `environment variables`
+  - ### Built with setting `environment variables` in local
+    
+    __*command line*__
+    
+    - *Docker image*
+    
+    ```shell
+    sudo docker build -t ${env}-application .
+    sudo docker images
+    # REPOSITORY          TAG        IMAGE ID       CREATED          ...
+    # ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
+    ```
+    
+    - *Docker container*
+    
+    ```shell
+    mkdir -p log
+    sudo docker run --${env}-application \
+    -e APIKEY='<api-key-in-env>' \
+    -e DB_HOST='<host>' \
+    -e DB_NAME='<database-name>' \
+    -e DB_USER='<user>' \
+    -e DB_PASS='<password>' \
+    -e DB_PORT='5432' \
+    -e AI_SCHEMA='ai' \
+    -e MAIN_SCHEMA='public' \
+    --restart=always -d -p 5000:5000 ${env}-application
+    sudo docker ps
+    # CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
+    # 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
+    ```
 
-__*command line*__
+  - ### Built with the `.env` file
 
-- *Docker image*
-
-```shell
-sudo docker build -t ${env}-application .
-sudo docker images
-# REPOSITORY          TAG        IMAGE ID       CREATED          ...
-# ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
-```
-
-- *Docker container*
-
-```shell
-mkdir -p log
-sudo docker run --${env}-application \
--e APIKEY='<api-key-in-env>' \
--e DB_HOST='<host>' \
--e DB_NAME='<database-name>' \
--e DB_USER='<user>' \
--e DB_PASS='<password>' \
--e DB_PORT='5432' \
--e AI_SCHEMA='ai' \
--e MAIN_SCHEMA='public' \
---restart=always -d -p 5000:5000 ${env}-application
-sudo docker ps
-# CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
-# 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
-```
-
-### (ii) Built with `.env` file
-
-set environment variables in *[.env](.env.%7Bdemo%7D)* file.
-```yaml
-# Main Configurations
-APIKEY: "<api-key-in-env>"
-DB_HOST: "<host>"
-DB_NAME: "<database-name>"
-DB_USER: "<user>"
-DB_PASS: "<password>"
-DB_PORT: "5432"
-AI_SCHEMA: "ai"
-MAIN_SCHEMA: "public"
-
-# Optional for SSH Tunnel to Private Database in Local Machine
-SSH_FLAG: "True"
-SSH_HOST: "<host>"
-SSH_USER: "<user>"
-SSH_PRIVATE_KEY: "<`.pem` file in ./conf>"
-SSH_PORT: "22"
-```
-__*command line*__
-
-- *Docker image*
-```shell
-sudo docker build -t ${env}-application .
-sudo docker images
-# REPOSITORY          TAG        IMAGE ID       CREATED          ...
-# ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
-```
-
-- *Docker container*
-```shell
-mkdir -p log
-sudo docker run --name=${env}-application --restart=always \
--v $(pwd)/.env:/app/.env \
---restart=always -d -p 5000:5000 ${env}-application
-sudo docker ps
-# CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
-# 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
-```
+    set environment variables in *[.env](.env.%7Bdemo%7D)* file.
+    ```yaml
+    # Main Configurations
+    APIKEY: "<api-key-in-env>"
+    DB_HOST: "<host>"
+    DB_NAME: "<database-name>"
+    DB_USER: "<user>"
+    DB_PASS: "<password>"
+    DB_PORT: "5432"
+    AI_SCHEMA: "ai"
+    MAIN_SCHEMA: "public"
+    
+    # Optional for SSH Tunnel to Private Database in Local Machine
+    SSH_FLAG: "True"
+    SSH_HOST: "<host>"
+    SSH_USER: "<user>"
+    SSH_PRIVATE_KEY: "<`.pem` file in ./conf>"
+    SSH_PORT: "22"
+    ```
+    __*command line*__
+    
+    - *Docker image*
+    ```shell
+    sudo docker build -t ${env}-application .
+    sudo docker images
+    # REPOSITORY          TAG        IMAGE ID       CREATED          ...
+    # ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
+    ```
+    
+    - *Docker container*
+    ```shell
+    mkdir -p log
+    sudo docker run --name=${env}-application --restart=always \
+    -v $(pwd)/.env:/app/.env \
+    --restart=always -d -p 5000:5000 ${env}-application
+    sudo docker ps
+    # CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
+    # 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
+    ```
 
 > **Note:**\
 > Other way to run this application in local is the Docker Compose with docker-compose.yml file
-
 
 ---
 

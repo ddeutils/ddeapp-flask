@@ -43,7 +43,10 @@ from ..utils.base import (
     get_catalog_all,
     filter_ps_type,
     sort_by_priority,
-    verbose_log
+    verbose_log,
+    params,
+    registers,
+    AI_APP_PATH,
 )
 from ..utils.database import (
     query_select_one,
@@ -87,13 +90,8 @@ from ..errors import (
     ObjectBaseError,
 )
 
-AI_APP_PATH: str = os.getenv('AI_APP_PATH', path_join(os.path.dirname(__file__), '../..'))
 
 env = Environs(env_name='.env')
-
-params = Params(param_name='parameters.yaml')
-
-registers = Params(param_name='registers.yaml')
 
 logger = logging.getLogger(__name__)
 

@@ -514,7 +514,7 @@ class Statement:
         if not self.stm_generate_flg:
             self.generate()
         if 'select count(*) as row_number from ' in self.stm_result:
-            return 'select'
+            return 'dql'
         return self._check_type(self.stm_result)
 
     @property

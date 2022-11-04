@@ -32,7 +32,10 @@ from ..utils.reusables import (
     must_bool,
     hash_string,
 )
-from ..utils.config import Params
+from ..utils.config import (
+    Params,
+    AI_APP_PATH,
+)
 from ..utils.logging_ import logging
 from ..utils.models import VerboseObject
 from ..errors import (
@@ -41,8 +44,6 @@ from ..errors import (
     CatalogArgumentError,
     TableValidatorError,
 )
-
-AI_APP_PATH: str = os.getenv('AI_APP_PATH', path_join(os.path.dirname(__file__), '../..'))
 
 params = Params(param_name='parameters.yaml')
 
