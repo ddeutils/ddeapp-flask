@@ -6,14 +6,14 @@ and does not use any vendor data framework extension.
 So this application framework is easy to enhance, fix, and deploy on different environment because it [less dependencies](requirements.txt)
 and lightweight of coding which mean you can remove some components of this framework before deployment.
 
-First objective of this framework is data pipeline orchestration in the retail platform, but the core engine of this framework can do more than run and monitor data pipeline by requested or scheduler.
-
+First objective of this framework is data pipeline orchestration in the retail platform, but the core engine
+of this framework can do more than run and monitor data pipeline by requested or scheduler.
 
 This application framework runs on Docker container with AWS ECS service and was requested from AWS Batch or the Platform Web server
 via AWS load balancing service. After that, it will generate and deliver SQL statements to be performed in the AWS RDS,
 PostgreSQL database, for run a data pipeline.
 
-The AWS ECS service is the host for application framework orchestration, so the overhead of resources for running any transformaion in data
+The AWS ECS service is the host for application framework orchestration, so the overhead of resources for running any transformation in data
 pipeline is using only the database engine, but the part of DataFrame transformation use CPU bound (This application framework already implement this function).
 
 ### Short Topics:
@@ -29,24 +29,38 @@ pipeline is using only the database engine, but the part of DataFrame transforma
 Application Framework
 ---------------------
 
-The RestAPI Application framework have 3 components that are *analytic*, *ingestion*, and *framework*.
-The framework component is the core of this application that have 3 main modules are,
+  - **Web**
 
-> - **run data setup**
-> 
->   Setup all tables that config in the control pipeline table to database and initialize data if set initial
->   key in catalog file.
-> 
-> - **run data normal**
->
->   Transformation or preparation process.
->      - *common mode* ( process with incremental tracking )
->      - *rerun mode* ( process without incremental tracking )
-> 
-> - **run data retention**
->
->   Retention data to all tables in database that config retention value more than 0. This module contains
->   backup process, which mean a dumping data from current schema to the backup schema.
+    The Web Application framework. This session will show UI for controller any the framework components.
+
+    > - **pipeline**
+    > - **catalog**
+    > - **table**
+    > - **administration**
+    
+    This Web use HTMX, Ajax.
+    
+
+  - **RestAPI**
+    
+    The RestAPI Application framework have 3 components that are *analytic*, *ingestion*, and *framework*.
+    The framework component is the core of this application that have 3 main modules are,
+    
+    > - **run data setup**
+    > 
+    >   Setup all tables that config in the control pipeline table to database and initialize data if set initial
+    >   key in catalog file.
+    > 
+    > - **run data normal**
+    >
+    >   Transformation or preparation process.
+    >      - *common mode* ( process with incremental tracking )
+    >      - *rerun mode* ( process without incremental tracking )
+    > 
+    > - **run data retention**
+    >
+    >   Retention data to all tables in database that config retention value more than 0. This module contains
+    >   backup process, which mean a dumping data from current schema to the backup schema.
 
 Before start this application, the needed environment parameters are,
 
@@ -89,7 +103,7 @@ scipy==1.7.3
 scikit-learn==1.0.2
 ```
 
-> **Note:**\
+> **Note**:\
 > the`requirements.pre.txt` were created because the installation of `prophet` library issue.
 
 ---
@@ -175,7 +189,7 @@ inherits from `environment parameter` first.
     # 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
     ```
 
-> **Note:**\
+> **Note**:\
 > Other way to run this application in local is the Docker Compose with docker-compose.yml file
 
 ---
@@ -183,12 +197,12 @@ inherits from `environment parameter` first.
 API Document
 ------------
 
-The first thing you should do after running this application is to perform a health checking with
-below the curl command.
+The first thing you should do after running this application is to perform an API health checking with
+below the curl command,
 
 *without `APIKEY`*
 ```shell
-curl --location --request GET 'http://localhost:5000/'
+curl --location --request GET 'http://localhost:5000/api'
 # {'message': "Success: Application was running ..."}
 ```
 
@@ -223,6 +237,7 @@ In the GoCD pipeline, it has 3 steps on deployment agent,
 > 3) deploy-to-ECS
 
 ![Application CI/CD Flow](doc/image/application_cicd_flow.png)
+<img width="80%" align="center" src="https://github.com/KorawichSCG/flask-rds-data-engine/tree/main/doc/image/application_cicd_flow.png"/>
 
 The skeleton directories in the application
 
@@ -230,19 +245,30 @@ The skeleton directories in the application
 flask-rds-data-engine
 ├─── application
 │    ├─── components
-│    │    ├─── analytic
+│    │    ├─── api
+│    │    │    ├─── analytic
+│    │    │    │    ├─── __init__.py
+│    │    │    │    ├─── tasks.py
+│    │    │    │    └─── views.py
+│    │    │    ├─── framework
+│    │    │    │    ├─── __init__.py
+│    │    │    │    ├─── forms.py
+│    │    │    │    ├─── tasks.py
+│    │    │    │    └─── views.py
+│    │    │    ├─── ingestion
+│    │    │    │    ├─── __init__.py
+│    │    │    │    ├─── forms.py
+│    │    │    │    ├─── tasks.py
+│    │    │    │    └─── views.py
+│    │    │    └─── __init__.py
+│    │    ├─── controllers
+│    │    │    ├─── admin
+│    │    │    ├─── errors
+│    │    │    ├─── users
+│    │    │    └─── __init__.py
+│    │    ├─── frontend
 │    │    │    ├─── __init__.py
-│    │    │    ├─── tasks.py
-│    │    │    └─── views.py
-│    │    ├─── framework
-│    │    │    ├─── __init__.py
-│    │    │    ├─── forms.py
-│    │    │    ├─── tasks.py
-│    │    │    └─── views.py
-│    │    ├─── ingestion
-│    │    │    ├─── __init__.py
-│    │    │    ├─── forms.py
-│    │    │    ├─── tasks.py
+│    │    │    ├─── models.py
 │    │    │    └─── views.py
 │    │    └─── __init__.py
 │    ├─── test
@@ -269,17 +295,14 @@ flask-rds-data-engine
 │    │    └─── replenishment.py
 │    ├─── __init__.py
 │    ├─── app.py
+│    ├─── assets.py
+│    ├─── constants.py
 │    ├─── controls.py
 │    ├─── errors.py
 │    ├─── extensions.py
+│    ├─── infrastructures.py
 │    ├─── schedules.py
 │    └─── securities.md
-├─── component
-│    ├─── __init__.py
-│    ├─── analytic.py
-│    ├─── framework.py
-│    ├─── ingestion.py
-│    └─── schedule.py
 ├─── conf
 │    ├─── adhoc
 │    │    ├─── <query-name>.yaml
@@ -306,12 +329,14 @@ flask-rds-data-engine
 │    ├─── <document-file>.md
 │    ├─── ...
 │    └─── README.md
-├─── .gitignore
 ├─── .env
+├─── .gitattributes
+├─── .gitignore
 ├─── CHANGES.md
 ├─── Dockerfile
 ├─── LICENSE.md
 ├─── README.md
+├─── REFERENCES.md
 ├─── requirements.pre.txt
 ├─── requirements.txt
 └─── manage.py

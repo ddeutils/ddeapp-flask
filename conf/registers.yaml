@@ -25,6 +25,9 @@ control_frameworks:
     - name: 'sql:ctr_data_pipeline'
     - name: 'sql:ctr_task_schedule'
 
+    - name: 'sql:ctr_web_user'
+    - name: 'sql:ctr_web_role'
+
 functions:
     # This key was generated before this application started for
     # setup automate process if function from configuration does

@@ -71,8 +71,9 @@ def migrate(condition: str, debug: bool):
     :usage:
         >> $ python manage.py migrate --debug=true
     """
+    os.environ['DEBUG'] = str(debug).capitalize()
+
     from application.app import migrate_table
-    os.environ['DEBUG'] = str(debug)
     migrate_table()
 
 
@@ -83,15 +84,40 @@ def migrate(condition: str, debug: bool):
     default=False,
     help='run server with debug mode'
 )
-def runserver(debug: bool):
+@click.option(
+    '-t', '--thread',
+    type=bool,
+    default=True,
+    help='run server with thread mode'
+)
+@click.option(
+    '--api',
+    type=bool,
+    default=False,
+    help='run server only the API component'
+)
+def runserver(debug: bool, thread: bool, api: bool):
     """Run Application Server
     :usage:
         >> $ python manage.py run --debug=true
+
+    :note:
+        - Re-loader will be True if run server in debug mode
+          app.run(use_reloader=False)
     """
+    os.environ['DEBUG'] = str(debug).capitalize()
+
     from application.app import create_app
-    os.environ['DEBUG'] = str(debug)
-    app = create_app()
-    app.run(debug=debug, threaded=True, host='0.0.0.0', port=5000, processes=1)
+
+    # application factory able to use file `wsgi.py`
+    app = create_app(frontend=(not api))
+    app.run(**{
+        "debug": debug,
+        "threaded": thread,
+        "host": '0.0.0.0',
+        "port": 5000,
+        "processes": 1,
+    })
 
 
 @click.command(name='test', short_help='test application server')
