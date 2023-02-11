@@ -26,7 +26,6 @@ from ..utils.convertor import (
 )
 from ..utils.reusables import (
     only_one,
-    path_join,
     merge_dicts,
     must_list,
     must_bool,
@@ -36,6 +35,7 @@ from ..utils.config import (
     Params,
     AI_APP_PATH,
 )
+from ..utils.io import load_json_to_values
 from ..utils.logging_ import logging
 from ..utils.models import VerboseObject
 from ..errors import (
@@ -386,6 +386,16 @@ class TblCatalog:
         return f"{self.tbl_type}:{self.tbl_name}"
 
     @property
+    def catalog(self) -> dict:
+        return {
+            'id': self.tbl_name_sht,
+            'name': self.tbl_name,
+            'type': self.tbl_type,
+            'prefix': self.tbl_prefix,
+            **self.tbl_catalog
+        }
+
+    @property
     def tbl_profile(self) -> dict:
         return self.tbl_catalog['profile']
 
@@ -403,6 +413,10 @@ class TblCatalog:
             logger.warning(f"The config {self.tbl_name!r} does not have real primary key that set in database")
             return self.tbl_profile.get('primary_key', [])
         return self.tbl_profile['primary_key']
+
+    @property
+    def tbl_foreign_key(self) -> dict:
+        return self.tbl_profile.get('foreign_key', {})
 
     @property
     def tbl_partition_type(self) -> str:
@@ -457,7 +471,13 @@ class TblCatalog:
         ))
 
     def get_tbl_stm_create(self) -> str:
-        features: str = ", ".join([f"{k} {v}" for k, v in self.tbl_features.items()])
+
+        foreign: dict = self.tbl_foreign_key
+
+        def _get_foreign_stm(column: str) -> str:
+            return f" references {{ai_schema_name}}.{foreign[column]}" if column in foreign else ''
+
+        features: str = ", ".join([f"{k} {v} {_get_foreign_stm(k)}" for k, v in self.tbl_features.items()])
         primary: str = f', primary key ( {", ".join(prim)} )' if (prim := self.tbl_primary_key) else ""
         if self.tbl_partition_type:
             partition: str = " {partition_type}( {partition_cols} )".format(
@@ -676,16 +696,36 @@ class TblCatalog:
     def _generate_profile(self, profiles: dict, excluded: Optional[list] = None) -> dict:
         """Generate profile from configuration to standard mapping"""
         _excluded: list = excluded or []
-        _columns: dict = {}
+        _columns: dict = self._loop_profile(profiles, _excluded)
         _prim_key: list = profiles.get(only_one(list(profiles), params.map_tbl.pk, default=False), [])
+        _fore_key: dict = profiles.get(only_one(list(profiles), params.map_tbl.fk, default=False), {})
+
+        if _catch_cols := [f"{_!r}" for _ in _prim_key if _ not in _columns]:
+            raise CatalogArgumentError(
+                f"Primary key {', '.join(_catch_cols)} does not exists in features of '{self.tbl_name}'"
+            )
+        elif _catch_cols := [f"{_!r}" for _ in _fore_key if _ not in _columns]:
+            raise CatalogArgumentError(
+                f"Foreign key {', '.join(_catch_cols)} does not exists in features of '{self.tbl_name}'"
+            )
+
+        profiles['features'] = _columns
+        return profiles
+
+    @staticmethod
+    def _loop_profile(profiles: dict, excluded: list):
+        _columns: dict = {}
 
         for index, _feature in enumerate(profiles.pop('features', {}).items(), start=1):
             _column: str = _feature[0]
-            if _column in _excluded:
+            if _column in excluded:
                 continue
 
             _datatype, _nullable = split_datatype(_feature[1])
             _columns[_column]: dict = {'order': index, 'nullable': False, 'feature': _feature[1]}
+
+            if re.search('unique', _datatype):
+                _datatype: str = ' '.join(_datatype.replace('unique', '').split())
 
             if re.search('serial', _datatype):
                 _columns[_column]['datatype'] = _datatype.replace('serial', 'int')
@@ -697,13 +737,7 @@ class TblCatalog:
                 _columns[_column]['datatype'] = _datatype
                 _columns[_column]['nullable'] = not re.search('not null', _nullable)
 
-        if _catch_cols := [f"{_!r}" for _ in _prim_key if _ not in _columns]:
-            raise CatalogArgumentError(
-                f"Primary key {', '.join(_catch_cols)} does not exists in features of '{self.tbl_name}'"
-            )
-
-        profiles['features'] = _columns
-        return profiles
+        return _columns
 
     def _generate_process(self, processes: dict):
         """Generate processes from configuration to standard mapping"""
@@ -768,28 +802,47 @@ class TblCatalog:
                             with_<tbl_name>: ""
                             row_table: ""
 
+                (v)     file: ""
+
+                (vi)    files:
+                            - ""
+                            - ""
+                            ...
+
         :warning:
             - Initial statement generator need primary key values in profile
         """
         _initial: dict = {'parameter': list(set(initial.get(only_one(list(initial), params.map_tbl.param), []))), }
-        if not (_value_key := only_one(list(initial), ['value', 'values'], default=False)):
-            _initial['statement'] = Statement(
+        if not (_value_key := only_one(list(initial), ['value', 'values', 'file', 'files'], default=False)):
+            _initial['statement']: str = Statement(
                 initial.get(only_one(list(initial), params.map_tbl.stm), '')
             ).generate()
             return _initial
 
-        initial_value = ', '.join([f"({_value})" for _value in _values]) if \
-            isinstance((_values := initial[_value_key]), list) else f"({_values})"
-
-        conflict: str = f" on conflict ( {primary} ) do nothing" if (primary := ", ".join(self.tbl_primary_key)) else ''
-        _string_columns: str = ','.join([
+        conflict: str = (
+            f" on conflict ( {primary} ) do nothing"
+            if (primary := ", ".join(self.tbl_primary_key)) else ''
+        )
+        _columns: list = [
             _col for _col, datatype in self.tbl_features.items()
             if all(_ not in datatype for _ in {'default', 'serial'})
-        ])
-        _stm: str = f"""insert into {{database_name}}.{{ai_schema_name}}.{self.tbl_name} as {self.tbl_name_sht}
-            ( {_string_columns} ) values {initial_value}{conflict}"""
+        ]
 
-        _initial['statement'] = reduce_stm(_stm, add_row_number=False)
+        if _value_key in {'file', 'files'}:
+            _values = load_json_to_values(initial[_value_key], schema=_columns)
+        else:
+            _values = initial[_value_key]
+
+        initial_value: str = (
+            ', '.join([f"({_value})" for _value in _values])
+            if isinstance(_values, list)
+            else f"({_values})"
+        )
+
+        _stm: str = f"""insert into {{database_name}}.{{ai_schema_name}}.{self.tbl_name} as {self.tbl_name_sht}
+            ( {','.join(_columns)} ) values {initial_value}{conflict}"""
+
+        _initial['statement']: str = reduce_stm(_stm, add_row_number=False)
         return _initial
 
 
@@ -822,6 +875,16 @@ class FuncCatalog:
 
     def __str__(self):
         return f"{self.func_type}:{self.func_name}"
+
+    @property
+    def catalog(self) -> dict:
+        return {
+            'id': self.func_name_sht,
+            'name': self.func_name,
+            'type': self.func_type,
+            'prefix': self.func_prefix,
+            **self.func_catalog
+        }
 
     @property
     def func_profile(self) -> dict:
@@ -918,6 +981,15 @@ class PipeCatalog:
 
     def __str__(self):
         return self.pipe_name
+
+    @property
+    def catalog(self) -> dict:
+        return {
+            'name': self.pipe_name,
+            'type': 'pipe',
+            'prefix': 'pipe',
+            **self.pipe_catalog
+        }
 
     @property
     def pipe_id(self) -> str:

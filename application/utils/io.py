@@ -6,7 +6,11 @@
 
 import os
 import csv
-from typing import Optional
+import json
+from typing import (
+    Optional,
+    Union,
+)
 from ..utils.reusables import (
     path_join,
     rows,
@@ -20,6 +24,39 @@ AI_APP_PATH: str = os.getenv('AI_APP_PATH', path_join(os.path.dirname(__file__),
 registers = Params(param_name='registers.yaml')
 
 logger = logging.getLogger(__name__)
+
+
+def load_json_to_values(
+        filepath: Union[str, list],
+        schema: Optional[list] = None
+):
+    _filepath: list = [filepath] if isinstance(filepath, str) else filepath
+    _results: list = []
+
+    def _repr_value(content: str):
+        return 'null' if content == 'null' else f"""'{content.replace("'", "''")}'"""
+
+    for _path in _filepath:
+        with open(
+                path_join(AI_APP_PATH, f'{registers.path.data}/{_path}'),
+                mode='r',
+                encoding='utf-8'
+        ) as read_file:
+            data: Union[dict, list] = json.load(read_file)
+            _data: list = [data] if isinstance(data, dict) else data
+        _fix_cols: list = schema or list(_data[0].copy().keys())
+        _results.extend([
+            ', '.join(
+                [
+                    _repr_value(_content)
+                    if isinstance((_content := row.get(col, 'null')), str)
+                    else str(_content)
+                    for col in _fix_cols
+                ]
+            )
+            for row in _data
+        ])
+    return _results
 
 
 def zip_(folder: str, filename: str, filter_: callable):

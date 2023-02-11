@@ -7,7 +7,12 @@
 import os
 import functools
 import pandas as pd
-from sshtunnel import SSHTunnelForwarder
+import warnings
+import asyncio
+from cryptography.utils import CryptographyDeprecationWarning
+with warnings.catch_warnings():
+    warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
+    from sshtunnel import SSHTunnelForwarder
 from typing import (
     Optional,
     Union,
@@ -15,18 +20,26 @@ from typing import (
     Type,
 )
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import (
     create_engine,
     text,
 )
 from sqlalchemy.engine.url import URL
-from ..utils.config import Environs
-from ..utils.reusables import (
+# from ..utils.config import Environs
+# from ..utils.reusables import (
+#     merge_dicts,
+#     chunks,
+#     path_join,
+# )
+# from ..errors import DatabaseProcessError
+from application.utils.config import Environs
+from application.utils.reusables import (
     merge_dicts,
     chunks,
     path_join,
 )
-from ..errors import DatabaseProcessError
+from application.errors import DatabaseProcessError
 
 AI_APP_PATH: str = os.getenv('AI_APP_PATH', os.path.abspath(path_join(os.path.dirname(__file__), '../..')))
 
@@ -35,9 +48,11 @@ env = Environs()
 ParamType: Type = Optional[Union[dict, bool]]
 
 
-def generate_url(conf_replace: Optional[dict] = None):
+def generate_url(conf_replace: Optional[dict] = None, driver: Optional[str] = None):
+    """Generate URL
+    """
     _db_conf: dict = {
-        'drivername': 'postgresql+psycopg2',
+        'drivername': f'postgresql+{driver or "psycopg2"}',
         'database': env.DB_NAME,
         'username': env.DB_USER,
         'password': env.DB_PASS,
@@ -66,6 +81,16 @@ def query_format(
     return [_state.format(**merge_dicts(_db_param, parameters)) for _state in statement]
 
 
+def ssh_connect():
+    return SSHTunnelForwarder(**{
+        'ssh_address_or_host': (env.SSH_HOST, int(env.SSH_PORT)),
+        'ssh_username': env.SSH_USER,
+        'ssh_private_key': os.path.join(AI_APP_PATH, 'conf', env.SSH_PRIVATE_KEY),
+        'remote_bind_address': (env.DB_HOST, int(env.DB_PORT)),
+        'local_bind_address': ('localhost', int(env.DB_PORT)),
+    })
+
+
 def convert_local(function: callable) -> callable:
     """Connect private AWS RDS
     Make sure the inbound security group rules of the private database instance
@@ -74,13 +99,7 @@ def convert_local(function: callable) -> callable:
     @functools.wraps(function)
     def wrapper(*args, **kwargs):
         if eval(env.get('SSH_FLAG', 'False')):
-            server = SSHTunnelForwarder(**{
-                'ssh_address_or_host': (env.SSH_HOST, int(env.SSH_PORT)),
-                'ssh_username': env.SSH_USER,
-                'remote_bind_address': (env.DB_HOST, int(env.DB_PORT)),
-                'local_bind_address': ('localhost', int(env.DB_PORT)),
-                'ssh_private_key': os.path.join(AI_APP_PATH, 'conf', env.SSH_PRIVATE_KEY)
-            })
+            server = ssh_connect()
             if not server.is_alive:
                 server.start()
             _db_conf: dict = {
@@ -93,6 +112,16 @@ def convert_local(function: callable) -> callable:
             kwargs['conf_replace'] = _db_conf
         return function(*args, **kwargs)
     return wrapper
+
+
+@convert_local
+def generate_engine(
+        conf_replace: Optional[dict] = None,
+        parameters: Optional[dict] = None,
+):
+    """Generate engine
+    """
+    return create_engine(generate_url(conf_replace=conf_replace), pool_pre_ping=True, **(parameters or {}))
 
 
 @convert_local
@@ -249,7 +278,29 @@ def query_transaction(
                     _row: int = conn.execute(text(_state)).rowcount
                 return _row
             except SQLAlchemyError as error:
-                conn.rollback()
+                # conn.rollback()
                 raise DatabaseProcessError(
                     f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
                 ) from error
+
+
+@convert_local
+async def query_execute_async(
+        statement: Union[str, list],
+        conf_replace: Optional[dict] = None,
+) -> None:
+    """
+    usage:
+        asyncio.run(query_execute_async('select * from ai.ctr_data_pipeline'))
+    """
+    engine = create_async_engine(
+        generate_url(conf_replace=conf_replace, driver='asyncpg'), echo=False, pool_pre_ping=True
+    )
+
+    # Pause the execution of the function for a short period of time
+    # await asyncio.sleep(0.1)
+    async with engine.execution_options(isolation_level="AUTOCOMMIT").connect() as conn:
+        async with conn.begin():
+            await conn.execute(text(statement))
+    await engine.dispose()
+    await asyncio.sleep(0.1)

@@ -6,7 +6,6 @@
 
 import functools
 import itertools
-import os
 import builtins
 import ast
 import inspect
@@ -390,23 +389,32 @@ class TblProcess(TblCatalog):
             tbl_auto_init: Union[bool, str] = True,
             verbose: bool = False,
     ):
-        self.tbl_run_date: dt.date = dt.date.fromisoformat(tbl_run_date) if tbl_run_date \
-            else get_run_date(date_type='date')
+        self.tbl_run_date: dt.date = (
+            dt.date.fromisoformat(tbl_run_date)
+            if tbl_run_date else get_run_date(date_type='date')
+        )
         super(TblProcess, self).__init__(
             tbl_name=tbl_name,
             tbl_type=tbl_type,
             verbose=verbose
         )
         self.fwk_parameters: dict = fwk_parameters or {}
+
+        # Set table auto parameters
         self.tbl_auto_create: bool = self.validate_tbl_with_flag(tbl_auto_create)
         self.tbl_auto_drop: bool = self.validate_tbl_with_flag(tbl_auto_drop)
         self.tbl_auto_init: bool = self.validate_tbl_with_flag(tbl_auto_init)
+
+        # Set table tracking and cache parameters
         self.tbl_just_create: bool = False
         self.tbl_just_init: int = 0
+
+        # Set table column parameters
         self.tbl_col_diff: bool = False
         self.tbl_col_not_equal: bool = False
         self.tbl_col_update: bool = False
         self.tbl_col_delete: bool = False
+
         if not self.check_tbl_exists:
             if self.tbl_auto_create:
                 self.tbl_just_init: int = self.push_tbl_create(force_drop=self.tbl_auto_drop)
@@ -417,15 +425,21 @@ class TblProcess(TblCatalog):
                     f"Table {self.tbl_name} not found in the AI Database, "
                     f"Please set `tbl_auto_create`."
                 )
+
+        # Pull data from control table.
         self.tbl_ctr_data: dict = self.pull_tbl_from_ctr_pipeline()
-        self.tbl_ps_date: dt.date = get_process_date(self.tbl_run_date, self.tbl_ctr_run_type, date_type='date')
+
         if not self.tbl_ctr_data:
             if not self.tbl_auto_create:
                 raise ControlTableNotExists(
                     f"Table name: {self.tbl_name} does not exists in Control data pipeline"
                 )
+            logger.info(f"Auto insert configuration data to `ctr_data_pipeline` for {self.tbl_name!r}")
             self.push_tbl_to_ctr_pipeline()
             self.tbl_ctr_data: dict = self.pull_tbl_from_ctr_pipeline()
+
+        # Generate process date from control data.
+        self.tbl_ps_date: dt.date = get_process_date(self.tbl_run_date, self.tbl_ctr_run_type, date_type='date')
 
     @property
     def tbl_parameters(self) -> dict:
@@ -484,10 +498,13 @@ class TblProcess(TblCatalog):
     def pull_tbl_max_data_date(self, default: bool = True) -> Optional[dt.date]:
         """Pull max data date that use the retention column for sorting
         """
+        _default_value: dt.date = dt.datetime.strptime('1990-01-01', '%Y-%m-%d').date()
+        if self.tbl_ctr_rtt_column == 'undefined':
+            return _default_value if default else None
         return dt.date.fromisoformat(query_select_one(params.ps_stm.pull_max_data_date, parameters={
             "table_name": self.tbl_name,
             'ctr_rtt_col': self.tbl_ctr_rtt_column
-        }).get('max_date', ('1990-01-01' if default else None)))
+        }).get('max_date', (_default_value if default else None)))
 
     def pull_tbl_retention_date(self, rtt_mode: str, rtt_date_type: Optional[str] = None) -> dt.date:
         """Pull min retention date with mode, like `data_date` or `run_date`"""
@@ -769,7 +786,12 @@ class TblProcess(TblCatalog):
             'primary_key_join_a_and_b': _primary_key_join_a_and_b,
         })
 
-    def push_tbl_process(self, process: dict, force_sql: bool = False, additional: Optional[dict] = None) -> int:
+    def push_tbl_process(
+            self,
+            process: dict,
+            force_sql: bool = False,
+            additional: Optional[dict] = None
+    ) -> int:
         _additional: dict = additional or {}
         parameters: dict = self._generate_params(process['parameter'], additional=_additional)
 
@@ -783,7 +805,8 @@ class TblProcess(TblCatalog):
 
         if not (_input_key := only_one(_func_parameters, params.map_func.input, default=False)):
             raise TableNotImplement(
-                f"Process function: {_func.__name__} of {self.tbl_name!r} does not have input argument like `input_df`"
+                f"Process function: {_func.__name__} of {self.tbl_name!r} "
+                f"does not have input argument like `input_df`"
             )
         _input_df: pd.DataFrame = query_select_df(
             statement=process['load']['statement'],
@@ -1004,7 +1027,10 @@ class TblProcess(TblCatalog):
 
     def _generate_run_type(self) -> str:
         run_types: dict = params.map_tbl_run_type.copy()
-        return next(run_types[col] for col in self.get_tbl_columns(pk_included=True) if col in run_types)
+        return next(
+            (run_types[col] for col in self.get_tbl_columns(pk_included=True) if col in run_types),
+            'daily'
+        )
 
     def _generate_tbl_columns_diff(self) -> Tuple[dict, ...]:
         _pull_cols: dict = self.pull_tbl_columns_datatype()
@@ -1831,8 +1857,10 @@ class Process:
 
         # Main attributes of process object
         self.ps_id: str = process_id or get_process_id(self.ps_module + self.ps_type + self.ps_name)
-        self.ps_dates: list = must_list(self.parameters.get('run_date_put', [get_run_date()])) if load \
-            else self.ps_params.get('run_dates', [get_run_date()])
+        self.ps_dates: list = (
+            must_list(self.parameters.get('run_date_put', [get_run_date()]))
+            if load else self.ps_params.get('run_dates', [get_run_date()])
+        )
         self.ps_date: str = self.parameters.get('run_date_get') if load else self.ps_dates[0]
         self.ps_date_num: int = 0
         self.ps_messages: str = self.parameters.get('process_message', "") if load else ""
