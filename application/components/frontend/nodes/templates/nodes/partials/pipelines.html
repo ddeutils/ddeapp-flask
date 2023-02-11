@@ -1,0 +1,215 @@
+{% for pipeline in pipelines.items %}
+    <article id="{{ pipeline.id }}">
+        <div class="article-animation content-section content-alert content-alert-{{ pipeline.alert }}"
+             data-aos="fade-up"
+             data-aos-delay="{{ loop.index * 10 }}"
+             data-aos-once="true"
+             _="on mouseenter wait 100ms add .hidden-demo to #{{ pipeline.id }} end
+                on mouseleave wait 100ms remove .hidden-demo from #{{ pipeline.id }} end">
+            <div class="article-metadata">
+                <a href="#"
+                   hx-get="{{ url_for('nodes.pipeline') }}"
+                   hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                   hx-vals='{"search_by_tracking": "{{ pipeline.tracking }}"}'
+                   hx-target="#pipeline-feed"
+                   hx-trigger="click delay:250ms"
+                   hx-swap="innerHTML swap:.5s settle:.5s"
+                   hx-push-url="true">
+                    <i class="fa fa-{{ pipeline.icon }}-circle status" aria-hidden="true"></i>
+                </a>
+                <a class="article-id mr-ๅ" href="#"
+                   data-toggle="collapse"
+                   data-target="#headingId{{ pipeline.id }}"
+                   aria-controls="headingId{{ pipeline.id }}">
+                    {{ pipeline.id }}
+                </a>
+
+                <!-- Badge -->
+                <a href="#"
+                   hx-get="{{ url_for('nodes.pipeline') }}"
+                   hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                   hx-vals='{"filter": {"type": "{{ pipeline.type }}"}}'
+                   hx-target="#pipeline-feed"
+                   hx-trigger="click delay:250ms"
+                   hx-swap="innerHTML swap:.5s"
+                   hx-push-url="true"
+                   class="badge badge-secondary article-badge clickable">{{ pipeline.type }}</a>
+
+                <a href="#"
+                   hx-get="{{ url_for('nodes.pipeline') }}"
+                   hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                   hx-vals='{"filter": {"tracking": "{{ pipeline.tracking }}"}}'
+                   hx-target="#pipeline-feed"
+                   hx-trigger="click delay:250ms"
+                   hx-swap="innerHTML swap:.5s"
+                   hx-push-url="true"
+                   class="badge badge-{{ pipeline.alert }} article-badge clickable">{{ pipeline.tracking }}</a>
+
+                <div class="float-right">
+                    <small class="mr-2 text-muted">{{ pipeline.update_date.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                </div>
+            </div>
+            <div class="row clickable"
+                 data-toggle="collapse"
+                 data-target="#headingId{{ pipeline.id }}"
+                 aria-expanded="false"
+                 aria-controls="headingId{{ pipeline.id }}">
+
+                <!-- Topic -->
+                <div class="col-md-8">
+                    <h5 ><a class="article-title"
+                            href="#"><strong>{{ pipeline.name }}</strong></a>
+                    </h5>
+                </div>
+
+                <!-- Add Action bottom -->
+                <div class="col-md-4">
+                    <div class="float-right mr-2">
+                        <button type="button"
+                                class="btn btn-secondary btn-sm"
+                                tabindex="-1"
+                                data-toggle="modal"
+                                data-pipeline-name="{{ pipeline.name }}"
+                                data-btn-type="run"
+                                data-target="#runPipelineModal">Run</button>
+
+                        <button type="button"
+                                class="btn btn-danger btn-sm"
+                                tabindex="-1"
+                                data-toggle="modal"
+                                data-pipeline-name="{{ pipeline.name }}"
+                                data-btn-type="setup"
+                                data-target="#runPipelineModal">Setup</button>
+
+                        {% if not current_user.is_anonymous %}
+                        <button type="button"
+                                class="btn btn-danger btn-sm"
+                                data-toggle="modal"
+                                data-target="#deleteModal">Delete</button>
+                        {% endif %}
+
+                    </div>
+                </div>
+            </div>
+
+            <div id="headingId{{ pipeline.id }}"
+                 class="collapse main-collapse"
+                 aria-labelledby="headingId{{ pipeline.id }}">
+
+                <div class="content-collapse">
+                    <!-- Pipeline Content -->
+                    <div data-toggle="collapse"
+                         data-target="#headingId{{ pipeline.id }}">
+                        <p><strong>Description: </strong>{{ pipeline.description | safe }}</p>
+                        <p><strong>ID: </strong>{{ pipeline.id }}</p>
+                        <p><strong>Profile: </strong></p>
+                        <p>{{ pipeline.catalog.catalog | safe }}</p>
+                    </div>
+
+                    <!-- Table of Nodes -->
+                    <div class="content-collapse-table">
+                        <div id="nodeTableId{{ pipeline.id }}"
+                             class="">
+                            <div class="scroll-trigger"
+                                 hx-get="{{ url_for('nodes.pipeline_nodes', pipeline_name=pipeline.id) }}"
+                                 hx-trigger="intersect once from:#{{ pipeline.id }} threshold:0.5"
+                                 hx-target="#nodeTableId{{ pipeline.id }}"
+                                 hx-swap="innerHTML swap:.5s settle:.25s">
+                                <div class="text-center">
+                                    <img src="{{ url_for('static', filename='assets/images/bars.svg') }}" alt=""
+                                         width="25px" class="htmx-indicator"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="content-collapse-icon clickable"
+                 data-toggle="collapse"
+                 data-target="#headingId{{ pipeline.id }}"
+                 tabindex="-1">
+                <i class="fa fa-chevron-circle-down" aria-hidden="true"></i>
+            </div>
+        </div>
+    </article>
+{% endfor %}
+
+<br>
+
+{% if paginate_flag %}
+    <div class="clearfix">
+        <div class="hint-text">
+            Showing page <strong>{{ pipelines.page}}</strong> of <strong>{{ pipelines.pages }}</strong>
+        </div>
+        <ul class="pagination">
+            <li class="page-item">
+                <a href="#"
+                   hx-get="{{ url_for('nodes.pipeline', page=1) }}"
+                   hx-target="#pipeline-feed"
+                   hx-trigger="click"
+                   hx-swap="innerHTML swap:.5s"
+                   hx-push-url="true"
+                   class="page-link">
+                    <i class="fa fa-angle-double-left" aria-hidden="true"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a href="#"
+                   hx-get="{{ url_for('nodes.pipeline', page=pipelines.prev_num) }}"
+                   hx-target="#pipeline-feed"
+                   hx-trigger="click"
+                   hx-swap="innerHTML swap:.5s"
+                   hx-push-url="true"
+                   class="page-link">
+                    <i class="fa fa-angle-left" aria-hidden="true"></i>
+                </a>
+            </li>
+            {% for page_num in pipelines.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page_num %}
+                    {% if pipelines.page == page_num %}
+                        <li class="page-item active">
+                            <a class="page-link clickable"
+                               _="on click go to the top of the #pipeline-status smoothly">{{ page_num }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item">
+                            <a href="#"
+                               hx-get="{{ url_for('nodes.pipeline', page=page_num) }}"
+                               hx-target="#pipeline-feed"
+                               hx-trigger="click"
+                               hx-swap="innerHTML swap:.5s"
+                               hx-push-url="true"
+                               class="page-link">
+                                {{ page_num }}
+                            </a>
+                        </li>
+                    {% endif %}
+                {% else %}
+                    <li class="page-item disabled"><a href="#" class="page-link">...</a></li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item">
+                <a href="#"
+                   hx-get="{{ url_for('nodes.pipeline', page=pipelines.next_num) }}"
+                   hx-target="#pipeline-feed"
+                   hx-trigger="click"
+                   hx-swap="innerHTML swap:.5s"
+                   hx-push-url="true"
+                   class="page-link">
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a href="#"
+                   hx-get="{{ url_for('nodes.pipeline', page=pipelines.pages) }}"
+                   hx-target="#pipeline-feed"
+                   hx-trigger="click"
+                   hx-swap="innerHTML swap:.5s"
+                   hx-push-url="true"
+                   class="page-link">
+                    <i class="fa fa-angle-double-right" aria-hidden="true"></i>
+                </a>
+            </li>
+        </ul>
+    </div>
+{% endif %}

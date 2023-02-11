@@ -1,0 +1,66 @@
+{% from "macros/navbar_active.html" import nav_link with context %}
+<header class="header">
+    <nav class="navbar navbar-expand-md navbar-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand mr-4" href="/">Data Engine</a>
+            <button class="navbar-toggler"
+                    type="button"
+                    data-toggle="collapse"
+                    data-target="#navbarToggle"
+                    aria-controls="navbarToggle"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarToggle">
+                <div class="navbar-nav mr-auto">
+                    {{ nav_link('nodes.pipeline', 'Pipeline') }}
+                    {{ nav_link('catalogs.all_catalogs', 'Catalogs') }}
+                    {{ nav_link('about', 'About') }}
+                    <div class="nav-item dropdown">
+                        <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Services</a>
+                        <div class="dropdown-menu">
+                            <a href="{{ url_for('nodes.all_node') }}" class="dropdown-item">Table Nodes</a>
+                            <a href="{{ url_for('logs.all_log') }}" class="dropdown-item">Table Task Logs</a>
+                        </div>
+                    </div>
+                    {% if current_user.is_admin %}
+                        {% if request.endpoint.endswith('admin.admin_view') %}
+                            <a class="nav-item nav-link active"
+                               href="{{ url_for('admin.admin_view') }}">
+                                Admin
+                            </a>
+                        {% else %}
+                            <a class="nav-item nav-link"
+                               href="{{ url_for('admin.admin_view') }}">
+                                Admin
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+
+                <!-- Navbar Right Side -->
+                <div id="loginChange" class="navbar-nav">
+                    {% if current_user.is_authenticated %}
+                        <a href="{{ url_for('users.account') }}"
+                           class="nav-item nav-link">
+                            Account
+                        </a>
+                        <a hx-get="{{ url_for('users.logout') }}"
+                           hx-push-url="false"
+                           class="clickable nav-item nav-link">Logout</a>
+                    {% else %}
+                        <a href="{{ url_for('users.login_get') }}"
+                           class="clickable nav-item nav-link">
+                            Login
+                        </a>
+                        <a href="{{ url_for('users.register_get') }}"
+                           class="clickable nav-item nav-link">
+                            Register
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+</header>

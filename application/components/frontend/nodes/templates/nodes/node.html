@@ -1,0 +1,252 @@
+{% extends "layouts/base.html" %}
+{% block title %}Data Engine - {{ node.name }}{% endblock %}
+{% block additional_css %}
+<style type="text/css">
+    .content-section {
+        padding: 10px 20px;
+    }
+
+    .content-graph-body {
+        /*padding: 1rem 1.7rem;*/
+    }
+
+    .content-toggle-icon {
+        width:100%;
+        display: flex;
+        justify-content: center;
+    }
+
+    .content-toggle-icon-body {
+        background-color: #ffffff;
+        position: absolute;
+        width: 1.6rem;
+        height: 0.7rem;
+        border-radius: .6rem;
+        box-shadow: 0 2px 5px 0 rgb(125 157 156 / 65%), 0 2px 5px 0 rgb(87 111 114 / 54%);
+        transition: width, height;
+    }
+
+    .content-toggle-icon-body:hover {
+        transform: scale(1.1);
+    }
+
+    .content-toggle-icon-body i {
+        display: flex;
+        justify-content: center;
+        transition: none;
+    }
+</style>
+{% endblock additional_css %}
+{% block main_content %}
+<div>
+    <div class="content-wrapper">
+        <div class="">
+            <div class="row">
+                <div class="content-title col-sm-8">
+                    <h4>List of
+                        <span class="hover-text clickable"><strong>&nbsp;Node&nbsp;</strong>
+                        </span>
+                    </h4>
+                </div>
+                <div class="col-sm-4">
+                    <div class="search-box">
+                        <i class="fa fa-search" aria-hidden="true"></i>
+                        <input type="text"
+                               class="form-control"
+                               placeholder="Search&hellip;"
+                               name="search"
+                               value=""
+                               tabindex="-1"
+                               hx-get="{{ url_for('nodes.pipeline') }}"
+                               hx-trigger="keyup changed delay:800ms"
+                               hx-target="#pipeline-feed"
+                               hx-swap="innerHTML swap:.5s settle:.5s"
+                               hx-push-url="true"
+                               hx-indicator=".htmx-indicator.wait"
+                               _="on htmx:afterSettle log 'Settled!'">
+                        <div class="htmx-indicator wait" aria-hidden="true">
+                            <img src="{{ url_for('static', filename='assets/images/bars.svg') }}" alt=""/> Searching...
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br>
+            <div id="node-feed">
+                <article id="{{ node.id }}">
+                    <div class="article-animation content-section">
+                        <div class="article-metadata">
+
+                            <a class="article-id mr-2" href="#"
+                               data-toggle="collapse"
+                               data-target="#headingId{{ node.id }}"
+                               aria-controls="headingId{{ node.id }}">
+                                {{ node.id }}
+                            </a>
+
+                            <div class="float-right">
+                                <small class="mr-2 text-muted">{{ node.update_date.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                            </div>
+                        </div>
+
+                        <div class="row clickable">
+                            <!-- Topic -->
+                            <div class="col-md-8">
+                                <h5 ><a class="article-title"
+                                        href="#"><strong>{{ node.name }}</strong></a>
+                                </h5>
+                            </div>
+
+                            <!-- Add Action bottom -->
+                            <div class="col-md-4">
+                                <div class="float-right">
+                                    <button type="button" class="btn btn-sm btn-secondary">Run</button>
+                                    <button type="button" class="btn btn-sm btn-secondary">Setup</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="">
+                            <p><strong>type: </strong>{{ node.type}}</p>
+                            <p><strong>run_type: </strong>{{ node.run_type }}</p>
+                            <p><strong>run_count_now: </strong>{{ node.run_count_now }}</p>
+                            <p><strong>run_count_max: </strong>{{ node.run_count_max }}</p>
+                            <a href="#">{{ node.active }}</a>
+                        </div>
+
+                        <div id="graphCollapseId{{ node.id }}"
+                             class="collapse main-collapse"
+                             aria-labelledby="graphCollapseId{{ node.id }}">
+                            <div class="content-collapse content-graph-body"
+                                 data-aos="fade-up"
+                                 data-aos-delay="0">
+                                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center">
+                                    <h4><strong>Logs</strong> Dashboard</h4>
+                                    <div class="btn-toolbar mb-2 mb-md-0">
+                                        <div class="btn-group btn-sm mr-2">
+                                            <button class="btn btn-sm btn-outline-secondary">Share</button>
+                                            <button class="btn btn-sm btn-outline-secondary">Export</button>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-secondary p-0">
+                                            <i class="fa fa-calendar-o" aria-hidden="true"></i>
+                                            <select id="chart-type"
+                                                    class="btn btn-sm shadow-none border-0 pl-0"
+                                                    aria-label="Chart Type">
+                                                <option value="Day">Daily</option>
+                                                <option value="Week">Weekly</option>
+                                                <option value="Month">Monthly</option>
+                                                <option value="Year">Yearly</option>
+                                            </select>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id='chart' class='chart'></div>
+                            </div>
+                        </div>
+                        <div id="graphCollapseBtnId{{ node.id }}"
+                             class="content-toggle-icon clickable"
+                             data-toggle="collapse"
+                             data-target="#graphCollapseId{{ node.id }}"
+                             tabindex="-1"
+                             _="on click wait 1s
+                                if I match .bth-fix-one then remove .btn-fix-one from me
+                                else toggle the *display of #logCollapseBtnId{{ node.id }}
+                                then toggle the *display of me
+                                then add .btn-fix-one .btn-fix-two to #logCollapseBtnId{{ node.id }}
+                                then add .btn-fix-one to me
+                                then log 'Case Else in Graph'
+                                end log 'Click Graph'
+                                if I do not match .disabled add .clicked else remove .clicked">
+                            <div class="content-toggle-icon-body">
+                                <i class="fa fa-chevron-circle-down" aria-hidden="true"></i>
+                            </div>
+                        </div>
+
+                        <!-- Log of this node -->
+                        <div id="logCollapseId{{ node.id }}"
+                             class="collapse main-collapse"
+                             aria-labelledby="logCollapseId{{ node.id }}">
+                            <div class="content-collapse">
+                                {{ render_partial('nodes/partials/node_logs.html', logs=logs, node=node.name) }}
+                            </div>
+                        </div>
+                        <div id="logCollapseBtnId{{ node.id }}"
+                             class="content-toggle-icon clickable"
+                             data-toggle="collapse"
+                             data-target="#logCollapseId{{ node.id }}"
+                             tabindex="1"
+                             _="on click
+                                if I match .btn-fix-one then remove .btn-fix-one from me
+                                else if I match .btn-fix-two then remove .btn-fix-two from me
+                                then toggle the *display of me
+                                then toggle the *display of #graphCollapseBtnId{{ node.id }}
+                                end"
+                             style="display: none;">
+                            <div class="content-toggle-icon-body">
+                                <i class="fa fa-chevron-circle-down" aria-hidden="true"></i>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock main_content %}
+{% block import_js %}
+<script type="text/javascript" src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+{% endblock import_js %}
+{% block additional_js %}
+<script type='text/javascript'>
+    var graphs = {{ graphJSON | safe }};
+    graphs.config = {'displayModeBar': false};
+    Plotly.plot(
+        'chart', graphs, {}
+    );
+</script>
+<script type='text/javascript'>
+    $('#chart-type').on('change', function(){
+        $.ajax({
+            type: "GET",
+            url: "/node/data/{{ node.name }}",
+            async: true,
+            contentType: 'application/json;charset=UTF-8',
+            dataType:"json",
+            data: {
+                'selected': document.getElementById('chart-type').value
+            },
+            beforeSend: function () {
+                // Loading function was called
+                // $('#loader').show();
+                Swal.fire({
+                    title: 'Updating ...',
+                    html: 'Please wait fetching data from server ...',
+                    allowEscapeKey: false,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading()
+                    }
+                });
+            },
+            complete: function () {
+                // Loading function was ended
+                // $('#loader').hide();
+                Swal.close();
+            },
+            success: function (data) {
+                data.config = {'displayModeBar': false};
+                Plotly.newPlot(
+                    'chart', data, {}
+                );
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                var text =  "Error has occurred when submitting the job: " + jqXHR.status + " Contact IT dept";
+                console.log(text);
+            },
+        });
+    });
+</script>
+<script type="text/javascript">
+
+
+</script>
+{% endblock additional_js %}

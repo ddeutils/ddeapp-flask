@@ -1,0 +1,519 @@
+{% extends "layouts/base.html" %}
+{% block additional_css %}
+<!--    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>-->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@^3"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/moment@^2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@^1"></script>
+
+    <style type="text/css">
+        table.table-fit {
+            width: auto !important;
+            table-layout: auto !important;
+        }
+        table.table-fit thead th, table.table-fit tfoot th {
+            width: auto !important;
+        }
+        table.table-fit tbody td, table.table-fit tfoot td {
+            width: auto !important;
+        }
+        #toolbar {
+            margin: 0;
+        }
+    </style>
+{% endblock %}
+{% block main_content %}
+
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+        <h1 class="h2">Dashboard</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+          <div class="btn-group mr-2">
+            <button class="btn btn-sm btn-outline-secondary">Share</button>
+            <button class="btn btn-sm btn-outline-secondary">Export</button>
+          </div>
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle">
+            <i class="fa fa-calendar-o" aria-hidden="true"></i>
+            This week
+          </button>
+        </div>
+    </div>
+
+    <div class="content-wrapper container">
+        <div class="row">
+            <div class="col"><b>Task Process Type</b></div>
+            <div class="col">
+                <select id="stype" class="form-select" aria-label="Select">
+                    <option selected value="foreground">Foreground</option>
+                    <option value="background">Background</option>
+                </select>
+            </div>
+
+            <div class="col"><b>Task Module</b></div>
+            <div class="col">
+                <select id="module" class="form-select" aria-label="Select">
+                    <option selected value="fd">Framework data</option>
+                    <option value="fs">Framework setup</option>
+                    <option value="i">Ingestion</option>
+                </select>
+            </div>
+
+            <div class="col"><b>for period</b></div>
+            <div class="col">
+                <select id="period" class="form-select" aria-label="Select">
+                    <option selected value="d">1 day</option>
+                    <option value="5d">5 days</option>
+                    <option value="1w">1 week</option>
+                    <option value="1mo">1 month</option>
+                    <option value="3mo">3 months</option>
+                    <option value="6mo">6 months</option>
+                    <option value="1y">1 year</option>
+                </select>
+            </div>
+
+            <div class="col">
+                <button type="button" class="btn btn-primary" onclick="callback()">Fetch Log</button>
+            </div>
+            <div class="w-100" style="padding:10px;text-align:right;font-size: small;"><i>Note: not all intervals are
+                    valid for all periods</i></div>
+
+            <h2 id="companyName"></h2>
+            <canvas id="lineChart"
+                    class="chart"
+                    style="height: 200px; box-shadow: 5px 5px 5px #888888;">
+            </canvas>
+
+            <div class="col-12" style="font-size:smaller;padding:10px;text-align: right;">
+                <i>The data is, to the best of our knowledge, correct but cannot be guarenteed to be so</i>
+                <br/>
+                <i>This site is for educational and demonstation purposes, only</i>
+           </div>
+        </div>
+    </div>
+
+    <br>
+
+    <div class="content-wrapper">
+        <div id="toolbar" class="select">
+            <select class="form-control">
+                <option selected value="selected">Export Selected</option>
+                <option value="">Export Basic</option>
+                <option value="all">Export All</option>
+            </select>
+        </div>
+        <table id="table-logs"
+               aria-describedby=""
+               data-classes="table table-hover"
+               data-url="/logs/data"
+               data-method="get"
+               data-toggle="#table-logs"
+               data-search="true"
+               data-minimum-count-columns="2"
+
+               data-regex-search="false"
+               data-search-on-enter-key="false"
+
+               data-click-to-select="false"
+
+               data-toolbar="#toolbar"
+
+               data-sortable="true"
+
+               data-show-multi-sort="true"
+
+               data-sort-reset="true"
+               data-sort-reset-page="true"
+
+               data-pagination="true"
+               data-page-size="20"
+               data-page-list="[20, 50, 100, 200]"
+
+               data-side-pagination="server"
+               data-show-pagination-switch="true"
+
+               data-show-columns="true"
+               data-show-columns-toggle-all="true"
+
+               data-show-copy-rows="true"
+
+               data-icons-prefix="fa"
+               data-icons="icons"
+               data-show-refresh="true"
+               data-show-fullscreen="true"
+               data-show-search-clear-button="true"
+
+               data-show-export="true"
+               data-loading-template="loadingTemplate"
+
+               data-show-toggle="true"
+               data-detail-view="true"
+               data-detail-view-icon="false"
+               data-detail-view-by-click="false"
+               data-detail-formatter="detailFormatter"
+
+               data-query-params="queryParams"
+               data-query-params-type=""
+
+               data-advanced-search="true"
+               data-id-table="advancedTable"
+
+               class="table table-responsive table-fit">
+            <thead class="thead-dark">
+                <tr>
+                    <!--special characters and spaces not allowed in data-field name-->
+                    <th data-field="state" data-checkbox="true"></th>
+                    <th data-field="id" data-sortable="true" data-align="center">ID</th>
+                    <th data-field="type" data-sortable="true">Type</th>
+                    <th data-field="module" data-sortable="true">Module</th>
+                    <th data-field="name" data-sortable="true">Name Put</th>
+                    <th data-field="run_date" data-sortable="true">Run Date Put</th>
+                    <th data-field="process_time" data-sortable="true">Process Time</th>
+                    <th data-field="status" data-sortable="true">Status</th>
+                    <th data-field="message" data-sortable="true" data-card-visible="false" data-visible="false" data-formatter="messageFormatter">Messages</th>
+                    <th data-formatter="buttonAction" data-events="operateEvents" data-ignore-copy="true">Action</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+
+    <!-- Modal -->
+    <div id="myModal" class="modal fade" role="dialog">
+      <div class="modal-dialog">
+        <!-- Modal content-->
+        <div class="modal-content">
+          <div class="modal-header">
+              <h4 class="modal-title"></h4>
+              <button type="button" class="close" data-dismiss="modal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p></p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+{% endblock main_content %}
+{% block additional_function_js %}
+        // Mapping table id to the Bootstrap-Table.
+
+        var $table = $('#table-logs');
+
+        $table.bootstrapTable({
+            loadingFontSize: 'auto'
+        });
+
+        $('#toolbar').find('select').change(function () {
+            $table.bootstrapTable('destroy').bootstrapTable({
+                exportDataType: $(this).val(),
+                exportTypes: ['json', 'xml', 'csv', 'txt', 'sql', 'excel', 'pdf'],
+                columns: [
+                    {
+                        field: 'state',
+                        checkbox: true,
+                        visible: $(this).val() === 'selected'
+                    },
+                    {
+                        field: 'id',
+                        title: 'ID',
+                        align: 'center'
+                    },
+                    {
+                        field: 'type',
+                        title: 'Type'
+                    }, {},
+                    {
+                        field: 'name',
+                        title: 'Name'
+                    },
+                    {
+                        field: 'run_date',
+                        title: 'Run Date'
+                    },
+                    {
+                        field: 'process_time',
+                        title: 'Process Time'
+                    },
+                    {
+                        field: 'status',
+                        title: 'Status'
+                    }, {},
+                    {
+                        title: 'Action',
+                        formatter: 'buttonAction',
+                        events: 'operateEvents'
+                    }
+                ]
+            })
+        }).trigger('change')
+
+{% endblock additional_function_js %}
+{% block additional_js %}
+<script type="text/javascript">
+    // Button Formatter
+    function buttonAction(value, row, index) {
+        return [
+            '<button title="View" data-toggle="tooltip" type="submit" class=\'btn btn-secondary btn-sm \' aria-pressed="true">',
+            '<i class="fa fa-eye"></i>',
+            '</button>'
+        ].join('');
+    };
+
+    // Message Formatter
+    function messageFormatter(value, row, index, field) {
+        return value.substring(0, 30) + '...';
+    };
+
+    // Change loading template.
+    function loadingTemplate(message) {
+        return '<i class="fa fa-spinner fa-spin fa-fw fa-3x"></i>'
+    };
+
+    // Detail formatter.
+    function detailFormatter(index, row) {
+        var html = [];
+        $.each(row, function (key, value) {
+            html.push('<p><b>' + key + ':</b> ' + value + '</p>')
+        });
+        return html.join('');
+    }
+
+    //
+    function queryParams(params) {
+        // console.log('queryParams: ' + JSON.stringify(params));
+        // `searchText`, ...
+        return params;
+    };
+
+    // Change icon class.
+    window.icons = {
+        paginationSwitchDown: 'fa-caret-square-o-down',
+        paginationSwitchUp: 'fa-caret-square-o-up',
+        fullscreen: 'fa-arrows-alt',
+        refresh: 'fa-refresh',
+        detailOpen: 'fa-plus',
+        detailClose: 'fa-minus'
+    };
+
+    // Operate Events.
+    window.operateEvents = {
+        'click .btn': function (e, value, row, index) {
+            $('#myModal .modal-title').html(row.id);
+            $('#myModal .modal-body').html(
+                [
+                    '<p><b>NAME:</b> ' + row.name + '</p>',
+                    '<p><b>MESSAGE:</b></p>',
+                    '<p>' + row.message + '</p>',
+                ].join('')
+            );
+            $('#myModal').modal('show');
+        }
+    }
+</script>
+<script type='text/javascript'>
+    // Register the plugin to all charts:
+    Chart.register(ChartDataLabels);
+
+    function createChart(lbs, vls) {
+        var ctx = document.getElementById("lineChart").getContext("2d");
+        var lineChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: lbs,
+                datasets: [
+                    {
+                        label: "Data Point",
+                        data: vls.first,
+                        fill: false,
+                        // backgroundColor: 'transparent',
+                        backgroundColor: "rgb(75, 192, 192)",
+                        borderColor: "#FFCE56",
+                        // lineTension: 0.1,
+                        borderWidth: 4,
+                        pointBackgroundColor: '#007bff',
+                        datalabels: {
+                            color: '#FFCE56',
+                            align: 'start',
+                            anchor: 'start',
+                            borderWidth: 2,
+                            borderRadius: 4,
+                            borderColor: "#000",
+                            backgroundColor: "rgb(75, 192, 192)",
+                        }
+                    },
+                    {
+                        label: "Data Point 2",
+                        data: vls.second,
+                        fill: false,
+                        backgroundColor: 'transparent',
+                        borderColor: "rgb(75, 192, 192)",
+                        // lineTension: 0.1,
+                        borderWidth: 2,
+                        pointBackgroundColor: '#007bff'
+                    },
+                ]
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: 'Task Log Chart',
+                    fontSize: 20,
+                },
+                legend: {
+                    position: 'right',
+                    display: true,
+                    labels: {
+                        fontSize: 10,
+                        fontStyle: 'bold',
+                        fontColor: '#404040',
+                    }
+                },
+                layout: {
+                    padding: {
+                        left: 50,
+                        right: 0,
+                        bottom: 0,
+                        top: 0
+                    },
+                },
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 250,
+                        // stacked: true,
+                        title: {
+                            display: true,
+                            text: 'Value',
+                        }
+                        // tricks: {
+                        //
+                        // },
+                    },
+                    x: {
+                        // type: 'linear',
+                        type: 'time',
+                        time: {
+                            unit: 'month',
+                            displayFormats: { month: 'YYYY MMM' },
+                        },
+                        title: {
+                            display: true,
+                            text: 'Update Time',
+                        },
+                        ticks: {
+                            // major: {
+                            //     enabled: true
+                            // },
+                            // color: (context) => context.tick && context.tick.major && '#FF0000',
+                            // font: function(context) {
+                            //     if (context.tick && context.tick.major) {
+                            //         return {
+                            //             weight: 'bold'
+                            //         };
+                            //     }
+                            // },
+                        },
+                    }
+                },
+                tooltips: {
+                    enabled: true
+                },
+                hover : {
+                    animationDuration: 0
+                },
+                transitions: {
+                    show: {
+                        animations: {
+                            x: {from: 0},
+                            y: {from: 500}
+                        }
+                    },
+                    hide: {
+                        animations: {
+                            x: {to: 0},
+                            y: {to: 500}
+                        }
+                    },
+                },
+                // plugins: [ChartDataLabels],
+                // plugins: {
+                //     backgroundColor: function(context) {
+                //         return context.dataset.backgroundColor;
+                //     },
+                //     borderRadius: 4,
+                //     color: 'white',
+                //     font: {
+                //         weight: 'bold'
+                //     },
+                //     formatter: Math.round,
+                //     padding: 6
+                // },
+                aspectRatio: 5 / 3,
+                elements: {
+                  line: {
+                    fill: false,
+                    tension: 0.4
+                  }
+                },
+            }
+        });
+    };
+
+    $.ajax({
+        method: "GET",
+        url: '/logs/chart-data',
+        dataType: 'json',
+        success: function(data) {
+            console.log(data);
+            let getLabels = data.labels;
+            let getValues = data.values;
+            createChart(getLabels, getValues);
+        },
+        error: function(error_data) {
+            console.log("error on data");
+            console.log(error_data);
+        }
+    });
+</script>
+<script>
+    async function callback() {
+        let Stock = document.getElementById('stock').value;
+        let Period = document.getElementById('period').value;
+        let Interval = document.getElementById('interval').value;
+        let response = await fetch(
+            "/callback/getStock?data=" + Stock + "&period=" + Period + "&interval=" + Interval
+        );
+
+        if (response.ok) {
+            let chartJson = await response.json();
+            response = await fetch("/callback/getInfo?data=" + Stock);
+
+            if (response.ok) {
+                let infoJson = await response.json();
+                info(infoJson);
+                Plotly.newPlot('chart', chartJson, {});
+            } else {
+                alert("HTTP-Error: " + response.status + "on getInfo");
+            }
+        } else {
+            alert("HTTP-Error: " + response.status + "on getStock");
+        }
+    };
+    function info(json) {
+        let name = document.getElementById('companyName');
+        name.innerHTML = json.shortName;
+        name = document.getElementById('symbol');
+        name.innerHTML = json.symbol;
+        name = document.getElementById('dayHigh');
+        name.innerHTML = json.dayHigh;
+        name = document.getElementById('dayLow');
+        name.innerHTML = json.dayLow;
+    };
+    // callback();
+</script>
+{% endblock additional_js %}

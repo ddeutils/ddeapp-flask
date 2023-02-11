@@ -1,0 +1,407 @@
+{% extends "layouts/base.html" %}
+{% block additional_css %}
+<style type="text/css">
+    .modal-content {
+        padding: 1rem;
+    }
+
+    .modal-content .modal-body label {
+        font-weight: bold;
+    }
+</style>
+<style type="text/css">
+    .pipeline-feed {
+        opacity: 1;
+        transition: opacity 1s ease-out;
+    }
+
+    .pipeline-feed.htmx-added {
+        opacity: 0;
+    }
+
+    .pipeline-feed.htmx-swapping {
+        opacity: 0;
+        transition: opacity 1s ease-out;
+    }
+
+    .content-section:hover {
+        scale: 1.01;
+    }
+</style>
+<style type="text/css">
+    .table-responsive {
+        border-radius: .5rem;
+    }
+
+    table.table {
+        margin-bottom: 0;
+    }
+
+    table.table thead.thead-dark {
+        text-align: center;
+    }
+
+    table.table tr th,
+    table.table tr td {
+        border-color: #e9e9e9;
+        font-family: 'Space Mono', monospace;
+    }
+
+    table.table-hover tbody tr:hover {
+        background: #f5f5f5;
+    }
+
+    table.table th i {
+        font-size: 13px;
+        margin: 0 5px;
+        cursor: pointer;
+    }
+
+    table.table td:last-child {
+        width: 95px;
+    }
+
+    table.table td a {
+        color: #a0a5b1;
+        display: inline-block;
+        margin: 0 5px;
+    }
+
+    table.table td a.view {
+        color: #03A9F4;
+    }
+
+    table.table td a.run {
+        color: #53a653;
+    }
+
+    table.table td i {
+        font-size: 19px;
+    }
+</style>
+<style>
+    .dot-toggle {
+        position: absolute;
+        top: 1%;
+        right: 1%;
+        font-size: 150%;
+        font-weight: bold;
+        color: gray;
+        line-height: 0.8;
+        border-radius: .5rem;
+        transition: font-size 200ms;
+    }
+
+    .dot-toggle:hover {
+        font-size: 155%;
+        box-shadow: 0 2px 5px 0 rgb(125 157 156 / 55%), 0 2px 5px 0 rgb(87 111 114 / 34%);
+    }
+</style>
+{% endblock additional_css %}
+{% block main_content %}
+
+<!-- Pipeline Status  -->
+<div id="pipeline-status" class="">
+    {{ render_partial('nodes/partials/pipeline_status.html') }}
+</div>
+
+<div class="content-wrapper">
+    <div class="dot-toggle clickable">&bull;&bull;&bull;</div>
+    <div class="row">
+        <div class="content-title col-sm-8">
+            <h4>List of
+                <span class="hover-text clickable"
+                      hx-get="{{ url_for('nodes.pipeline') }}"
+                      hx-target="#pipeline-feed"
+                      hx-trigger="click"
+                      hx-swap="innerHTML swap:.5s"
+                      hx-push-url="true"><strong>&nbsp;Pipelines&nbsp;</strong>
+                </span>
+            </h4>
+        </div>
+        <div class="col-sm-4 pt-2">
+            <div class="search-box">
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <input type="search"
+                       class="form-control"
+                       placeholder="Search&hellip;"
+                       name="search"
+                       value=""
+                       tabindex="-1"
+                       hx-get="{{ url_for('nodes.pipeline') }}"
+                       hx-trigger="keyup changed delay:800ms"
+                       hx-target="#pipeline-feed"
+                       hx-swap="innerHTML swap:.5s settle:.5s"
+                       hx-push-url="true"
+                       hx-indicator=".htmx-indicator.wait"
+                       _="on htmx:afterSettle log 'Settled!'">
+                <div class="htmx-indicator wait" aria-hidden="true">
+                    <img src="{{ url_for('static', filename='assets/images/bars.svg') }}" alt=""/> Searching...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br>
+
+    <div id="pipeline-feed"
+         class="pipeline-feed">
+        <!-- Partial Pipelines -->
+        {{ render_partial('nodes/partials/pipelines.html', pipelines=pipelines, paginate_flag=paginate_flag) }}
+    </div>
+</div>
+
+<!-- LAZY: Modal of Run Button -->
+<div id="runPipelineModal"
+     class="modal fade"
+     tabindex="-1"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="runPipelineModalLabel"
+     aria-describedby="runPipelineModalDESC"
+     aria-hidden="true"
+     _="init fetch {{ url_for('nodes.pipeline_partial', template='action_modal') }}
+        then put the result into me
+        if no .tabs log 'No tabs found!'">
+</div>
+
+<!-- Modal of Delete Button -->
+<div id="deleteModal"
+     class="modal fade"
+     tabindex="-1"
+     role="dialog"
+     aria-labelledby="deleteModalLabel"
+     aria-describedby=""
+     aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <!-- Header -->
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Delete Post?</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <!-- Footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <form action="#" method="POST">
+                    <input class="btn btn-danger" type="submit" value="Delete">
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock main_content %}
+{% block additional_js %}
+<script type='text/javascript'>
+    // htmx.ajax(
+    //     'GET',
+    //     '{{ url_for('nodes.pipeline_partial', template='action_modal') }}',
+    //     {
+    //         target:'#runPipelineModal',
+    //         swap:'innerHTML settle:200ms'
+    //     }
+    // );
+
+    // $( window ).scroll(function() {
+    //     // span {
+    //     //     color: red;
+    //     //     display: none;
+    //     // }
+    //     // <p>Paragraph - <span>Scroll happened!</span></p>
+    //     $( "span" ).css( "display", "inline" ).fadeOut( "slow" );
+    // });
+
+    htmx.onLoad(function(content) {
+        console.log("On Loading for ...");
+        console.log(content);
+
+        // var nodeTable = content.querySelectorAll(".node-table");
+        // var nodeTable = content.getElementById("runPipelineForm");
+
+        var articles = htmx.findAll(content, ".article-animation");
+        for (article of articles) {
+            console.log(article.classList);
+        }
+
+        // if (nodeTable.length > 0) {
+        //     console.log('Node table loaded');
+        //     console.log(nodeTable)
+        // } else {
+        //     console.log(nodeTable)
+        // }
+
+        // var sortables = content.querySelectorAll(".sortable");
+        // for (var i = 0; i < sortables.length; i++) {
+        //     var sortable = sortables[i];
+        //     new Sortable(sortable, {
+        //         animation: 150,
+        //         ghostClass: 'blue-background-class'
+        //     });
+        // };
+
+        // var allSelects = htmx.findAll(content, ".tomselect")
+        // for ( select of allSelects ) {
+        //     new TomSelect(select, {
+        //         persist: false,
+        //         createOnBlur: true,
+        //         create: true
+        //     });
+        // }
+    });
+
+    htmx.on("#pipeline-feed", "htmx:afterRequest", function(evt) {
+        AOS.refresh();
+        console.log("After Pipeline Feed requested");
+
+        document.querySelectorAll('article').forEach((article) =>
+            article.addEventListener('load', () => AOS.refresh())
+        );
+
+    });
+</script>
+<script type='text/javascript'>
+    // const onObserve = entries => {
+    //     for (const entry of entries) {
+    //         if (entry.isIntersecting) {
+    //             // entry.target.style.backgroundColor = "rgba(40, 40, 190, ??)";
+    //             entry.target.classList.add('loaded');
+    //             // Call your request here.
+    //         } else {
+    //             entry.target.classList.remove('loaded');
+    //             entry.target.classList.remove('show');
+    //         }
+    //     }
+    // };
+
+    // const observer = new IntersectionObserver(onObserve, {
+    //     root: null,
+    //     rootMargin: '0px',
+    //     threshold: 0.0,
+    //     // threshold: 0.5, // Can be the list of thresholds
+    // });
+
+    // const collapses = document.querySelectorAll('.collapse.main-collapse');
+    // for (const collapse of collapses) {
+    //     observer.observe(collapse);
+    // }
+</script>
+<script type='text/javascript'>
+    $('#runPipelineModal').on('show.bs.modal', function(event) {
+        var button = $(event.relatedTarget);
+        var pipelineName = button.data('pipeline-name');
+        var runType = button.data('btn-type');
+
+        // Reset old value in form.
+        document.getElementById('runPipelineForm').reset();
+
+        $(this).find('.modal-title').html(
+            capitalize(runType) + ' Data Pipeline: <h5><strong>' + pipelineName + '</strong></h5>'
+        );
+        $(this).find('.modal-body').find('#pipeline_name').val(pipelineName);
+        $(this).find('.modal-body').find('#module_run_type').val(runType);
+
+        if (runType === 'setup') {
+            $(this).find('.modal-body').append(
+                [
+                    '<div class="form-check appended">',
+                        '<input type="checkbox" id="cascade" class="form-check-input" name="cascade">',
+                        '<label for="cascade" class="form-check-label">Cascade Flag</label>',
+                    '</div>',
+
+                ].join('')
+            )
+        };
+
+        $(this).find('.modal-footer').find('#btn-submit').text(capitalize(runType));
+
+    });
+
+    $('#runPipelineModal').on('hide.bs.modal', function(event) {
+        $(this).find('.modal-body').find('.appended').remove();
+    });
+
+    $('#runPipelineForm').submit(function(event) {
+        var dataString = $(this).serialize();
+        Swal.fire({
+            title: 'Are you sure?',
+            text: 'You won\'t be able to revert this!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, run it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    type: "POST",
+                    url: "pipeline/run",
+                    async: true,
+                    data: dataString,
+                    beforeSend: function () {
+                        Swal.fire({
+                            title: 'Updating ...',
+                            icon: 'question',
+                            html: 'Please wait fetching data from server ...',
+                            allowEscapeKey: false,
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading()
+                            }
+                        });
+                    },
+                    complete: function () {
+                        Swal.close();
+                    },
+                    success: function () {
+                        Swal.fire({
+                            title: 'Success!',
+                            text: '',
+                            icon: 'success',
+                            timer: 1000,
+                            timerProgressBar: true
+                        });
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        var text =  "Error has occurred when submitting the job: " + jqXHR.status + " Contact IT dept";
+                        console.log(text);
+                    },
+                });
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+                Swal.fire({
+                    title: 'Changes are not saved',
+                    text: '',
+                    icon: 'info',
+                    timer: 2000,
+                    timerProgressBar: true
+                });
+            };
+        });
+        event.preventDefault();
+    });
+</script>
+<script>
+    function toggleIcon(e) {
+        $(e.currentTarget)
+            .find(".content-collapse-icon")
+            .find("i")
+            .toggleClass('fa-chevron-circle-down fa-chevron-circle-up');
+    }
+
+    $('.article-animation').on('hidden.bs.collapse', toggleIcon);
+    $('.article-animation').on('shown.bs.collapse', toggleIcon);
+
+    $('.article-animation').hover(function() {
+        var icon = $(this).find(".content-collapse-icon");
+        icon.fadeTo("fast", 1);
+        icon.addClass("hover");
+    });
+
+    $('.article-animation').mouseleave(function() {
+        var icon = $(this).find(".content-collapse-icon");
+        icon.fadeTo("fast", 0.45);
+        icon.removeClass("hover");
+    });
+</script>
+{% endblock %}

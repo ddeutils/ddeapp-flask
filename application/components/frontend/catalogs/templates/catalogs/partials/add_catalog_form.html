@@ -1,0 +1,29 @@
+<style>
+    .fade-me-out.htmx-swapping {
+        opacity: 0;
+        transition: opacity .25s ease-out;
+    }
+
+
+    .fade-me-in.htmx-settling {
+        opacity: 0;
+    }
+
+    .fade-me-in {
+        opacity: 1;
+        transition: opacity .25s ease-out;
+    }
+</style>
+<form class="catalog-form fade-me-in fade-me-out"
+      hx-post="{{ url_for('catalogs.add_post', cat_name=cat_name) }}"
+      hx-swap="settle:1s"
+      data-aos="zoom-in-down">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" class="form-control" name="name" placeholder="Catalog Name" required/>
+    <input type="text" class="form-control" name="config" placeholder="Catalog Configuration" required/>
+    <button class="btn btn-success" type="submit">Create</button>
+    <button class="btn btn-danger"
+            hx-get="{{ url_for('catalogs.cancel_add', cat_name=cat_name) }}"
+            hx-target=".catalog-form">
+    Cancel</button>
+</form>
