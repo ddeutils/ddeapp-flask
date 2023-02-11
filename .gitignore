@@ -3,6 +3,9 @@
 __pycache__
 *.pyc
 .idea
+*.pickle
+cache/
+gen/
 
 # Test files
 *.test.*
@@ -13,7 +16,7 @@ data/landing
 data/success
 
 # SSH Public Key
-/conf/*.pem
+conf/*.pem
 
 # Dot Environment variables file
 .env

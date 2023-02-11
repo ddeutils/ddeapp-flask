@@ -1,6 +1,10 @@
 Changelog
 =========
 
+version 2.0.0
+-------------
+* [ ] Clear all Flask extensions and implement only the code without external package.
+
 
 Version 1.0.0
 -------------
@@ -23,10 +27,17 @@ Version 0.1.0.b
 
 ---
 
-Version 0.0.1
+Version 0.0.2
 -------------
 
+> Pending
+
 * Compare `Dataclasses` vs `Attrs` vs `Pydantic`
+
+* [ ] Reduce extension code which does not use or useless
+    * [ ] Reduce static file
+  
+* [ ] Design Pages and Capabilities flexible.
 
 * [ ] Fixing #? change transaction table to **partition table
 * [ ] Adding validate data view in database
@@ -34,21 +45,43 @@ Version 0.0.1
 * [ ] Adding swagger for API document
 * [ ] Adding Flask Extensions for control I/O if application
 * [ ] Adding unittest
+
+* [ ] Fixing #? Ingestion merge `PUT` and `DELETE` methods together with same endpoint
+    * [ ] Adding Ingestion Module for delete data from platform with payload
+* [ ] Change physical of transaction table from default to partition by range of date
+* [ ] Change controlling thread for run data pipeline
+* [ ] Add adjustment flow for `imp_mix_max_mos_criteria_fc/rdc/dc` values
+
+---
+
+Version 0.0.1
+-------------
+  
 * [x] Adding Migrate table properties process
 * [x] Adding Load file from local to target table 
 * [x] Change app framework from function to class instance framework code
 
-*Note: `Version 0.*.*` still support requirement from `pre-version 1.*.*` and `pre-Version 2.*.*`*
+* [x] Add frontend for monitoring and operation data pipelines
+    * [x] Add Home page
+    * [x] Adding Flask-Login for login and register process    
+    * [x] Add Login and Register page
+  
+* [x] Adding Web catalogs for initialize authentication process
+    * [x] Add User registration    
+    * [x] Add Role assignment
+    * [x] Add Group assignment
+    * [x] Add Policy assignment
+    * [x] Mapping all relation together
+
+**Note**: `Version 0.*.*` still support requirement from `pre-version 1.*.*` and `pre-Version 2.*.*`*
 
 ---
 
 Pre Version 2.1.0
 -----------------
-* [ ] Fixing #? Ingestion merge `PUT` and `DELETE` methods together with same endpoint
-  * [ ] Adding Ingestion Module for delete data from platform with payload
-* [ ] Change physical of transaction table from default to partition by range of date
-* [ ] Change controlling thread for run data pipeline
-* [ ] Add adjustment flow for `imp_mix_max_mos_criteria_fc/rdc/dc` values
+
+* [x] Add foreign key feature in table configuration
+* [x] Adding initial data with Json files with key `file` or `files`
 
 ---
 
@@ -110,7 +143,7 @@ Pre Version 2.0.0
 * [x] Adding support task monitoring with logging/process table in database
 * [x] Adding component which keep framework and analytic routes
 
-*Note: pre-version from `1.x.x` to `2.x.x` was change application file skeleton*
+**Note**: pre-version from `1.x.x` to `2.x.x` was change application file skeleton*
 
 ---
 

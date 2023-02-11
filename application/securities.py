@@ -1,3 +1,9 @@
+# -------------------------------------------------------------------------
+# Copyright (c) 2022 Korawich Anuttra. All rights reserved.
+# Licensed under the MIT License. See LICENSE in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
 import os
 import functools
 from flask import (
@@ -28,3 +34,11 @@ def apikey_required(func):
         resp.status_code = 403
         return resp
     return decorator
+
+
+def login_manager_wrapper(login_manager):
+    ...
+
+
+def authenticate():
+    ...

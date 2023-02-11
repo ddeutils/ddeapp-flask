@@ -1,0 +1,274 @@
+{% extends "layouts/base.html" %}
+{% block additional_css %}
+<style>
+    .search-box i {
+        color: #a0a5b1;
+        position: absolute;
+        font-size: 19px;
+        top: 8px;
+        left: 17px;
+    }
+
+    div.dataTables_processing.card {
+        background-color: transparent;
+        border: none;
+    }
+
+    div.dataTables_processing div:last-child div {
+        display: none;
+    }
+
+    @keyframes spinner {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+    .spinner:before {
+        content: '';
+        box-sizing: border-box;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 3rem;
+        height: 3rem;
+        margin-top: -10px;
+        margin-left: -10px;
+        border-radius: 50%;
+        border: 2px solid #ccc;
+        border-top-color: #333;
+        animation: spinner .6s linear infinite;
+    }
+</style>
+{% endblock additional_css %}
+{% block main_content %}
+<div class="content-wrapper">
+    <table id="nodes-table"
+           class="table table-bordered nowrap"
+           aria-describedby="">
+        <thead class="">
+            <tr>
+                <th>Name</th>
+                <th>Data Date</th>
+                <th>Update Date</th>
+                <th>Run Date</th>
+                <th>Retention Column</th>
+                <th>Run Count</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+</div>
+{% endblock main_content %}
+{% block additional_document_ready_js %}
+        var table = $('#nodes-table').DataTable({
+
+            // Page length Option.
+            pageLength: 25,
+            lengthChange: true,
+            lengthMenu: [
+                [25, 50, 100, -1],
+                [
+                    "<strong>25</strong> rows",
+                    "<strong>50</strong> rows",
+                    "<strong>100</strong> rows",
+                    "<strong>Show All</strong>",
+                ],
+            ],
+
+            // `Shift + Click` for multi-sorting
+            orderMulti: true,
+
+            // dom: 'flrt<"bottom"ip><"clear">',
+            dom: [
+                '<"row"<"col-md-6"B><"col-md-6"f>>',
+                'r<"mb-3"t>',
+                '<"row"<"col-md-6"i><"col-md-6"p>>'
+            ].join(''),
+            select: {
+                style: 'multi'
+            },
+            ajax: {
+                url: '/node/data',
+                type: 'GET',
+                // headers: {
+                //     'CSRFToken': TOKEN
+                // }
+            },
+            processing: true,
+            serverSide: true,
+            responsive: false,
+            searchDelay: 200,
+            initComplete: function() {
+                var api = this.api();
+                var timer = 0;
+                $('.dataTables_filter input').unbind('.DT').bind('keyup.DT', function(e) {
+                    var value = this.value;
+                    clearTimeout(timer);
+                    timer = setTimeout(function() {
+                        api.search(value).draw();
+                    }, 400);
+                });
+            },
+            columns: [
+                {
+                    data: 'name',
+                    render: function ( data, type, row ) {
+                        return `<strong>${data}</strong>`;
+                    }
+                },
+                {data: 'data_date'},
+                {data: 'update_date'},
+                {data: 'run_date'},
+                {data: 'retention.column', orderable: false, searchable: false},
+                {
+                    data: null,
+                    render: function ( data, type, row ) {
+                        // Combine the run count now and run count max values into a single table field.
+                        return data.run_count.now + '/' + data.run_count.max;
+                    }
+                },
+                {
+                    data: null,
+                    orderable: false,
+                    searchable: false,
+                    render: function ( data, type, row ) {
+                        return [
+                            `<a href="/node/${data.name}"
+                                class="view float-right"
+                                title="View"
+                                data-toggle="tooltip">`,
+                                '<i class="fa fa-eye" aria-hidden="true"></i>',
+                            '</a>',
+                        ].join('')
+                    },
+                }
+            ],
+            // scrollY: false,
+            scrollX: true,
+            scrollCollapse: true,
+            paging: true,
+            fixedColumns: {
+                left: 0,
+                right: 1
+            },
+            // columnDefs: [
+            //     {
+            //         targets: 1,
+            //         render: DataTable.render.datetime('YYYY/MM/DD', 'MMM D, YY', 'en'),
+            //     },
+            // ],
+            // columnDefs: [
+            //     {targets: 0, orderSequence: ['desc']},
+            //     {targets: 1, orderSequence: ['asc']},
+            //     {targets: 4, orderSequence: ['asc']},
+            //     {targets: 5, orderSequence: ['asc']},
+            //     {targets: 6, orderSequence: ['asc']},
+            //     {targets: 7, orderSequence: ['asc']},
+            //     {orderable: false, targets:[1,2,3,8]}
+            // ]
+            pagingType: 'full_numbers',
+            language: {
+                paginate: {
+                    first: '<i class="fa fa-angle-double-left" aria-hidden="true"></i>',
+                    previous: '<i class="fa fa-angle-left" aria-hidden="true"></i>',
+                    next: '<i class="fa fa-angle-right" aria-hidden="true"></i>',
+                    last: '<i class="fa fa-angle-double-right" aria-hidden="true"></i>'
+                },
+                aria: {
+                    paginate: {
+                        first: 'First',
+                        previous: 'Previous',
+                        next: 'Next',
+                        last: 'Last'
+                    }
+                },
+                loadingRecords: '&nbsp;',
+                processing: '<div class="spinner"></div>',
+                search: '<div class="search-box"><i class="fa fa-search" aria-hidden="true"></i>_INPUT_</div>',
+                searchPlaceholder: "Search ..."
+            },
+            // Buttons
+            buttons: [
+                'pageLength',
+                {
+                    text: '<i class="fa fa-clipboard" aria-hidden="true"></i>',
+                    extend: 'copy',
+                    titleAttr: 'Copy',
+                    exportOptions: {
+                        // Include first column and exclude visible columns.
+                        columns: [ 0, ':visible' ]
+                    }
+                },
+                {
+                    text: '<i class="fa fa-print" aria-hidden="true"></i>',
+                    extend: 'print',
+                    titleAttr: 'Print'
+                },
+                {
+                    text: '<i class="fa fa-th-list" aria-hidden="true"></i>',
+                    extend: 'collection',
+                    className: 'custom-html-collection',
+                    buttons: [
+                        '<h3>Export</h3>',
+                        {
+                            text: '<h4><i class="fa fa-file-pdf-o" aria-hidden="true"></i> PDF</h4>',
+                            extend: 'pdf',
+                            titleAttr: 'PDF',
+                            title: 'Node_PDF',
+                        },
+                        {
+                            text: '<h4><i class="fa fa-file-text-o" aria-hidden="true"></i> CSV</h4>',
+                            extend: 'csv',
+                            titleAttr: 'CSV',
+                            title: 'Node_CSV',
+                        },
+                        {
+                            text: '<h4><i class="fa fa-file-text-o" aria-hidden="true"></i> CSV `|`</h4>',
+                            extend: 'csv',
+                            fieldSeparator: '|',
+                            extension: '.csv',
+                            titleAttr: 'CSV with Pipe',
+                            title: 'Node_CSV_with_pipe',
+                        },
+                        {
+                            text: '<h4><i class="fa fa-file-excel-o" aria-hidden="true"></i> Excel</h4>',
+                            extend: 'excel',
+                            titleAttr: 'Excel',
+                            title: 'Node_EXCEL',
+                            messageTop: 'The information in this table about the nodes configuration'
+                        },
+                        {
+                            text: '<h4><i class="fa fa-file-code-o" aria-hidden="true"></i> JSON</h4>',
+                            action: function ( e, dt, button, config ) {
+                                var data = dt.buttons.exportData();
+                                $.fn.dataTable.fileSave(
+                                    new Blob( [ JSON.stringify( data ) ] ),
+                                    'Export.json'
+                                );
+                            },
+                            titleAttr: 'JSON',
+                            title: 'Node_JSON',
+                        },
+                        '<h3 class="not-top-heading">Visibility</h3>',
+                        {
+                            // text: '<i class="fa fa-low-vision" aria-hidden="true"></i> Visible',
+                            extend: 'colvis',
+                            postfixButtons: ['colvisRestore']
+                        }
+                    ]
+                },
+                {
+                    text: "<i class='fa fa-refresh' aria-hidden='true'></i>",
+                    action: function ( e, dt, node, config ) {
+                        dt.ajax.reload();
+                    }
+                }
+            ]
+        });
+
+        table.buttons().container()
+            .appendTo( '#nodes-table_wrapper .col-md-6:eq(0)');
+
+{% endblock %}

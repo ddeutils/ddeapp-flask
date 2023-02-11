@@ -1,0 +1,15 @@
+.footer {
+    /*display: flex;
+    flex-direction: column;*/
+    /*position: absolute;*/
+    flex-shrink: 0;
+    background-color: #E4DCCF;
+    width:100%;
+    padding-top: 2rem;
+    margin-top: 5rem;
+}
+
+.footer .footer-license {
+    background-color: #7D9D9C;
+    color: #ffffff;
+}

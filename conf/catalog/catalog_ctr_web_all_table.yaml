@@ -1,0 +1,143 @@
+# ====================================
+# ----- ctr_web_user
+# ====================================
+ctr_web_user:
+  version: "2022-12-01"
+  description: "User table for log-in process"
+  create:
+    features:
+      user_id: "bigserial not null"
+      public_id: "varchar(128) unique not null"
+      user_name: "varchar( 128 ) not null"
+      user_email: "varchar( 256 ) not null"
+      user_pass: "varchar( 256 ) not null"
+      image_file: "varchar( 256 ) not null"
+      active_flag: "boolean not null"
+      register_date: "timestamp not null"
+      update_date: "timestamp not null"
+    primary_key: ['user_id']
+# ====================================
+# ----- ctr_web_role
+# ====================================
+ctr_web_role:
+  version: "2022-12-01"
+  description: "Role table for role assign process"
+  create:
+    features:
+      role_id: "bigserial not null"
+      role_name: "varchar( 128 ) not null"
+      description: "text null"
+      register_date: "timestamp not null"
+      update_date: "timestamp not null"
+    primary_key: ['role_id']
+# ====================================
+# ----- ctr_web_user_role
+# ====================================
+ctr_web_user_role:
+  version: "2022-12-01"
+  description: "User and Role mapping for role assignment process"
+  create:
+    features:
+      map_id: "bigserial not null"
+      user_id: "integer not null"
+      role_id: "integer not null"
+      update_date: "timestamp not null"
+    primary_key: ['map_id']
+    foreign_key:
+      user_id: "ctr_web_user( user_id )"
+      role_id: "ctr_web_role( role_id )"
+# ====================================
+# ----- ctr_web_group
+# ====================================
+ctr_web_group:
+  version: "2022-12-01"
+  description: "Group table for authentication"
+  create:
+    features:
+      group_id: "bigserial not null"
+      group_name: "varchar( 128 ) unique not null"
+      description: "text null"
+      register_date: "timestamp not null"
+      update_date: "timestamp not null"
+    primary_key: ['group_id']
+# ====================================
+# ----- ctr_web_group_to_group
+# ====================================
+ctr_web_group_to_group:
+  version: "2022-12-01"
+  description: "Group and Group mapping for parent-child assignment process"
+  create:
+    features:
+      map_id: "bigserial not null"
+      parent_id: "integer not null"
+      child_id: "integer not null"
+      update_date: "timestamp not null"
+    primary_key: ['map_id']
+    foreign_key:
+      parent_id: "ctr_web_group( group_id )"
+      child_id: "ctr_web_group( group_id )"
+# ====================================
+# ----- ctr_web_user_group
+# ====================================
+ctr_web_user_group:
+  version: "2022-12-01"
+  description: "User and Group mapping for group assignment process"
+  create:
+    features:
+      map_id: "bigserial not null"
+      user_id: "integer not null"
+      group_id: "integer not null"
+      update_date: "timestamp not null"
+    primary_key: ['map_id']
+    foreign_key:
+      user_id: "ctr_web_user( user_id )"
+      group_id: "ctr_web_group( group_id )"
+# ====================================
+# ----- ctr_web_user_role
+# ====================================
+ctr_web_group_role:
+  version: "2022-12-01"
+  description: "Group and Role mapping for role assignment process"
+  create:
+    features:
+      map_id: "bigserial not null"
+      group_id: "integer not null"
+      role_id: "integer not null"
+      update_date: "timestamp not null"
+    primary_key: ['map_id']
+    foreign_key:
+      group_id: "ctr_web_group( group_id )"
+      role_id: "ctr_web_role( role_id )"
+# ====================================
+# ----- ctr_web_policy
+# ====================================
+ctr_web_policy:
+  version: "2022-12-01"
+  description: "Policy table for policy assign process"
+  create:
+    features:
+      policy_id: "bigserial not null"
+      policy_name: "varchar( 128 ) not null"
+      allowed_routes: "text not null"
+      description: "text null"
+      register_date: "timestamp not null"
+      update_date: "timestamp not null"
+    primary_key: ['policy_id']
+#    foreign_key:
+#      role_id: "ctr_web_role( role_id )"
+# ====================================
+# ----- ctr_web_role_policy
+# ====================================
+ctr_web_role_policy:
+  version: "2022-12-01"
+  description: "Role and Policy mapping for policy assignment process"
+  create:
+    features:
+      map_id: "bigserial not null"
+      role_id: "bigint not null"
+      policy_id: "bigint not null"
+      update_date: "timestamp not null"
+    primary_key: ['map_id']
+    foreign_key:
+      role_id:  "ctr_web_role( role_id )"
+      policy_id: "ctr_web_policy( policy_id )"

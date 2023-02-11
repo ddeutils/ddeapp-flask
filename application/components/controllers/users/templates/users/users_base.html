@@ -1,0 +1,128 @@
+{% extends "layouts/base.html" %}
+{% block additional_css %}
+<style>
+    body {
+        height: 100vh;
+        margin-top: 0;
+        background-color: #576F72;
+    }
+
+    .content-login {
+        padding-top: 15%;
+    }
+
+    .panel-heading {
+        text-align: center;
+        margin-bottom: 10px
+    }
+
+    #forgot {
+        min-width: 100px;
+        margin-left: auto;
+        text-decoration: none
+    }
+
+    a:hover {
+        text-decoration: none
+    }
+
+    .form-inline label {
+        padding-left: 10px;
+        margin: 0;
+        cursor: pointer
+    }
+
+    .btn.btn-primary {
+        margin-top: 20px;
+        border-radius: 15px
+    }
+
+    .panel {
+        min-height: 380px;
+        border-radius: 12px
+    }
+
+    .input-field {
+        border-radius: 5px;
+        padding: 5px;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        border: 1px solid #ddd;
+        color: #4343ff
+    }
+
+    input[type='text'],
+    input[type='password'] {
+        /*border: none;*/
+        outline: none;
+        box-shadow: none;
+        width: 100%
+    }
+
+    .fa-eye-slash.btn {
+        border: none;
+        outline: none;
+        box-shadow: none
+    }
+
+    img {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 50%;
+        position: relative
+    }
+
+    a[target='_blank'] {
+        position: relative;
+        transition: all 0.1s ease-in-out;
+    }
+
+    .bordert {
+        border-top: 1px solid #aaa;
+        position: relative
+    }
+
+    .bordert:after {
+        content: "or connect with";
+        position: absolute;
+        top: -13px;
+        left: 38%;
+        background-color: #fff;
+        padding: 0px 8px
+    }
+
+    @media(max-width: 360px) {
+        #forgot {
+            margin-left: 0;
+            padding-top: 10px
+        }
+
+        .container {
+            margin: 30px 0
+        }
+
+        .bordert:after {
+            left: 25%
+        }
+    }
+    </style>
+{% endblock %}
+{% block main_content_wrapper %}
+<div class="content-login">
+    <div class="container">
+        <div class="row">
+            <div id="userContent"
+                 class="offset-md-2 col-lg-5 col-md-7 offset-lg-4 offset-md-3"
+                 data-aos="flip-left"
+                 data-aos-delay="100"
+                 data-aos-once="true">
+                {{ render_partial('users/partials/{target}.html'.format(target=target), form=form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock main_content_wrapper %}
+{% block footer %}
+{% endblock %}

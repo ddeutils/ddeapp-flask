@@ -1,3 +1,9 @@
+# -------------------------------------------------------------------------
+# Copyright (c) 2022 Korawich Anuttra. All rights reserved.
+# Licensed under the MIT License. See LICENSE in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
 from typing import Optional, Union
 
 
@@ -84,10 +90,21 @@ class ControlProcessNotExists(ObjectBaseError):
 class ValidateFormsError(ObjectBaseError):
     """Exception raised for errors in value in forms"""
 
-    def __init__(self, name: Union[str, list], value: Optional[str] = None, message: Optional[str] = None):
+    def __init__(
+            self,
+            name: Union[str, list],
+            value: Optional[str] = None,
+            message: Optional[str] = None
+    ):
         if message is None:
-            message = f"it does not develop for value {value!r}" if value else "it does exists or not match"
-        _name: str = f'`{name}`' if isinstance(name, str) else ', '.join(map(lambda x: f"`{x}`", name))
+            message = (
+                f"it does not develop for value {value!r}"
+                if value else "it does exists or not match"
+            )
+        _name: str = (
+            f'`{name}`' if isinstance(name, str)
+            else ', '.join(map(lambda x: f"`{x}`", name))
+        )
         _message = f"Please check form key {_name} because "
         super().__init__(_message + message)
 
