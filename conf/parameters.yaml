@@ -1,19 +1,21 @@
 # Parameters layer 1 for Table Catalog
-list_tbl_priority: ['ctr', 'src', 'ai', 'imp', 'plt']
+list_tbl_priority: ['ctr', 'src', 'ai', 'imp', 'plt', 'fn']
 list_tbl_types: ['sql', 'py']
 list_tbl_prefix_must_have_process: ['ai']
-map_tbl_sys: {'ai': 'internal', 'src': 'external', 'imp': 'external', 'ctr': 'internal'}
-map_tbl_flag: {'A': 'ai_', 'S': 'src_', 'I': 'imp_', 'C': 'ctr_', 'P': 'plt_'}
+map_tbl_sys: {'ai': 'internal', 'src': 'external', 'imp': 'external', 'ctr': 'internal', 'fn': 'external'}
+map_tbl_flag: {'A': 'ai_', 'S': 'src_', 'I': 'imp_', 'C': 'ctr_', 'P': 'plt_', 'F': 'fn_'}
 map_tbl_ps_date: {'daily': 'days', 'weekly': 'weeks', 'monthly': 'months', 'yearly': 'years'}
 map_tbl_run_type: {
     'data_date': 'daily', 'start_of_week': 'weekly', 'start_of_month': 'monthly', 'start_of_year': 'yearly',
     'run_date': 'daily', 'update_date': 'daily'
 }
+
 map_tbl_ps_sla:
     daily: 'date_range_sla_day'
     weekly: 'date_range_sla_week'
     monthly: 'date_range_sla_month'
     yearly: 'date_range_sla_year'
+
 map_tbl:
     # Table Catalog configuration
     desc: ["description", "descriptions"]
@@ -21,6 +23,7 @@ map_tbl:
     process: ['update', 'process', 'processes', 'function', 'functions']
     initial: ['initial', 'initial_load', 'mockup']
     pk: ['primary_key', 'primary_keys', 'primary', 'primaries']
+    fk: ['foreign_key', 'foreign_keys', 'foreign', 'foreigners']
     partition: ['partition_by_range', 'partition_by_list', 'partition_by_hash']
     param: ['parameter', 'param', 'parameters', 'params']
     stm: ['statement', 'statements']

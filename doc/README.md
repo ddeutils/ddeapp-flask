@@ -55,7 +55,8 @@ Framework Standard
 | smallint | |
 | smallserial | |
 
-_Note: warning issue about rounding even number between `numeric` and `double precision`_
+> **Note:**\
+> Warning issue about rounding even number between `numeric` and `double precision`
 
 ### Job Process Setup
 

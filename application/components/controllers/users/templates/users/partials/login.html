@@ -1,0 +1,82 @@
+<div class="panel border bg-white">
+    <!-- Header -->
+    <div class="panel-heading">
+        <h3 class="pt-3 font-weight-bold">Log In</h3>
+    </div>
+
+    <!-- Body -->
+    <div class="panel-body p-3">
+
+        <form hx-post="{{ url_for('users.login_post') }}"
+              hx-trigger="submit"
+              hx-target="#userContent"
+              hx-swap="InnerHTML">
+
+            {{ form.hidden_tag() }}
+
+            <fieldset class="form-group">
+                <legend></legend>
+                <div class="form-group">
+                    {{ form.email.label(class="form-control-label") }}
+                    {% if form.email.errors %}
+                        {{ form.email(class="form-control input-field is-invalid") }}
+                        <div class="invalid-feedback">
+                            {% for error in form.email.errors %}
+                                <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        {{ form.email(class="form-control input-field") }}
+                    {% endif %}
+                </div>
+                <div class="form-group">
+                    {{ form.password.label(class="form-control-label") }}
+                    {% if form.password.errors %}
+                        {{ form.password(class="form-control is-invalid") }}
+                        <div class="invalid-feedback">
+                            {% for error in form.password.errors %}
+                                <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        {{ form.password(class="form-control") }}
+                    {% endif %}
+                </div>
+                <div class="form-check form-inline">
+                    {{ form.remember(class="form-check-input text-muted") }}
+                    {{ form.remember.label(class="form-check-label") }}
+
+                    <a href="{{ url_for('users.reset_request') }}"
+                       id="forgot"
+                       class="font-weight-bold">
+                        Forgot password?</a>
+                </div>
+
+                {{ form.submit(class="btn btn-primary btn-block btn-info") }}
+
+                <div class="text-center pt-4 text-muted">
+                    Don't have an account? <a class="ml-2 clickable"
+                                              href="#"
+                                              hx-get="{{ url_for('users.register_get') }}"
+                                              hx-trigger="click"
+                                              hx-target="#userContent"
+                                              hx-swap="InnerHTML">
+                    Sign Up Now</a>
+                </div>
+            </fieldset>
+        </form>
+    </div>
+    <div class="bordert">
+        <div class="text-center py-3">
+            <a href="https://wwww.facebook.com" target="_blank" class="px-2">
+                <i class="fa fa-facebook-square" aria-hidden="true"></i>
+            </a>
+            <a href="https://www.google.com" target="_blank" class="px-2">
+                <i class="fa fa-google-plus" aria-hidden="true"></i>
+            </a>
+            <a href="https://www.github.com" target="_blank" class="px-2">
+                <i class="fa fa-github" aria-hidden="true"></i>
+            </a>
+        </div>
+    </div>
+</div>

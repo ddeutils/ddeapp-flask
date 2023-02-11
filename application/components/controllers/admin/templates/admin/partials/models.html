@@ -1,0 +1,161 @@
+<div class="content-wrapper">
+    <div class="">
+        <div class="row">
+            <div class="content-title col-sm-8">
+                <h4>List of <strong>{{ model_view.v_title() }}</strong></h4>
+            </div>
+            <div class="col-sm-4">
+                <div class="search-box">
+                    <i class="fa fa-search" aria-hidden="true"></i>
+                    <input type="text" class="form-control" placeholder="Search User&hellip;">
+                </div>
+            </div>
+        </div>
+        <form hx-post="/admin/view-submit/{{ model_view.v_name() }}"
+              hx-target="#new-model"
+              hx-swap="beforeend"
+              _="on submit call
+                 Swal.fire({
+                     title: 'Success',
+                     text: 'You won\'t be able to revert this!',
+                     icon: 'success'
+                 })"
+              class="was-validated mb-3">
+            {% for name, col in model_view.v_columns_create().items() %}
+                <div class="mb-3 mt-3">
+                    <input type="text" placeholder="{{ name }}" name="{{ col }}" class="form-control" required/>
+                    <div class="valid-feedback">Valid.</div>
+                    <div class="invalid-feedback">Please fill out this field.</div>
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-sm btn-primary">Submit</button>
+            <button type="reset" class="btn btn-sm btn-secondary">Clear</button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered nowrap"
+               aria-describedby="">
+            <thead class="thead-dark">
+                <tr>
+                    {% for col in model_view.v_columns() %}
+                        <th scope="col">{{ col }}</th>
+                    {% endfor %}
+                    <th scope="col">Action</th>
+                </tr>
+            </thead>
+            <tbody id="new-model"
+                   hx-target="closest tr"
+                   hx-swap="outerHTML swap:0.3s">
+                {% for model in models.items %}
+                    <tr>
+                        {% for col in model_view.v_columns() %}
+                            <td>{{ model.view_items.get(col) }}</td>
+                        {% endfor %}
+                        <td>
+                            <a hx-get="/admin/get-edit/{{ model_view.v_name() }}/{{ model.id }}"
+                               class="edit"
+                               title="Edit"
+                               data-toggle="tooltip">
+                                <i class="fa fa-pencil" aria-hidden="true"></i>
+                            </a>
+                            <a hx-trigger="delete_confirmed"
+                               hx-delete="/admin/delete-row/{{ model_view.v_name() }}/{{ model.id }}"
+                               hx-swap="none"
+                               _="on click call
+                                  Swal.fire({
+                                    title: 'Are you sure?',
+                                    text: 'You won\'t be able to revert this!',
+                                    icon: 'warning',
+                                    showCancelButton: true,
+                                    confirmButtonColor: '#3085d6',
+                                    cancelButtonColor: '#d33',
+                                    confirmButtonText: 'Yes, delete it!'
+                                  })
+                                  if result.isConfirmed trigger delete_confirmed"
+                               class="delete"
+                               title="Delete"
+                               data-toggle="tooltip">
+                                <i class="fa fa-trash" aria-hidden="true"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Footer of Table -->
+    <div class="clearfix">
+        <div class="hint-text">
+            Showing page <strong>{{ models.page}}</strong> of <strong>{{ models.pages }}</strong>
+        </div>
+        <ul class="pagination">
+            <li class="page-item">
+                <a href="#"
+                   hx-get="{{ url_for('admin.admin_view', model_view=model_view.v_name(), page=1) }}"
+                   hx-target="#modelView"
+                   hx-trigger="click"
+                   hx-swap="innerHTML swap:.5s"
+                   hx-push-url="true"
+                   class="page-link">
+                    <i class="fa fa-angle-double-left" aria-hidden="true"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a href="#"
+                   hx-get="{{ url_for('admin.admin_view', model_view=model_view.v_name(), page=models.prev_num) }}"
+                   hx-target="#modelView"
+                   hx-trigger="click"
+                   hx-swap="innerHTML swap:.5s"
+                   hx-push-url="true"
+                   class="page-link">
+                    <i class="fa fa-angle-left" aria-hidden="true"></i>
+                </a>
+            </li>
+            {% for page_num in models.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page_num %}
+                    {% if models.page == page_num %}
+                        <li class="page-item active">
+                            <a class="page-link clickable"
+                               _="on click go to the top of the #pipeline-status smoothly">{{ page_num }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item">
+                            <a href="#"
+                               hx-get="{{ url_for('admin.admin_view', model_view=model_view.v_name(), page=page_num) }}"
+                               hx-target="#modelView"
+                               hx-trigger="click"
+                               hx-swap="innerHTML swap:.5s"
+                               hx-push-url="true"
+                               class="page-link">{{ page_num }}</a>
+                        </li>
+                    {% endif %}
+                {% else %}
+                    <li class="page-item disabled"><a href="#" class="page-link">...</a></li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item">
+                <a href="#"
+                   hx-get="{{ url_for('admin.admin_view', model_view=model_view.v_name(), page=models.next_num) }}"
+                   hx-target="#modelView"
+                   hx-trigger="click"
+                   hx-swap="innerHTML swap:.5s"
+                   hx-push-url="true"
+                   class="page-link">
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a href="#"
+                   hx-get="{{ url_for('admin.admin_view', model_view=model_view.v_name(), page=models.pages) }}"
+                   hx-target="#modelView"
+                   hx-trigger="click"
+                   hx-swap="innerHTML swap:.5s"
+                   hx-push-url="true"
+                   class="page-link">
+                    <i class="fa fa-angle-double-right" aria-hidden="true"></i>
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>

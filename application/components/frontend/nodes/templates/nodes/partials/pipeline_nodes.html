@@ -1,0 +1,73 @@
+<div class=""
+     data-aos="fade-up"
+     data-aos-once="true">
+    <div class="">
+        <div class="content-title">
+            <div class="row">
+                <div class="col-sm-12 text-center pt-2" style="border-top: 1px solid #dee2e6 !important;">
+                    <h6 class="mb-0">List of <strong>Nodes</strong></h6>
+                </div>
+            </div>
+        </div>
+        <br>
+        <div class="table-responsive">
+            <table class="table table-hover table-sm table-bordered nowrap"
+                   aria-describedby="">
+                <thead class="thead-dark">
+                    <tr>
+                        <th scope="col">Node Name</th>
+                        <th scope="col">Data Date</th>
+                        <th scope="col">Update Date</th>
+                        <th scope="col">Run Date</th>
+                        <th scope="col">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% if nodes.total > 0 %}
+                    {% for node in nodes.items %}
+                        {% if node.active == 'N' %}
+                        <tr class="table-danger">
+                            <th scope="row">
+                                <a href="{{ url_for('nodes.node', node_name=node.name) }}">
+                                    {{ node.name }}
+                                </a>
+                            </th>
+                            <td>{{ node.data_date.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ node.update_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>{{ node.run_date.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <a href="#" class="view" data-toggle="tooltip" title="View">
+                                    <i class="fa fa-eye-slash" aria-hidden="true"></i>
+                                </a>
+                                <a href="#" class="run" data-toggle="tooltip" title="Run">
+                                    <i class="fa fa-play-circle" aria-hidden="true"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <th scope="row">
+                                <a href="{{ url_for('nodes.node', node_name=node.name) }}">
+                                    {{ node.name }}
+                                </a>
+                            </th>
+                            <td>{{ node.data_date.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ node.update_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>{{ node.run_date.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <a href="{{ url_for('nodes.node', node_name=node.name) }}" class="view" title="View" data-toggle="tooltip">
+                                    <i class="fa fa-eye" aria-hidden="true"></i>
+                                </a>
+                                <a href="#" class="run" data-toggle="tooltip" title="Run">
+                                    <i class="fa fa-play-circle" aria-hidden="true"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

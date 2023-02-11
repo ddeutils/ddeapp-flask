@@ -13,8 +13,10 @@ ctr_data_logging:
       row_record: "varchar( 256 ) null"
       process_time: "varchar( 128 ) null"
       action_type: "varchar( 64 ) not null"
+#      action_by: "varchar( 256 ) not null"
       status: "varchar( 32 ) not null"
     primary_key: ['table_name', 'run_date', 'action_type']
+#    primary_key: ['table_name', 'run_date', 'action_type', 'action_by']
 # ====================================
 # ----- ctr_data_parameter
 # ====================================
@@ -297,6 +299,7 @@ ctr_task_process:
       process_number_put: "varchar( 32 ) null"
       process_number_get: "varchar( 32 ) null"
       process_module: "varchar( 64 ) not null"
+#      process_by: "varchar( 256 ) not null"
       status: "varchar( 32 ) not null"
     primary_key: ['process_id']
 # ====================================

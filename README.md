@@ -6,14 +6,14 @@ and does not use any vendor data framework extension.
 So this application framework is easy to enhance, fix, and deploy on different environment because it [less dependencies](requirements.txt)
 and lightweight of coding which mean you can remove some components of this framework before deployment.
 
-First objective of this framework is data pipeline orchestration in the retail platform, but the core engine of this framework can do more than run and monitor data pipeline by requested or scheduler.
-
+First objective of this framework is data pipeline orchestration in the retail platform, but the core engine
+of this framework can do more than run and monitor data pipeline by requested or scheduler.
 
 This application framework runs on Docker container with AWS ECS service and was requested from AWS Batch or the Platform Web server
 via AWS load balancing service. After that, it will generate and deliver SQL statements to be performed in the AWS RDS,
 PostgreSQL database, for run a data pipeline.
 
-The AWS ECS service is the host for application framework orchestration, so the overhead of resources for running any transformaion in data
+The AWS ECS service is the host for application framework orchestration, so the overhead of resources for running any transformation in data
 pipeline is using only the database engine, but the part of DataFrame transformation use CPU bound (This application framework already implement this function).
 
 ### Short Topics:
@@ -29,24 +29,38 @@ pipeline is using only the database engine, but the part of DataFrame transforma
 Application Framework
 ---------------------
 
-The RestAPI Application framework have 3 components that are *analytic*, *ingestion*, and *framework*.
-The framework component is the core of this application that have 3 main modules are,
+  - **Web**
 
-> - **run data setup**
-> 
->   Setup all tables that config in the control pipeline table to database and initialize data if set initial
->   key in catalog file.
-> 
-> - **run data normal**
->
->   Transformation or preparation process.
->      - *common mode* ( process with incremental tracking )
->      - *rerun mode* ( process without incremental tracking )
-> 
-> - **run data retention**
->
->   Retention data to all tables in database that config retention value more than 0. This module contains
->   backup process, which mean a dumping data from current schema to the backup schema.
+    The Web Application framework. This session will show UI for controller any the framework components.
+
+    > - **pipeline**
+    > - **catalog**
+    > - **table**
+    > - **administration**
+    
+    This Web use HTMX, Ajax.
+    
+
+  - **RestAPI**
+    
+    The RestAPI Application framework have 3 components that are *analytic*, *ingestion*, and *framework*.
+    The framework component is the core of this application that have 3 main modules are,
+    
+    > - **run data setup**
+    > 
+    >   Setup all tables that config in the control pipeline table to database and initialize data if set initial
+    >   key in catalog file.
+    > 
+    > - **run data normal**
+    >
+    >   Transformation or preparation process.
+    >      - *common mode* ( process with incremental tracking )
+    >      - *rerun mode* ( process without incremental tracking )
+    > 
+    > - **run data retention**
+    >
+    >   Retention data to all tables in database that config retention value more than 0. This module contains
+    >   backup process, which mean a dumping data from current schema to the backup schema.
 
 Before start this application, the needed environment parameters are,
 
@@ -79,7 +93,9 @@ yaml==0.2.5
 python-dateutil==2.8.2
 markupsafe==2.1.1
 click==8.1.3
+```
 
+```text
 # Optional for vendor plug-in function
 prophet==1.0.1
 statsmodels==0.13.1
@@ -87,7 +103,8 @@ scipy==1.7.3
 scikit-learn==1.0.2
 ```
 
-*Note: we were set `requirements.pre.txt` because the `prophet` library issue.*
+> **Note**:\
+> the`requirements.pre.txt` were created because the installation of `prophet` library issue.
 
 ---
 
@@ -98,93 +115,94 @@ There are 2 ways to build application with input parameters.
 If both types were created at the same time, the application
 inherits from `environment parameter` first.
 
-### (i) Built with setting `environment variables`
+  - ### Built with setting `environment variables` in local
+    
+    __*command line*__
+    
+    - *Docker image*
+    
+    ```shell
+    sudo docker build -t ${env}-application .
+    sudo docker images
+    # REPOSITORY          TAG        IMAGE ID       CREATED          ...
+    # ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
+    ```
+    
+    - *Docker container*
+    
+    ```shell
+    mkdir -p log
+    sudo docker run --${env}-application \
+    -e APIKEY='<api-key-in-env>' \
+    -e DB_HOST='<host>' \
+    -e DB_NAME='<database-name>' \
+    -e DB_USER='<user>' \
+    -e DB_PASS='<password>' \
+    -e DB_PORT='5432' \
+    -e AI_SCHEMA='ai' \
+    -e MAIN_SCHEMA='public' \
+    --restart=always -d -p 5000:5000 ${env}-application
+    sudo docker ps
+    # CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
+    # 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
+    ```
 
-__*command line*__
+  - ### Built with the `.env` file
 
-- *Docker image*
+    set environment variables in *[.env](.env.%7Bdemo%7D)* file.
+    ```yaml
+    # Main Configurations
+    APIKEY: "<api-key-in-env>"
+    DB_HOST: "<host>"
+    DB_NAME: "<database-name>"
+    DB_USER: "<user>"
+    DB_PASS: "<password>"
+    DB_PORT: "5432"
+    AI_SCHEMA: "ai"
+    MAIN_SCHEMA: "public"
+    
+    # Optional for SSH Tunnel to Private Database in Local Machine
+    SSH_FLAG: "True"
+    SSH_HOST: "<host>"
+    SSH_USER: "<user>"
+    SSH_PRIVATE_KEY: "<`.pem` file in ./conf>"
+    SSH_PORT: "22"
+    ```
+    __*command line*__
+    
+    - *Docker image*
+    ```shell
+    sudo docker build -t ${env}-application .
+    sudo docker images
+    # REPOSITORY          TAG        IMAGE ID       CREATED          ...
+    # ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
+    ```
+    
+    - *Docker container*
+    ```shell
+    mkdir -p log
+    sudo docker run --name=${env}-application --restart=always \
+    -v $(pwd)/.env:/app/.env \
+    --restart=always -d -p 5000:5000 ${env}-application
+    sudo docker ps
+    # CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
+    # 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
+    ```
 
-```shell
-sudo docker build -t ${env}-application .
-sudo docker images
-# REPOSITORY          TAG        IMAGE ID       CREATED          ...
-# ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
-```
-
-- *Docker container*
-
-```shell
-mkdir -p log
-sudo docker run --${env}-application \
--e APIKEY='<api-key-in-env>' \
--e DB_HOST='<host>' \
--e DB_NAME='<database-name>' \
--e DB_USER='<user>' \
--e DB_PASS='<password>' \
--e DB_PORT='5432' \
--e AI_SCHEMA='ai' \
--e MAIN_SCHEMA='public' \
---restart=always -d -p 5000:5000 ${env}-application
-sudo docker ps
-# CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
-# 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
-```
-
-### (ii) Built with `.env` file
-
-set environment variables in *[.env](.env.%7Bdemo%7D)* file.
-```yaml
-# Main Configurations
-APIKEY: "<api-key-in-env>"
-DB_HOST: "<host>"
-DB_NAME: "<database-name>"
-DB_USER: "<user>"
-DB_PASS: "<password>"
-DB_PORT: "5432"
-AI_SCHEMA: "ai"
-MAIN_SCHEMA: "public"
-
-# Optional for SSH Tunnel to Private Database in Local Machine
-SSH_FLAG: "True"
-SSH_HOST: "<host>"
-SSH_USER: "<user>"
-SSH_PRIVATE_KEY: "<`.pem` file in ./conf>"
-SSH_PORT: "22"
-```
-__*command line*__
-
-- *Docker image*
-```shell
-sudo docker build -t ${env}-application .
-sudo docker images
-# REPOSITORY          TAG        IMAGE ID       CREATED          ...
-# ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
-```
-
-- *Docker container*
-```shell
-mkdir -p log
-sudo docker run --name=${env}-application --restart=always \
--v $(pwd)/.env:/app/.env \
---restart=always -d -p 5000:5000 ${env}-application
-sudo docker ps
-# CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
-# 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
-```
-
-*Note: Other way to run this application in local is the Docker Compose with docker-compose.yml file*
+> **Note**:\
+> Other way to run this application in local is the Docker Compose with docker-compose.yml file
 
 ---
 
 API Document
 ------------
 
-The first thing you should do after running this application is to perform a health checking with
-below the curl command.
+The first thing you should do after running this application is to perform an API health checking with
+below the curl command,
 
 *without `APIKEY`*
 ```shell
-curl --location --request GET 'http://localhost:5000/'
+curl --location --request GET 'http://localhost:5000/api'
 # {'message': "Success: Application was running ..."}
 ```
 
@@ -219,6 +237,7 @@ In the GoCD pipeline, it has 3 steps on deployment agent,
 > 3) deploy-to-ECS
 
 ![Application CI/CD Flow](doc/image/application_cicd_flow.png)
+<img width="80%" align="center" src="https://github.com/KorawichSCG/flask-rds-data-engine/tree/main/doc/image/application_cicd_flow.png"/>
 
 The skeleton directories in the application
 
@@ -226,19 +245,30 @@ The skeleton directories in the application
 flask-rds-data-engine
 ├─── application
 │    ├─── components
-│    │    ├─── analytic
+│    │    ├─── api
+│    │    │    ├─── analytic
+│    │    │    │    ├─── __init__.py
+│    │    │    │    ├─── tasks.py
+│    │    │    │    └─── views.py
+│    │    │    ├─── framework
+│    │    │    │    ├─── __init__.py
+│    │    │    │    ├─── forms.py
+│    │    │    │    ├─── tasks.py
+│    │    │    │    └─── views.py
+│    │    │    ├─── ingestion
+│    │    │    │    ├─── __init__.py
+│    │    │    │    ├─── forms.py
+│    │    │    │    ├─── tasks.py
+│    │    │    │    └─── views.py
+│    │    │    └─── __init__.py
+│    │    ├─── controllers
+│    │    │    ├─── admin
+│    │    │    ├─── errors
+│    │    │    ├─── users
+│    │    │    └─── __init__.py
+│    │    ├─── frontend
 │    │    │    ├─── __init__.py
-│    │    │    ├─── tasks.py
-│    │    │    └─── views.py
-│    │    ├─── framework
-│    │    │    ├─── __init__.py
-│    │    │    ├─── forms.py
-│    │    │    ├─── tasks.py
-│    │    │    └─── views.py
-│    │    ├─── ingestion
-│    │    │    ├─── __init__.py
-│    │    │    ├─── forms.py
-│    │    │    ├─── tasks.py
+│    │    │    ├─── models.py
 │    │    │    └─── views.py
 │    │    └─── __init__.py
 │    ├─── test
@@ -265,17 +295,14 @@ flask-rds-data-engine
 │    │    └─── replenishment.py
 │    ├─── __init__.py
 │    ├─── app.py
+│    ├─── assets.py
+│    ├─── constants.py
 │    ├─── controls.py
 │    ├─── errors.py
 │    ├─── extensions.py
+│    ├─── infrastructures.py
 │    ├─── schedules.py
 │    └─── securities.md
-├─── component
-│    ├─── __init__.py
-│    ├─── analytic.py
-│    ├─── framework.py
-│    ├─── ingestion.py
-│    └─── schedule.py
 ├─── conf
 │    ├─── adhoc
 │    │    ├─── <query-name>.yaml
@@ -302,12 +329,14 @@ flask-rds-data-engine
 │    ├─── <document-file>.md
 │    ├─── ...
 │    └─── README.md
-├─── .gitignore
 ├─── .env
+├─── .gitattributes
+├─── .gitignore
 ├─── CHANGES.md
 ├─── Dockerfile
 ├─── LICENSE.md
 ├─── README.md
+├─── REFERENCES.md
 ├─── requirements.pre.txt
 ├─── requirements.txt
 └─── manage.py

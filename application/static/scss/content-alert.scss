@@ -1,0 +1,34 @@
+.content-alert {
+	position: relative;
+	border: none;
+	.article-metadata {
+		i {
+			font-size: 20px;
+			line-height: 0;
+		}
+	}
+}
+.content-alert-success {
+	border-left: 10px outset #53a653;
+	.article-metadata {
+		i {
+			color: #53a653;
+		}
+	}
+}
+.content-alert-danger {
+	border-left: 43px solid #dc3545;
+	.article-metadata {
+		i {
+			color: #dc3545;
+		}
+	}
+}
+.content-alert-warning {
+	border-left: 45px solid #ffc107;
+	.article-metadata {
+		i {
+			color: #ffc107;
+		}
+	}
+}

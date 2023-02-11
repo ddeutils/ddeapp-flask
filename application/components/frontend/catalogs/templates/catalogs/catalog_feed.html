@@ -1,0 +1,38 @@
+<div class="content-wrapper">
+    <div class="row">
+        <div class="content-title col-sm-8">
+            <h4>Feed of
+                <span class="hover-text clickable"><strong>&nbsp;Catalogs&nbsp;</strong>
+                </span>
+            </h4>
+        </div>
+        <div class="col-sm-4">
+            <div class="search-box">
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <input type="search"
+                       class="form-control"
+                       name="search_text"
+                       placeholder="Search&hellip;"
+                       value=""
+                       tabindex="-1"
+                       hx-get="{{ url_for('catalogs.search') }}"
+                       hx-trigger="keyup changed delay:500ms, search"
+                       hx-target="#search-results"
+                       hx-push-url="false"
+                       hx-indicator=".htmx-indicator.wait">
+                <div class="htmx-indicator wait" aria-hidden="true">
+                    <img src="{{ url_for('static', filename='assets/images/bars.svg') }}" alt=""/> Searching...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br>
+
+    <div id="search-results">
+        {{ render_partial('catalogs/partials/catalogs.html',
+                        catalogs=catalogs,
+                        page=1,
+                        has_more_catalogs=has_more_catalogs) }}
+    </div>
+</div>

@@ -1,0 +1,36 @@
+.header .navbar-dark {
+    background-color: #576F72;
+    color: #cbd5db;
+    font-size: .75rem;
+}
+
+.header .navbar-brand {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.75rem;
+    font-weight: 500;
+}
+
+.header .navbar-brand:hover {
+    font-weight: 900;
+}
+
+.header .navbar-nav .nav-link:hover,
+.header .navbar-nav .nav-link.active {
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.navbar .dropdown-menu {
+    min-width: 13rem;
+    border-color: #e5e5e5;
+    box-shadow: 0 2px 6px 0 rgb(125 157 156 / 65%), 0 2px 6px 0 rgb(87 111 114 / 54%);
+}
+.navbar .dropdown-menu a {
+    color: #777;
+    padding: 8px 20px;
+}
+.navbar .dropdown-menu a:hover,
+.navbar .dropdown-menu a:active {
+    color: #333;
+    font-weight: bold;
+}

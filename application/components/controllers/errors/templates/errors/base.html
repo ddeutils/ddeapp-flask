@@ -1,0 +1,18 @@
+{% extends "layouts/base.html" %}
+{% block additional_css %}
+<style>
+    .central-body{
+        padding-top: 25%;
+    }
+</style>
+{% endblock %}
+{% block main_content %}
+<div class="central-body">
+    <div class="text-center">
+        {{ render_partial('errors/partials/{error_code}.html'.format(error_code=error_code)) }}
+        <a class="btn btn-secondary" href="{{ url_for('home') }}">
+            Home
+        </a>
+    </div>
+</div>
+{% endblock main_content %}

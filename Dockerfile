@@ -37,4 +37,4 @@ COPY ./config.yaml ./config.yaml
 EXPOSE 5000
 
 # command to run on container start
-CMD [ "python", "./manage.py", "run" ]
+CMD [ "python", "./manage.py", "run", "--api==True"]

@@ -1,0 +1,80 @@
+/*
+#F0EBE3
+rgb(240, 235, 227)
+
+#E4DCCF
+rgb(228, 220, 207)
+
+#7D9D9C
+rgb(125, 157, 156)
+
+#576F72
+rgb(87, 111, 114)
+*/
+
+* {
+    padding: 0px;
+    margin: 0;
+    box-sizing: border-box;
+    font-family: 'Courier New', monospace;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+
+    /*align-items: center;*/
+    justify-content: center;
+
+    font-size: 10px;
+    /*height: 100vh;*/
+    min-height: 100vh;
+    width: 100%;
+    line-height: .9;
+    background-color: #FAF7F0;
+    /*padding-top: 5rem;*/
+    color: #333333;
+    /*overflow-x: hidden;*/
+    /*overflow: hidden;*/
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: #434242;
+}
+
+small {
+    font-family: 'Space Mono', monospace;
+}
+
+button:active {
+    transform: scale(0.96);
+}
+
+/* Designing for scroll-bar */
+/*
+::-webkit-scrollbar {
+    width: 2px;
+}
+*/
+
+/* Track */
+::-webkit-scrollbar-track {
+    /*background: gainsboro;*/
+    border-radius: 5px;
+}
+
+/* Handle */
+/*
+::-webkit-scrollbar-thumb {
+    background: black;
+    border-radius: 5px;
+}
+*/
+
+/* Handle on hover */
+/*
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+*/
+

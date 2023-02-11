@@ -14,7 +14,7 @@ imp_prod_cls_criteria_master:
     primary_key: ['class_version', 'class_convert_flag']
   initial:
     parameter: ['run_date']
-    values:  "0.5, 0.8, 1.0, '{run_date} 00:00:00'"
+    values: "0.5, 0.8, 1.0, '{run_date} 00:00:00'"
   function:
     validate_criteria_value:
       function: "application.vendor.replenishment.run_prod_cls_criteria"

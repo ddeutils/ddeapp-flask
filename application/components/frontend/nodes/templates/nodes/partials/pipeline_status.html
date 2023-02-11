@@ -1,0 +1,85 @@
+<style>
+.radius-10 {
+    border-radius: 10px !important;
+}
+.border-info {
+    border-left: 5px solid  #0dcaf0 !important;
+}
+.border-danger {
+    border-left: 5px solid  #fd3550 !important;
+}
+.border-success {
+    border-left: 5px solid  #15ca20 !important;
+}
+.border-warning {
+    border-left: 5px solid  #ffc107 !important;
+}
+.card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    word-wrap: break-word;
+    background-color: #fff;
+    background-clip: border-box;
+    border: 0px solid rgba(0, 0, 0, 0);
+    border-radius: .25rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 6px 0 rgb(125 157 156 / 65%), 0 2px 6px 0 rgb(87 111 114 / 54%);
+}
+.widgets-icons-2 {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #ededed;
+    font-size: 27px;
+    border-radius: 10px;
+}
+.rounded-circle {
+    border-radius: 50%!important;
+}
+.text-white {
+    color: #fff!important;
+}
+.ms-auto {
+    margin-left: auto!important;
+}
+</style>
+<div class="pt-3">
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4">
+        <div class="col">
+            <div class="card radius-10 border-start border-0 border-3 border-success">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div>
+                            <h5 class="mb-0 text-secondary">Status Tracking</h5>
+                            <h2 class="my-1"><strong><span class="text-success">40</span> / 40</strong></h2>
+                            <p class="mb-0 font-13">Dec 1, 2022</p>
+                        </div>
+                        <div class="widgets-icons-2 rounded-circle bg-gradient-scooter text-white ms-auto">
+                            <i class="fa fa-line-chart" aria-hidden="true"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card radius-10 border-start border-0 border-3 border-warning">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div>
+                            <h5 class="mb-0 text-secondary">Total Records</h5>
+                            <h2 class="my-1"><strong><span class="text-warning">8.4K</span> rows</strong></h2>
+                            <p class="mb-0 font-13">+8.4% from last week</p>
+                        </div>
+                        <div class="widgets-icons-2 rounded-circle bg-gradient-blooker text-white ms-auto">
+                            <i class="fa fa-users" aria-hidden="true"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

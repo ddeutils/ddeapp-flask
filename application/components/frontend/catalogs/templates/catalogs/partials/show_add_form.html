@@ -1,0 +1,8 @@
+<div class="d-flex justify-content-center">
+    <a hx-get="{{ url_for('catalogs.add_get', cat_name=cat_name) }}"
+       hx-swap="outerHTML swap:.25s"
+       class="">
+        <i class="fa fa-plus-circle" aria-hidden="true"></i>
+        add a new catalog
+    </a>
+</div>

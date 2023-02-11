@@ -1,3 +1,10 @@
+# -------------------------------------------------------------------------
+# Copyright (c) 2022 Korawich Anuttra. All rights reserved.
+# Licensed under the MIT License. See LICENSE in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
+import os
 from typing import (
     Optional,
     Tuple,
@@ -15,7 +22,7 @@ from .utils.config import (
     Environs,
 )
 from .utils.base import get_catalog_all
-from .components.framework.tasks import foreground_tasks
+from .components.api.framework.tasks import foreground_tasks
 from .errors import (
     ObjectBaseError,
     CatalogBaseError,
@@ -25,6 +32,13 @@ logger = logging.getLogger(__name__)
 registers = Params(param_name='registers.yaml')
 params = Params(param_name='parameters.yaml')
 env = Environs(env_name='.env')
+
+
+def push_close_ssh(force: bool = False):
+    from .utils.database import ssh_connect
+    server = ssh_connect()
+    if server.is_alive or force:
+        server.close()
 
 
 def push_func_setup(
@@ -57,8 +71,10 @@ def push_ctr_setup(
     """Run Setup Control Framework table in `register.yaml`
     """
     _process: Process = process or Process.make('control_setup')
-    ctr_frameworks = registers.control_frameworks
-    for index, _ctr_prop in enumerate(ctr_frameworks, start=1):
+    for index, _ctr_prop in enumerate(
+            registers.control_frameworks,
+            start=1
+    ):
         status: int = 0
         try:
             Node(
@@ -123,6 +139,10 @@ def push_ctr_stop_running() -> None:
     """
     Do something before server shutdown
     """
+    if eval(os.environ.get('DEBUG', 'True')):
+        return
+
+    logger.info("Start update message and status to in-progress tasks.")
     Action(
         name='query:query_shutdown',
         external_parameters={
@@ -169,7 +189,7 @@ def push_cron_schedule(group_name: str, waiting_process: int = 300) -> int:
             folder_config='pipeline',
             key_exists=params.map_pipe.schedule,
             key_exists_all_mode=False
-    ), key=lambda x: x(1)['priority'], reverse=False):
+    ), key=lambda x: x(1)['priority'], reverse=False):  # <-- FIXME: ['str' object is not callable]
         try:
             pipeline: Pipeline = Pipeline(pipe_name)
             if pipeline.check_pipe_schedule(group=group_name, waiting_process=waiting_process):
@@ -214,3 +234,7 @@ def push_load_file_to_db(filename: str, target: str, truncate: bool = False, com
         process_id=_process.id
     )
     node.load_file(filename, truncate=truncate, compress=compress)
+
+
+def push_initialize_frontend():
+    ...

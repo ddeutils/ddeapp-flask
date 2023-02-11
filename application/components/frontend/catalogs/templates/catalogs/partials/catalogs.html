@@ -1,0 +1,68 @@
+{% for catalog in catalogs %}
+    <div id="{{ catalog.id }}"
+             class="content-section-wrapper">
+        <div class="content-section container-fluid"
+             data-aos="fade-up"
+             data-aos-delay="{{ loop.index * 10 }}"
+             data-aos-once="true">
+            <div class="article-metadata">
+                <a class="mr-2" href="#">{{ catalog.id }}</a>
+                <!-- Badge -->
+                <a href="#" class="badge badge-secondary">{{ catalog.id }}</a>
+                <a href="#" class="badge badge-primary">{{ catalog.type }}</a>
+            </div>
+
+            <div class="row clickable"
+                 data-toggle="collapse"
+                 data-target="#headingId{{ catalog.id }}"
+                 aria-expanded="false"
+                 aria-controls="headingId{{ catalog.id }}">
+
+                <!-- Topic -->
+                <div class="col-md-9">
+                    <h5><a class="article-title"
+                           href="#"><strong>{{ catalog.name }}</strong></a>
+                    </h5>
+                </div>
+
+                <!-- Add Action bottom -->
+                <div class="col-md-3">
+                    <div class="float-right">
+                        <button type="button" class="btn btn-secondary btn-sm">Run</button>
+                        <button type="button" class="btn btn-danger btn-sm">Setup</button>
+
+                    </div>
+                </div>
+            </div>
+
+            <div id="headingId{{ catalog.id }}"
+                 class="collapse"
+                 aria-labelledby="headingId{{ catalog.id }}">
+
+                <div class="content-collapse">
+                    <div data-toggle="collapse"
+                         data-target="#headingId{{ catalog.id }}">
+                        <p class="mb-0"><strong>Configuration: </strong></p>
+                    </div>
+                    <div class="content-collapse-code">
+                        <div class="code-wrapper">
+                            <pre class="language-json line-numbers"
+                                 tabindex="0"><code class="language-json">{{ catalog.json() | dumps }}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+{% if has_more_catalogs %}
+    <div class="scroll-trigger htmx-settling"
+         hx-get="{{ url_for('catalogs.more_catalogs', page=(page + 1)) }}"
+         hx-trigger="revealed"
+         hx-swap="outerHTML swap:.1s">
+        <div class="text-center">
+            <img src="{{ url_for('static', filename='assets/images/bars.svg') }}" alt=""
+                 width="25px" class="htmx-indicator"/>
+        </div>
+    </div>
+{% endif %}

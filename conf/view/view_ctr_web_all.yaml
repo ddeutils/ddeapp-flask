@@ -1,0 +1,11 @@
+vw_ctr_web_user_role:
+    version: "2022-01-01"
+    create: "
+        create view if not exists {database_name}.{ai_schema_name}.vw_ctr_web_user_role as
+        (
+            select  *
+            from    {database_name}.{ai_schema_name}.ctr_web_user
+            outer join {database_name}.{ai_schema_name}.ctr_web_role
+                on
+        )
+        "

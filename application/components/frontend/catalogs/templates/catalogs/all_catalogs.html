@@ -1,0 +1,430 @@
+{% extends "layouts/base.html" %}
+{% block additional_css %}
+<style>
+    /**
+    * MIT License
+    * Copyright (c) 2018 Sarah Drasner
+    * Sarah Drasner's[@sdras] Night Owl
+    * Ported by Sara vieria [@SaraVieira]
+    * Added by Souvik Mandal [@SimpleIndian]
+    */
+
+    code[class*="language-"],
+        pre[class*="language-"] {
+        font-family: var(--font-mono);
+        font-size: inherit;
+        hyphens: none;
+        /*line-height: 1.6;*/
+        color: #d6deeb;
+        text-align: left;
+        word-break: normal;
+        word-wrap: normal;
+        tab-size: 4;
+        tab-size: 4;
+        tab-size: 4;
+        white-space: pre;
+        word-spacing: normal;
+        -webkit-font-smoothing: auto;
+    }
+
+    pre[class*="language-"]::selection,
+        pre[class*="language-"] ::selection,
+        code[class*="language-"]::selection,
+        code[class*="language-"] ::selection {
+        text-shadow: none;
+        background: rgb(29 59 83 / 99%);
+    }
+
+    pre[class*="language-"]::selection,
+        pre[class*="language-"] ::selection,
+        code[class*="language-"]::selection,
+        code[class*="language-"] ::selection {
+        text-shadow: none;
+        background: rgb(29 59 83 / 99%);
+    }
+
+    @media print {
+        code[class*="language-"],
+         pre[class*="language-"] {
+            text-shadow: none;
+        }
+    }
+
+    /* Code blocks */
+    pre[class*="language-"] {
+        padding: 1rem;
+        /*margin-top: 3.2vmin;*/
+        overflow: auto;
+    }
+
+    :not(pre) > code[class*="language-"],
+        pre[class*="language-"] {
+        color: white;
+        background: #011627;
+    }
+
+    :not(pre) > code[class*="language-"] {
+        padding: 0.1em;
+        white-space: normal;
+        border-radius: 0.3em;
+    }
+
+    .token.comment,
+        .token.prolog,
+        .token.cdata {
+        font-style: italic;
+        color: rgb(99 119 119);
+    }
+
+    .token.punctuation {
+        color: rgb(199 146 234);
+    }
+
+    .namespace {
+        color: rgb(178 204 214);
+    }
+
+    .token.deleted {
+        font-style: italic;
+        color: rgb(239 83 80 / 56%);
+    }
+
+    .token.symbol,
+        .token.property {
+        color: rgb(128 203 196);
+    }
+
+    .token.tag,
+        .token.operator,
+        .token.keyword {
+        color: rgb(127 219 202);
+    }
+
+    .token.boolean {
+        color: rgb(255 88 116);
+    }
+
+    .token.number {
+        color: rgb(247 140 108);
+    }
+
+    .token.constant,
+        .token.function,
+        .token.builtin,
+        .token.char {
+        color: rgb(130 170 255);
+    }
+
+    .token.selector,
+        .token.doctype {
+        font-style: italic;
+        color: rgb(199 146 234);
+    }
+
+    .token.attr-name,
+        .token.inserted {
+        font-style: italic;
+        color: rgb(173 219 103);
+    }
+
+    .token.string,
+        .token.url,
+        .token.entity,
+        .language-css .token.string,
+        .style .token.string {
+        color: rgb(173 219 103);
+    }
+
+    .token.class-name,
+        .token.atrule,
+        .token.attr-value {
+        color: rgb(255 203 139);
+    }
+
+    .token.regex,
+        .token.important,
+        .token.variable {
+        color: rgb(214 222 235);
+    }
+
+    .token.important,
+        .token.bold {
+        font-weight: 700;
+    }
+
+    .token.italic {
+        font-style: italic;
+    }
+
+    /* Custom styles for theme */
+    .code-wrapper {
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+    }
+
+    .code-wrapper > pre[class*="language-"] {
+        margin-top: 0;
+    }
+
+    div.code-toolbar {
+        position: relative;
+    }
+
+    div.code-toolbar>.toolbar {
+        position: absolute;
+        z-index: 10;
+        top: .3em;
+        right: 1.9em;
+        transition: opacity .3s ease-in-out;
+        opacity: 1;
+    }
+
+    div.code-toolbar>.toolbar>.toolbar-item {
+        display: inline-block;
+    }
+
+    div.code-toolbar>.toolbar>.toolbar-item>a {
+        cursor: pointer;
+    }
+
+        /* feature styles for buttons */
+
+        /* icon copy */
+    div.code-toolbar>.toolbar>.toolbar-item>button > span {
+        color: #e6caa8;
+        background-color: transparent;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' d='M0 0h24v24H0z'%3E%3C/path%3E%3Cpath d='M7 6V3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3v3c0 .552-.45 1-1.007 1H4.007A1.001 1.001 0 0 1 3 21l.003-14c0-.552.45-1 1.007-1H7zM5.003 8L5 20h10V8H5.003zM9 6h8v10h2V4H9v2z' fill='currentColor'%3E%3C/path%3E%3C/svg%3E");
+        mask-repeat: no-repeat no-repeat;
+        mask-position: center right;
+    }
+
+        /* hide icon copy */
+    div.code-toolbar>.toolbar>.toolbar-item>button[data-copy-state=copy-success] > span ,
+        div.code-toolbar>.toolbar>.toolbar-item>button[data-copy-state=copy-success]:hover > span {
+        mask-image: none;
+        color: #e6caa8;
+        background-color: transparent;
+    }
+
+        /* color of "Copied!" */
+    .copy-to-clipboard-button[data-copy-state~=copy-success] span {
+        color: #e6caa8;
+    }
+
+        /* text copy is hidden */
+    .copy-to-clipboard-button[data-copy-state=copy] span {
+        color: transparent;
+    }
+
+        /* default item color */
+    div.code-toolbar>.toolbar>.toolbar-item {
+        color: #e6caa8;
+    }
+
+        /* remove toolbar items decoration*/
+    div.code-toolbar > .toolbar > .toolbar-item > a,
+        div.code-toolbar > .toolbar > .toolbar-item > button,
+        div.code-toolbar > .toolbar > .toolbar-item > span {
+        background-color: transparent;
+        border: 0;
+        box-shadow: none;
+    }
+</style>
+<style>
+    .content-section-wrapper {
+        /*
+        display: flex;
+        justify-content: center;
+        */
+        /*text-align: center;*/
+    }
+
+    .content-section {
+        padding: 10px 20px;
+        width: 99.5%;
+        transition: width;
+    }
+
+    .content-section:hover {
+        width: 100%;
+    }
+</style>
+{% endblock additional_css %}
+{% block main_content %}
+<div class="main_content">
+    <div class="container">
+    {% for row in rows %}
+        <div class="row">
+        {% for c in row %}
+            <div class="col-md-4">
+                <div class="content-section text-center">
+                    <a href="{{ url_for('catalogs.category', cat_name=c.category.lower()) }}">
+                        <span>{{ c.category }}</span> ({{ len(c.data) }})
+                    </a>
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+    {% endfor %}
+    </div>
+</div>
+
+<br>
+
+<div id="catalogFeed"
+     class="content-wrapper"
+     data-aos="fade-up"
+     data-aos-once="true">
+    <div class="scroll-trigger htmx-settling"
+         hx-get="{{ url_for('catalogs.feed_catalogs') }}"
+         hx-trigger="revealed delay:500ms"
+         hx-target="#catalogFeed"
+         hx-swap="outerHTML">
+        <div class="text-center">
+            <img src="{{ url_for('static', filename='assets/images/bars.svg') }}" alt=""
+                 width="25px"
+                 class="htmx-indicator"/>
+        </div>
+    </div>
+</div>
+{% endblock main_content %}
+{% block additional_js %}
+<script type='text/javascript'>
+    //Prism.plugins.toolbar.registerButton('select-code', function(env) {
+    //    var button = document.createElement('button');
+    //    button.innerHTML = 'Select Code';
+    //    button.addEventListener('click', function () {
+    //        if (document.body.createTextRange) { // ms
+    //            var range = document.body.createTextRange();
+    //            range.moveToElementText(env.element);
+    //            range.select();
+    //        } else if (window.getSelection) { // moz, opera, webkit
+    //            var selection = window.getSelection();
+    //            var range = document.createRange();
+    //            range.selectNodeContents(env.element);
+    //            selection.removeAllRanges();
+    //            selection.addRange(range);
+    //        }
+    //    });
+    //    return button;
+    //});
+
+    htmx.onLoad(function(content) {
+        var highlights = htmx.findAll(content, "code.language-json")
+        for (var i = 0; i < highlights.length; i++) {
+            var highlight = highlights[i];
+            // console.log(highlight.textContent);
+            Prism.highlightElement(highlight);
+        }
+        console.log('Success load code highlights');
+
+        // initCodeCopy();
+    });
+</script>
+<script type='text/javascript'>
+    function initCodeCopy() {
+        const codeBlocks = document.querySelectorAll('code[class*="language-"]');
+        codeBlocks.forEach((block) => {
+            const lang = parseLanguage(block);
+            const referenceEl = block.parentElement;
+            const parent = block.parentElement.parentElement;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-wrapper';
+            parent.insertBefore(wrapper, referenceEl);
+            wrapper.append(block.parentElement);
+
+            const copyBtn = document.createElement('button');
+            copyBtn.setAttribute('class', 'copy-button');
+            copyBtn.setAttribute('data-lang', lang);
+            copyBtn.innerHTML = `${lang} <svg viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0z"/><path d="M7 6V3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3v3c0 .552-.45 1-1.007 1H4.007A1.001 1.001 0 0 1 3 21l.003-14c0-.552.45-1 1.007-1H7zM5.003 8L5 20h10V8H5.003zM9 6h8v10h2V4H9v2z" fill="currentColor"/></svg>`;
+
+            wrapper.insertAdjacentElement('beforeend', copyBtn);
+        });
+
+        function parseLanguage(block) {
+            const className = block.className;
+            if (className.startsWith('language')) {
+              const [prefix, lang] = className.split('-');
+              return lang;
+            }
+        }
+
+        async function fallbackCopyTextToClipboard(text) {
+            return new Promise((resolve, reject) => {
+                var textArea = document.createElement('textarea');
+                textArea.value = copyInfo.getText();
+                // Avoid scrolling to bottom
+                textArea.style.top = '0';
+                textArea.style.left = '0';
+                textArea.style.position = 'fixed';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    var successful = document.execCommand('copy');
+                    setTimeout(function () {
+                        if (successful) {
+                            resolve('success')
+                        } else {
+                            reject('error')
+                        }
+                    }, 1);
+                } catch (err) {
+                    setTimeout(function () {
+                        reject(err)
+                    }, 1);
+                } finally {
+                    document.body.removeChild(textArea);
+                }
+            })
+        }
+
+        async function copyTextToClipboard(text) {
+            return new Promise((resolve, reject) => {
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(text).then(
+                        resolve(), function () {
+                        // try the fallback in case `writeText` didn't work
+                        fallbackCopyTextToClipboard(text).then(
+                            () => resolve(),
+                            () => reject()
+                        )
+                    });
+                } else {
+                    fallbackCopyTextToClipboard(text).then(
+                        () => resolve(),
+                        () => reject()
+                    )
+                }
+            })
+        }
+
+        function copy(e) {
+            const btn = e.currentTarget;
+            const lang = btn.dataset.lang;
+            const text = e.currentTarget.previousSibling.children[0].textContent;
+            copyTextToClipboard(text)
+                .then(
+                () => {
+                    btn.innerHTML = `copied! <svg viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0z"/><path d="M7 6V3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3v3c0 .552-.45 1-1.007 1H4.007A1.001 1.001 0 0 1 3 21l.003-14c0-.552.45-1 1.007-1H7zm2 0h8v10h2V4H9v2z" fill="currentColor"/></svg>`;
+                    btn.setAttribute('style', 'opacity: 1');
+
+                },
+                () => alert('failed to copy'),
+            );
+
+            setTimeout(() => {
+                btn.removeAttribute('style');
+                btn.innerHTML = `${lang} <svg viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0z"/><path d="M7 6V3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3v3c0 .552-.45 1-1.007 1H4.007A1.001 1.001 0 0 1 3 21l.003-14c0-.552.45-1 1.007-1H7zM5.003 8L5 20h10V8H5.003zM9 6h8v10h2V4H9v2z" fill="currentColor"/></svg>`;
+            }, 3000);
+        }
+
+        const copyButtons = document.querySelectorAll('.copy-button');
+
+        copyButtons.forEach((btn) => {
+            btn.addEventListener('click', copy);
+        });
+    }
+</script>
+{% endblock additional_js %}
