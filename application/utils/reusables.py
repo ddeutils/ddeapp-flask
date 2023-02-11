@@ -32,8 +32,12 @@ __all__ = [
     'convert_str_list',
     'convert_str_bool',
     'must_list',
+    'must_dict',
     'must_bool',
     'rows',
+    'to_snake_case',
+    'to_camel_case',
+    'to_pascal_case',
 ]
 
 
@@ -241,6 +245,20 @@ def convert_str_list(str_list: str) -> list:
 
 
 # utility function -----------------------------------------------------------------------------------------------------
+def convert_str_dict(str_dict: str) -> dict:
+    """
+    Get list of run_date from list string of run_date
+    usage
+    -----
+        >>> print(convert_str_dict("{'1': '2021-01-02', '2':'2021-01-03'}"))
+        {'1': '2021-01-02', '2': '2021-01-03'}
+        >>> print(convert_str_dict("2022-04-01"))
+        {0: '2022-04-01'}
+    """
+    return ast.literal_eval(str_dict) if str_dict.startswith('{') and str_dict.endswith('}') else {0: str_dict}
+
+
+# utility function -----------------------------------------------------------------------------------------------------
 def convert_str_bool(str_bool: str, force_raise: bool = False) -> bool:
     """
     Get boolean of input string
@@ -304,7 +322,40 @@ def must_list(value: Optional[Union[str, list]] = None) -> list:
 
 
 # utility function -----------------------------------------------------------------------------------------------------
-def must_bool(value: Optional[Union[str, int, bool]] = None, force_raise: bool = False) -> bool:
+def must_dict(value: Optional[Union[str, dict]] = None) -> dict:
     if value:
-        return value if isinstance(value, str) else convert_str_bool(str(value), force_raise=force_raise)
+        return convert_str_dict(value) if isinstance(value, str) else value
+    return {}
+
+
+# utility function -----------------------------------------------------------------------------------------------------
+def must_bool(value: Optional[Union[str, int, bool]] = None, force_raise: bool = False) -> bool:
+    """
+    Usage
+    -----
+        >>
+    """
+    if value:
+        return value if isinstance(value, bool) else convert_str_bool(str(value), force_raise=force_raise)
     return False
+
+
+# utility function -----------------------------------------------------------------------------------------------------
+def to_snake_case(value: str):
+    """
+    Usage
+    -----
+        >>
+    """
+    name = re.sub(r'(.)([A-Z][a-z]+)', r'\1_\2', value)
+    return re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', name).lower()
+
+
+# utility function -----------------------------------------------------------------------------------------------------
+def to_pascal_case(value: str, joined: str = ''):
+    return joined.join(word.title() for word in value.split('_'))
+
+
+# utility function -----------------------------------------------------------------------------------------------------
+def to_camel_case(value: str):
+    return ''.join(word.title() if index_word > 0 else word for index_word, word in enumerate(value.split('_')))

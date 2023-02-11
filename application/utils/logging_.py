@@ -1,3 +1,9 @@
+# -------------------------------------------------------------------------
+# Copyright (c) 2022 Korawich Anuttra. All rights reserved.
+# Licensed under the MIT License. See LICENSE in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
 import os
 import datetime
 import re
@@ -8,17 +14,17 @@ import json
 import logging
 import logging.handlers
 from logging.config import dictConfig
-from application.utils.reusables import must_bool
+from ..utils.reusables import must_bool
 
 if not os.getenv('DEBUG'):
     os.environ['DEBUG']: str = 'True'
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-LOG_DIR = os.path.join(ROOT, 'log')
+LOG_DIR = os.path.join(ROOT, 'logs')
 DEBUG: bool = must_bool(os.getenv("DEBUG", "False"))
 LOG_CONF: bool = must_bool(os.getenv("LOG_CONF", "False"))
 
-if not os.path.exists(LOG_DIR) and DEBUG:
+if DEBUG and not os.path.exists(LOG_DIR):
     os.mkdir(LOG_DIR)
 
 
@@ -382,7 +388,8 @@ dictConfig({
             # "format": "%(asctime)s.%(msecs)04d (%(name)s:%(threadName)s[%(thread)d]) - %(lineno)d %(levelname)-8s: "
             #           "%(message)s",
             '()': UTCFormatter,
-            "format": "%(asctime)s (%(thread)06d) %(levelname)-8s|: %(message)s",
+            # "format": "%(asctime)s (%(thread)06d) %(levelname)-8s|: %(message)s",
+            "format": "%(asctime)s (%(thread)06d) %(levelname)-8s|[%(name)s]: %(message)s",
             "datefmt": '%Y-%m-%d %H:%M:%S'
         },
 
@@ -514,6 +521,12 @@ dictConfig({
 
         # "gunicorn.access"
         # "gunicorn.error"
+
+        "matplotlib": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False
+        },
 
     },
     "root": {
