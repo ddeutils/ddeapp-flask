@@ -24,6 +24,7 @@ Version 0.1.0.b
 * [ ] Adding async function with Quart (It should be possible to migrate to Quart from Flask)
     - Quart has `add_background_task` method (migrate from `threading`)
     - Support `asyncpg`
+* [ ] Adding another database types like SQLite, MySQL, or SQL Server
 
 ---
 
@@ -36,6 +37,7 @@ Version 0.0.2
 
 * [ ] Reduce extension code which does not use or useless
     * [ ] Reduce static file
+    * [ ] Reduce Flask's extension packages
   
 * [ ] Design Pages and Capabilities flexible.
 
@@ -73,7 +75,9 @@ Version 0.0.1
     * [x] Add Policy assignment
     * [x] Mapping all relation together
 
-**Note**: `Version 0.*.*` still support requirement from `pre-version 1.*.*` and `pre-Version 2.*.*`*
+> **Note**: \
+> `Version 0.*.*` still support requirement from `pre-version 1.*.*` and `pre-Version 2.*.*`. \
+> We can deploy only the backend mode by this command, `python manage.py --api=True`
 
 ---
 
@@ -143,7 +147,8 @@ Pre Version 2.0.0
 * [x] Adding support task monitoring with logging/process table in database
 * [x] Adding component which keep framework and analytic routes
 
-**Note**: pre-version from `1.x.x` to `2.x.x` was change application file skeleton*
+> **Note**: \
+> pre-version from `1.x.x` to `2.x.x` was change application file skeleton*
 
 ---
 

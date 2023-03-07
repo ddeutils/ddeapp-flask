@@ -265,8 +265,8 @@ ai_article_master:
             ,     purchase_uom          =   sair.purchase_uom
             ,     purchase_group        =   sair.purchase_group
             ,     purchase_price        =   sair.purchase_price
-            ,		purchase_start 		  =   sair.purchase_start
-            ,		purchase_end 		  =   sair.purchase_end
+            ,		purchase_start 		=   sair.purchase_start
+            ,		purchase_end 		=   sair.purchase_end
             ,     moq                   =   sair.moq
             ,     lead_time             =   sair.lead_time
         from    (   select  case when trim(sair_all.article) like '0%'

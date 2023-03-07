@@ -64,7 +64,7 @@ list_run_mode:
     action: ['common']
 
 # Base Statement Parameters
-# Note: In this base, all statement will parsing format string 2 rounds.
+# Note: In this base, all statement will parse format string 2 rounds.
 bs_stm:
     drop:
         tbl: "

@@ -82,42 +82,68 @@ def migrate(condition: str, debug: bool):
     '--debug',
     type=bool,
     default=False,
-    help='run server with debug mode'
+    help='run application with debug mode'
 )
 @click.option(
     '-t', '--thread',
     type=bool,
     default=True,
-    help='run server with thread mode'
+    help='run application with thread mode'
 )
 @click.option(
     '--api',
     type=bool,
     default=False,
-    help='run server only the API component'
+    help='run application only the API component'
 )
-def runserver(debug: bool, thread: bool, api: bool):
+@click.option(
+    '--recreate',
+    type=bool,
+    default=False,
+    help='re-create control tables to target database'
+)
+@click.option(
+    '--server',
+    type=bool,
+    default=False,
+    help='run application with WSGI server',
+)
+def runserver(
+        debug: bool,
+        thread: bool,
+        api: bool,
+        recreate: bool,
+        server: bool,
+):
     """Run Application Server
     :usage:
         >> $ python manage.py run --debug=true
 
     :note:
         - Re-loader will be True if run server in debug mode
-          app.run(use_reloader=False)
+            app.run(use_reloader=False)
     """
     os.environ['DEBUG'] = str(debug).capitalize()
 
     from application.app import create_app
 
-    # application factory able to use file `wsgi.py`
-    app = create_app(frontend=(not api))
-    app.run(**{
-        "debug": debug,
-        "threaded": thread,
-        "host": '0.0.0.0',
-        "port": 5000,
-        "processes": 1,
-    })
+    if server:
+        from waitress import serve
+        serve(
+            app=create_app(frontend=(not api), recreate=recreate),
+            host='0.0.0.0',
+            port=5000,
+        )
+    else:
+        # application factory able to use file `wsgi.py`
+        app = create_app(frontend=(not api), recreate=recreate)
+        app.run(**{
+            "debug": debug,
+            "threaded": thread,
+            "host": '0.0.0.0',
+            "port": 5000,
+            "processes": 1,
+        })
 
 
 @click.command(name='test', short_help='test application server')
