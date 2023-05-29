@@ -8,7 +8,7 @@ func_cast_to_int:
         returns integer as
             $func$
             begin
-               -- Note the double casting to avoid infinite recursion.
+                -- Note the double casting to avoid infinite recursion.
                 return cast($1::varchar as integer);
             exception
                 when invalid_text_representation then

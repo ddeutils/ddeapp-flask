@@ -1,15 +1,17 @@
 Data Application Framework: *Flask and Postgres*
-================================================
+===
 
-This is the RestAPI Data Application Framework that was built by [Flask](https://flask.palletsprojects.com/en/2.0.x/)
-and does not use any vendor data framework extension.
-So this application framework is easy to enhance, fix, and deploy on different environment because it [less dependencies](requirements.txt)
-and lightweight of coding which mean you can remove some components of this framework before deployment.
+This is the Fullstack Data Framework Application that was built with [Flask Micro-Web Framework](https://flask.palletsprojects.com/en/2.0.x/)
+and does not use any vendor data orchestration framework like Airflow, Dagster, or Airbyte.
+So this application framework is easy to enhance, fix, and deploy on different environment
+because its [fewer dependencies](requirements.txt), less complex code,
+and lightweight of coding which mean you can remove some components of this framework before deployment without error
+or with debuggable error.
 
-First objective of this framework is data pipeline orchestration in the retail platform, but the core engine
-of this framework can do more than run and monitor data pipeline by requested or scheduler.
+First objective of this framework application is data pipeline orchestration in the retail platform, 
+but the core engine of this framework can do more than run and monitor data pipeline by requested or scheduler.
 
-This application framework runs on Docker container with AWS ECS service and was requested from AWS Batch or the Platform Web server
+This framework application runs on Docker container with AWS ECS service and was requested from AWS Batch or the Platform Web server
 via AWS load balancing service. After that, it will generate and deliver SQL statements to be performed in the AWS RDS,
 PostgreSQL database, for run a data pipeline.
 
@@ -27,19 +29,29 @@ pipeline is using only the database engine, but the part of DataFrame transforma
 ---
 
 Application Framework
----------------------
+---
 
   - **Web**
-
-    The Web Application framework. This session will show UI for controller any the framework components.
+    
+    The Web Application framework serve static templates to client. 
+    This session will show UI for control any framework components.
 
     > - **pipeline**
     > - **catalog**
     > - **table**
     > - **administration**
     
-    This Web use HTMX, Ajax.
+    This Web App use HTMX, Ajax for sync data from server,
     
+    - HTMX
+      
+      **Pros**:
+        - Developer productivity: You can build modern user interfaces without touching JavaScript. For more on this, check out An SPA Alternative.
+        - Packs a punch: The library itself is small (~10k min.gz'd), dependency-free, and extendable.
+      
+      **Cons**:
+        - Library maturity: Since the library is quite new, documentation and example implementations are sparse.
+        - Size of data transferred: Typically, SPA frameworks (like React and Vue) work by passing data back and forth between the client and server in JSON format. The data received is then rendered by the client. htmx, on the other hand, receives the rendered HTML from the server, and it replaces the target element with the response. The HTML in rendered format is typically larger in terms of size than a JSON response.
 
   - **RestAPI**
     
@@ -97,19 +109,26 @@ click==8.1.3
 
 ```text
 # Optional for vendor plug-in function
-prophet==1.0.1
+prophet
 statsmodels==0.13.1
 scipy==1.7.3
 scikit-learn==1.0.2
 ```
 
-> **Note**:\
+If you want to install it, you can use
+
+```shell
+$ pip install --no-cache-dir -r requirements.txt
+```
+
+> **Warning**:\
 > the`requirements.pre.txt` were created because the installation of `prophet` library issue.
+> It will install `pystan==2.19.1.1` before install `prophet`
 
 ---
 
 Build Application Framework
----------------------------
+---
 
 There are 2 ways to build application with input parameters.
 If both types were created at the same time, the application
@@ -131,8 +150,9 @@ inherits from `environment parameter` first.
     - *Docker container*
     
     ```shell
-    mkdir -p log
-    sudo docker run --${env}-application \
+    $ mkdir -p log
+    $ export env = "development"
+    $ sudo docker run --${env}-application \
     -e APIKEY='<api-key-in-env>' \
     -e DB_HOST='<host>' \
     -e DB_NAME='<database-name>' \
@@ -141,8 +161,9 @@ inherits from `environment parameter` first.
     -e DB_PORT='5432' \
     -e AI_SCHEMA='ai' \
     -e MAIN_SCHEMA='public' \
+    -e APP_ENV=${env} \
     --restart=always -d -p 5000:5000 ${env}-application
-    sudo docker ps
+    $ sudo docker ps
     # CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
     # 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
     ```
@@ -172,21 +193,42 @@ inherits from `environment parameter` first.
     
     - *Docker image*
     ```shell
-    sudo docker build -t ${env}-application .
-    sudo docker images
+    $ export env = "development"
+    $ sudo docker build -t ${env}-application .
+    $ sudo docker images
     # REPOSITORY          TAG        IMAGE ID       CREATED          ...
     # ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
     ```
     
     - *Docker container*
     ```shell
-    mkdir -p log
-    sudo docker run --name=${env}-application --restart=always \
+    $ mkdir -p log
+    $ sudo docker run --name=${env}-application --restart=always \
     -v $(pwd)/.env:/app/.env \
     --restart=always -d -p 5000:5000 ${env}-application
-    sudo docker ps
+    $ sudo docker ps
     # CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
     # 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
+    ```
+    
+  - ### Built with Docker Compose
+
+    __*command line*__
+    
+    - Start Docker Compose 
+
+    ```shell
+    $ docker-compose  -f .\docker-compose.pg.yml up -d --build --force-recreate
+    ```
+    
+    - Clear all Docker Compose component
+    ```shell
+    $ docker-compose -f .\docker-compose.pg.yml down --rmi all --volumes
+    Stopping postgres ... done
+    Removing postgres ... done
+    Removing network flask-rds-data-engine_backend-network
+    Removing volume flask-rds-data-engine_pgdata
+    Removing image postgres:latest 
     ```
 
 > **Note**:\
@@ -195,7 +237,7 @@ inherits from `environment parameter` first.
 ---
 
 API Document
-------------
+---
 
 The first thing you should do after running this application is to perform an API health checking with
 below the curl command,
@@ -217,12 +259,12 @@ curl --location --request GET 'http://localhost:5000/apikey' \
 { "message": "Error: Unauthorised with 'APIKEY'" }
 ```
 
-[More details of API document](doc/README.md)
+[More details of API document](docs/README.md)
 
 ---
 
 Application CI/CD Flow
-----------------------
+---
 
 This application framework use [GoCD](https://www.gocd.org/) for create CI/CD pipeline
 to deploy with difference environments (like dev, sit, or prod)
@@ -236,8 +278,7 @@ In the GoCD pipeline, it has 3 steps on deployment agent,
 > 2) push-to-registry
 > 3) deploy-to-ECS
 
-![Application CI/CD Flow](doc/image/application_cicd_flow.png)
-<img width="80%" align="center" src="https://github.com/KorawichSCG/flask-rds-data-engine/tree/main/doc/image/application_cicd_flow.png"/>
+![Application CI/CD Flow](docs/image/application_cicd_flow.png)
 
 The skeleton directories in the application
 
@@ -345,7 +386,7 @@ flask-rds-data-engine
 ---
 
 Service Reference
------------------
+---
 
 - AWS
   - ~~AWS EC2~~
@@ -383,6 +424,6 @@ Service Reference
 ---
 
 License
--------
+---
 
 This project was licensed under the terms of the [MIT license](LICENSE.md).

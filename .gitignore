@@ -12,8 +12,9 @@ gen/
 
 # Data and Log Directory
 log/
-data/landing
-data/success
+data/landing/
+data/success/
+data/postgres-data/
 
 # SSH Public Key
 conf/*.pem

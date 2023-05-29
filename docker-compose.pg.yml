@@ -1,0 +1,36 @@
+version: "3"
+services:
+    postgres:
+        container_name: postgres
+
+        # Use alpine images if possible. They’re usually smaller in size.
+        # For instance,
+        #       postgres:14.2 is 131mb in size whereas postgres:14.2-alpine
+        #       is only 78mb with the same functionality.
+        # Additionally, alpine images are secure because all the userspace
+        # binaries are compiled to protect against common vulnerabilities.
+        image: postgres:12.14-alpine
+        restart: always
+        environment:
+            - PGUSER=postgres
+            - PGPASSWORD=postgres
+            - PGDATABASE=postgres
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_DB=postgres
+        ports:
+            - "5432:5432"
+        expose:
+            - 5432
+
+        # Use a persistent volume to store data. As mentioned above,
+        # without a persistent volume, you’ll lose data if the
+        # container restarts.
+        volumes:
+            - ./data/postgres-data:/var/lib/postgresql/data
+            # - ./data/initial/db/init.sql:/docker-entrypoint-initdb.d/create_tables.sql
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres"]
+            interval: 5s
+            timeout: 5s
+            retries: 5

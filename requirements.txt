@@ -1,7 +1,9 @@
 # Core ========================
 # ------------------------------------------------
-Flask==2.2.2
-Werkzeug==2.2.2
+waitress==2.1.2
+
+Flask==2.2.3
+Werkzeug==2.2.3
 
 Flask-APScheduler==1.12.3
 apscheduler==3.9.1
@@ -23,6 +25,8 @@ Flask-WTF==1.0.1
 WTForms==3.0.1
 email-validator==1.3.0
 
+Flask-Mail==0.9.1
+
 flask-jwt-extended==4.4.4
 pyjwt==2.6.0
 
@@ -31,7 +35,7 @@ flasgger==0.9.5
 click==8.1.3
 sshtunnel==0.4.0
 cryptography==37.0.1
-yaml==0.2.5
+# yaml==0.2.5
 markupsafe==2.1.1
 sqlalchemy==1.4.32
 psycopg2-binary==2.9.1
@@ -45,17 +49,10 @@ pydantic==1.10.2
 
 # Analytic ====================
 # ------------------------------------------------
-numpy==1.21.5
-pandas==1.3.5
 pytz==2021.3
 PyYAML==6.0
 requests==2.26.0
 scipy==1.7.3
 statsmodels==0.13.1
-prophet==1.0.1
+prophet
 scikit-learn==1.0.2
-
-python-dateutil==2.8.2
-matplotlib==3.2.1
-
-plotly==5.12.0

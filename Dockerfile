@@ -21,20 +21,20 @@ RUN pip install --no-cache-dir -r requirements.pre.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # copy the content of the local directory to the working directory
-COPY component ./component
-COPY src ./src
+COPY application ./application
 COPY conf ./conf
-COPY ./server.py ./server.py
+COPY tests ./tests
+COPY ./manage.py ./manage.py
 
-# touch config file before run container with config.yaml option
-RUN touch ./config.yaml
-RUN mkdir -p ./log
+# touch config file before run container with .env option
+RUN touch ./.env
+RUN mkdir -p ./logs
 
-# copy config.yaml if the deploy process can not add config.yaml in agent after run docker
-COPY ./config.yaml ./config.yaml
+# copy .env if the deploy process can not add .env in agent after run docker
+COPY ./.env ./.env
 
 # the container listens on the specified network port
 EXPOSE 5000
 
 # command to run on container start
-CMD [ "python", "./manage.py", "run", "--api==True"]
+CMD [ "python", "./manage.py", "run", "--api=True", "recreate=True"]

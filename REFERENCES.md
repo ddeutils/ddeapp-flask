@@ -1,26 +1,31 @@
 Reference
 =========
 
+Flask Extensions
+---
 
-Backend
--------
+### All of extensions
 
-### Flask Extensions
+This is all extensions that I know.
 
 ```shell
 # Main dependencies
 $ pip install Flask
 
 # Flask extensions
-$ pip install Flask-Migrate
+# A must for implement the large Flask application.
 $ pip install Flask-SQLAlchemy
-$ pip install Flask-WTF
-$ pip install Flask-Mail
 $ pip install Flask-Login
 $ pip install Flask-Bcrypt
 $ pip install Flask-Limiter
 $ pip install Flask-Caching
+
+# For Frontend Flask component.
 $ pip install Flask-Assets
+
+$ pip install Flask-Migrate
+$ pip install Flask-WTF
+$ pip install Flask-Mail
 
 $ pip install Flask-Security
 $ pip install Flask-Security-Too
@@ -51,23 +56,37 @@ $ pip install Flask-CDN
 $ pip install Flask-Classful
 ```
 
-Define type of extensions
+#### Define type of extensions
 
 ```shell
-
 # Connect DBMS
 $ pip install Flask-Migrate
 $ pip install Flask-SQLAlchemy
 $ pip install Flask-Pony
 
-# 
+# Connect No-SQL
+$ pip install Flask-RQ
+$ pip install Flask-RQ2
+$ 
 ```
 
-### Link
+### Main of extensions
+
+```shell
+$ pip install Flask-SQLAlchemy
+$ pip install Flask-Login
+$ pip install Flask-Bcrypt
+$ pip install Flask-Limiter
+$ pip install Flask-Caching
+```
+
+
+Backend
+-------
 
 Best Practice
 
-- [](https://github.com/saxsax1995/python-flask-api-tutorial/)
+- [Flask API Tutorial](https://github.com/saxsax1995/python-flask-api-tutorial/)
 
 - [Explore Flask](http://exploreflask.com/en/latest/index.html)
 - [Flask Volt](https://themesberg.com/docs/flask/volt-dashboard/getting-started/overview/)
@@ -99,6 +118,10 @@ Enhancement
 - [Flask by example](https://danidee10.github.io/2016/11/14/flask-by-example-7.html)
 
 Advance
+
+- [Flask At Scale Tutorial at PyCon 2016](https://github.com/miguelgrinberg/flack)
+  
+  Scale Flask application that have communicated in the PyCon 2016 event.
 
 - [Flask Unchained](https://github.com/briancappello/flask-unchained)
   - https://flask-unchained.readthedocs.io/en/latest/tutorial/views_templates_and_static_assets.html

@@ -18,20 +18,27 @@ path:
 control_frameworks:
     # This key was generated before this application started for
     # setup automate process if table or data from configuration
-    # does not exists in target database.
-    - name: 'sql:ctr_data_logging'
-    - name: 'sql:ctr_task_process'
-    - name: 'sql:ctr_data_parameter'
+    # does not exist in target database.
+#    - name: 'sql:ctr_data_logging'
+#    - name: 'sql:ctr_task_process'
+#    - name: 'sql:ctr_data_parameter'
     - name: 'sql:ctr_data_pipeline'
-    - name: 'sql:ctr_task_schedule'
+#    - name: 'sql:ctr_task_schedule'
 
-    - name: 'sql:ctr_web_user'
-    - name: 'sql:ctr_web_role'
+#    - name: 'sql:ctr_web_user'
+#    - name: 'sql:ctr_web_role'
+#    - name: 'sql:ctr_web_user_role'
+#    - name: 'sql:ctr_web_group'
+#    - name: 'sql:ctr_web_group_to_group'
+#    - name: 'sql:ctr_web_user_group'
+#    - name: 'sql:ctr_web_group_role'
+#    - name: 'sql:ctr_web_policy'
+#    - name: 'sql:ctr_web_role_policy'
 
 functions:
     # This key was generated before this application started for
     # setup automate process if function from configuration does
-    # not exists in target database.
+    # not exist in target database.
     - name: 'func:func_count_if_exists'
     - name: 'func:func_hash_32_bit'
     - name: 'func:func_hash_64_bit'
@@ -55,6 +62,7 @@ env_variables:
     - 'SSH_PRIVATE_KEY'
     - 'SSH_USER'
     - 'SSH_PASS'
+    - 'DB_DRIVER'
     - 'DB_HOST'
     - 'DB_NAME'
     - 'DB_USER'
