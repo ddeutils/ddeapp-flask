@@ -10,9 +10,11 @@ import pandas as pd
 import warnings
 import asyncio
 from cryptography.utils import CryptographyDeprecationWarning
+
 with warnings.catch_warnings():
     warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
     from sshtunnel import SSHTunnelForwarder
+
 from typing import (
     Optional,
     Union,
@@ -26,38 +28,36 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.engine.url import URL
-# from ..utils.config import Environs
-# from ..utils.reusables import (
-#     merge_dicts,
-#     chunks,
-#     path_join,
-# )
-# from ..errors import DatabaseProcessError
 from application.utils.config import Environs
 from application.utils.reusables import (
     merge_dicts,
     chunks,
-    path_join,
 )
 from application.errors import DatabaseProcessError
+from conf import settings
 
-AI_APP_PATH: str = os.getenv('AI_APP_PATH', os.path.abspath(path_join(os.path.dirname(__file__), '../..')))
 
 env = Environs()
 
 ParamType: Type = Optional[Union[dict, bool]]
 
+DRIVER: str = env.DB_DRIVER or 'postgresql+psycopg2'
 
-def generate_url(conf_replace: Optional[dict] = None, driver: Optional[str] = None):
-    """Generate URL
+
+def generate_url(
+        conf_replace: Optional[dict] = None,
+        driver: Optional[str] = None,
+):
+    """Generate Database URI
     """
+    driver: str = driver or DRIVER
     _db_conf: dict = {
-        'drivername': f'postgresql+{driver or "psycopg2"}',
+        'drivername': env.DB_DRIVER or driver,
         'database': env.DB_NAME,
         'username': env.DB_USER,
         'password': env.DB_PASS,
         'host': env.DB_HOST,
-        'port': env.DB_PORT
+        'port': env.DB_PORT or None
     }
     return URL.create(**merge_dicts(_db_conf, (conf_replace or {})))
 
@@ -66,8 +66,11 @@ def query_format(
         statement: Union[str, list],
         parameters: ParamType
 ) -> Union[str, list]:
+    database_name: str = (
+        'database' if 'sqlite' in DRIVER else env.DB_NAME
+    )
     _db_param = {
-        'database_name': env.DB_NAME,
+        'database_name': database_name,
         'ai_schema_name': env.get('AI_SCHEMA', 'ai'),
         'main_schema_name': env.get('MAIN_SCHEMA', 'public')
     }
@@ -85,7 +88,7 @@ def ssh_connect():
     return SSHTunnelForwarder(**{
         'ssh_address_or_host': (env.SSH_HOST, int(env.SSH_PORT)),
         'ssh_username': env.SSH_USER,
-        'ssh_private_key': os.path.join(AI_APP_PATH, 'conf', env.SSH_PRIVATE_KEY),
+        'ssh_private_key': str(settings.BASE_PATH / 'conf' / env.SSH_PRIVATE_KEY),
         'remote_bind_address': (env.DB_HOST, int(env.DB_PORT)),
         'local_bind_address': ('localhost', int(env.DB_PORT)),
     })
@@ -139,6 +142,7 @@ def query_select(
             except SQLAlchemyError as error:
                 raise DatabaseProcessError(
                     f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                    f" \nWith statement: \n{_statement}"
                 ) from error
         yield from output_df.to_dict(orient='index').values()
 
@@ -158,6 +162,7 @@ def query_select_df(
             except SQLAlchemyError as error:
                 raise DatabaseProcessError(
                     f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                    f" \nWith statement: \n{_statement}"
                 ) from error
         return output_df
 
@@ -177,6 +182,7 @@ def query_select_one(
         except SQLAlchemyError as error:
             raise DatabaseProcessError(
                 f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                f" \nWith statement: \n{_statement}"
             ) from error
     return output_df.to_dict(orient='index').get(0, {})
 
@@ -242,6 +248,7 @@ def query_execute(
         except SQLAlchemyError as error:
             raise DatabaseProcessError(
                 f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                f" \nWith statement: \n{_statement}"
             ) from error
 
 
@@ -260,6 +267,7 @@ def query_execute_row(
         except SQLAlchemyError as error:
             raise DatabaseProcessError(
                 f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                f" \nWith statement: \n{_statement}"
             ) from error
 
 
@@ -281,6 +289,7 @@ def query_transaction(
                 # conn.rollback()
                 raise DatabaseProcessError(
                     f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                    f" \nWith statement: \n{_statement}"
                 ) from error
 
 

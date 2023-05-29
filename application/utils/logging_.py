@@ -14,6 +14,7 @@ import json
 import logging
 import logging.handlers
 from logging.config import dictConfig
+from typing import Optional
 from ..utils.reusables import must_bool
 
 if not os.getenv('DEBUG'):
@@ -236,18 +237,26 @@ class DailyRotatingFileHandler(logging.handlers.RotatingFileHandler):
         - 2016-10-06.log.alias.1
         - 2016-10-07.log.alias.1
     """
-    def __init__(self, alias, basedir, mode='a', maxBytes=0, backupCount=0, encoding=None, delay=0):
+    def __init__(self, alias, basedir, mode='a', maxBytes: int = 0, backupCount=0, encoding=None, delay=0):
         """
         @summary:
         Set self.baseFilename to date string of today.
         The handler create logFile named self.baseFilename
         """
+        self.today_ = None
+        self.maxBytes: Optional[int] = None
         self.basedir_ = basedir
         self.alias_ = alias
-
         self.baseFilename = self.getBaseFilename()
-
-        logging.handlers.RotatingFileHandler.__init__(self, self.baseFilename, mode, maxBytes, backupCount, encoding, delay)
+        logging.handlers.RotatingFileHandler.__init__(
+            self,
+            self.baseFilename,
+            mode,
+            maxBytes,
+            backupCount,
+            encoding,
+            delay
+        )
 
     def getBaseFilename(self):
         """
@@ -339,38 +348,6 @@ class PickableLoggerAdapter(object):
         return self.logger.isEnabledFor(level)
 
 
-def constructor_appPath(loader, node):
-    value = loader.construct_scalar(node)
-    return os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)), value)
-
-
-# def setup_logger(output_file=None, logging_config=None):
-#     # logging_config must be a dictionary object specifying the configuration
-#     if output_file:
-#         if not os.path.exists(os.path.dirname(output_file)):
-#             os.makedirs(os.path.dirname(output_file))
-#
-#     if logging_config is not None:
-#
-#         if output_file is not None:
-#             logging_config['handlers']['file_handler']['filename'] = output_file
-#         logging.config.dictConfig(logging_config)
-#
-#     else:
-#         yaml.add_constructor(u'!appPath', constructor_appPath)
-#         conf_file = os.path.join(
-#             os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)), 'conf', 'logging.yaml'
-#         )
-#         with open(conf_file, 'r') as file:
-#             logging_config = yaml.load(file, Loader=yaml.Loader)
-#
-#         if output_file is not None:
-#             logging_config['handlers']['file_handler']['filename'] = output_file
-#
-#         logging.config.dictConfig(logging_config)
-#         del logging_config
-
-
 def _create_logger(name):
     return StyleAdapter(logging.getLogger(name))
 
@@ -385,17 +362,19 @@ dictConfig({
     "formatters": {
 
         "default": {
+            '()': UTCFormatter,
             # "format": "%(asctime)s.%(msecs)04d (%(name)s:%(threadName)s[%(thread)d]) - %(lineno)d %(levelname)-8s: "
             #           "%(message)s",
-            '()': UTCFormatter,
             # "format": "%(asctime)s (%(thread)06d) %(levelname)-8s|: %(message)s",
-            "format": "%(asctime)s (%(thread)06d) %(levelname)-8s|[%(name)s]: %(message)s",
+            "format": "%(asctime)s (%(thread)06d) %(levelname)-8s|%(name)s: %(message)s",
             "datefmt": '%Y-%m-%d %H:%M:%S'
         },
 
         "access": {
-            "format": "%(asctime)s.%(msecs)04d (%(name)s:%(threadName)s[%(thread)d]) - %(lineno)d %(levelname)-8s: "
-                      "%(message)s",
+            "format": (
+                "%(asctime)s.%(msecs)04d (%(name)s:%(threadName)s[%(thread)d]) - %(lineno)d %(levelname)-8s: "
+                "%(message)s"
+            ),
             "datefmt": '%Y-%m-%d %H:%M:%S'
         },
 
@@ -485,23 +464,21 @@ dictConfig({
             "propagate": False
         },
 
-        "src.forecast_function": {
+        "application.components.api.analytic.tasks": {
             # "handlers": ["console"] if DEBUG else ["console", "framework_file"],
             "handlers": ["console"],
-            # "level": "DEBUG" if DEBUG else "INFO",
-            "level": "INFO",
+            "level": "DEBUG" if DEBUG else "INFO",
             "propagate": False
         },
 
-        "src.framework_function": {
+        "application.components.api.framework": {
             # "handlers": ["console"] if DEBUG else ["console", "framework_file"],
             "handlers": ["console"],
-            # "level": "DEBUG" if DEBUG else "INFO",
-            "level": "INFO",
+            "level": "DEBUG" if DEBUG else "INFO",
             "propagate": False
         },
 
-        "src.reusable_function": {
+        "application.utils": {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": False
@@ -519,19 +496,27 @@ dictConfig({
             "propagate": False
         },
 
-        # "gunicorn.access"
-        # "gunicorn.error"
-
         "matplotlib": {
             "handlers": ["console"],
             "level": "ERROR",
             "propagate": False
         },
 
+        "waitress": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False
+        },
+
+        "werkzeug": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False
+        }
+
     },
     "root": {
-        # "level": "DEBUG" if DEBUG else "INFO",
-        "level": "DEBUG",
+        "level": "DEBUG" if DEBUG else "INFO",
         "handlers": ["console"]
     }
 })

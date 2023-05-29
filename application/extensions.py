@@ -19,8 +19,8 @@ from flasgger import Swagger
 from flask_cors import CORS
 from flask_assets import Environment
 from flask_apscheduler import APScheduler
+from flask_mail import Mail
 
-# from flask_mail import Mail
 # from flask_migrate import Migrate
 # from flask_admin import Admin
 # from flask_debugtoolbar import DebugToolbarExtension
@@ -28,8 +28,10 @@ from flask_apscheduler import APScheduler
 from .utils.database import env
 from .assets import bundles
 from .swagger import swagger_config, swagger_template
-from .schedules import add_schedules
+from conf import settings
 
+
+# Flask-SQLAlchemy ===============================================================
 conventions = {
     "ix": "ix_%(column_0_label)s",
     "uq": "uq_%(table_name)s_%(column_0_name)s",
@@ -65,11 +67,16 @@ db = SQLAlchemy(
     model_class=CustomModel
 )
 # migrate = Migrate()
-# mail = Mail()
+
+# Flask-Mail ===============================================================
+mail = Mail()
 # admin = Admin()
 # toolbar = DebugToolbarExtension()
+
+# Flask-Bcrypt ===============================================================
 bcrypt = Bcrypt()
 
+# Flask-Login ===============================================================
 login_manager = LoginManager()
 login_manager.login_view = 'users.login_get'
 login_manager.login_message = 'Please log in for access that path.'
@@ -81,7 +88,10 @@ login_manager.needs_refresh_message = (
 )
 login_manager.needs_refresh_message_category = "info"
 
+# Flask-Cache ===============================================================
 cache = Cache()
+
+# Flask-Limiter ===============================================================
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[
@@ -91,19 +101,36 @@ limiter = Limiter(
     ],
     storage_uri="memory://",
 )
+
+# Flask-Limiter ===============================================================
 jwt_manager = JWTManager()
+
+# Flask-Limiter ===============================================================
 csrf = CSRFProtect()
+
+# Flask-Limiter ===============================================================
 swagger = Swagger(
     config=swagger_config,
     template=swagger_template,
     # sanitizer=NO_SANITIZER
 )
+
+# Flask-Limiter ===============================================================
 cors = CORS(
     resources={
         r"/api/*": {"origins": "*"}
-    }
+    },
+
+    # By default, Flask-CORS does not allow cookies to be submitted across sites,
+    # since it has potential security implications. If you wish to enable cross-site
+    # cookies, you may wish to add some sort of CSRF protection to keep you and your
+    # users safe.
+    supports_credentials=False
 )
+
+# Flask-Assets ===============================================================
 assets = Environment()
 assets.register(bundles)
+
+# Flask-APScheduler ===============================================================
 scheduler = APScheduler()
-add_schedules(scheduler)

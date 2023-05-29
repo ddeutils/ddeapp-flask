@@ -10,7 +10,7 @@ from typing import (
     Union,
 )
 from ....errors import ValidateFormsError
-from ....utils.base import get_run_date
+from ....core.legacy.base import get_run_date
 from ....utils.validations import (
     FormValidate,
     validate_parameter,

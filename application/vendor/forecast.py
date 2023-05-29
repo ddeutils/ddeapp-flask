@@ -13,7 +13,7 @@ from statsmodels.tsa.holtwinters import (
     ExponentialSmoothing,
 )
 from application.errors import FuncRaiseError
-from application.utils.base import (
+from application.core.legacy.base import (
     get_run_date,
     get_process_date,
 )

@@ -5,7 +5,7 @@ ai_article_master:
   version: "2020-08-10"
   create:
     features:
-      cat_mch3_code: "varchar( 32 ) not null"
+      cat_mch3_code: {type: "varchar( 32 )", nullable: false}
       cat_mch3_desc: "varchar( 128 )"
       cat_mch2_code: "varchar( 32 ) not null"
       cat_mch2_desc: "varchar( 128 )"

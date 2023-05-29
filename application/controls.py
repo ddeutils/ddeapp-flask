@@ -9,6 +9,8 @@ from typing import (
     Optional,
     Tuple,
 )
+from sqlalchemy.exc import OperationalError
+from psycopg2 import OperationalError as PsycopgOperationalError
 from .utils.logging_ import logging
 from .utils.objects import (
     Pipeline,
@@ -21,7 +23,7 @@ from .utils.config import (
     Params,
     Environs,
 )
-from .utils.base import get_catalog_all
+from .core.legacy.base import get_catalog_all
 from .components.api.framework.tasks import foreground_tasks
 from .errors import (
     ObjectBaseError,
@@ -35,6 +37,7 @@ env = Environs(env_name='.env')
 
 
 def push_close_ssh(force: bool = False):
+    """Run close SSH function"""
     from .utils.database import ssh_connect
     server = ssh_connect()
     if server.is_alive or force:
@@ -55,7 +58,7 @@ def push_func_setup(
                 process_id=_process.id,
                 auto_create=False
             )
-        except ObjectBaseError:
+        except ObjectBaseError as err:
             _func: Action = Action(
                 _func_prop['name'],
                 process_id=_process.id,
@@ -73,18 +76,20 @@ def push_ctr_setup(
     _process: Process = process or Process.make('control_setup')
     for index, _ctr_prop in enumerate(
             registers.control_frameworks,
-            start=1
+            start=1,
     ):
         status: int = 0
         try:
-            Node(
+            _node = Node(
                 name=_ctr_prop['name'],
                 process_id=_process.id,
                 run_mode='setup',
                 auto_init='Y',
-                auto_drop='N',
+                auto_drop='Y',
             )
-        except ObjectBaseError:
+            logger.info(f'START {index:02d}: {_node.name} {"~" * (30 - len(_node.name) + 31)}')
+        except ObjectBaseError as err:
+            logger.error(f'Error ObjectBaseError: {err}')
             status: int = 1
         logger.info(f"Success run {_ctr_prop['name']!r} after app start with status {status}")
 
@@ -142,15 +147,19 @@ def push_ctr_stop_running() -> None:
     if eval(os.environ.get('DEBUG', 'True')):
         return
 
-    logger.info("Start update message and status to in-progress tasks.")
-    Action(
-        name='query:query_shutdown',
-        external_parameters={
-            'status': 1,
-            'process_message': "Error: RuntimeError: Server shutdown while process was running in background"
-        }
-    ).push_query()
-    logger.critical("Server has been shut down :'(")
+    try:
+        logger.info("Start update message and status to in-progress tasks.")
+        Action(
+            name='query:query_shutdown',
+            external_parameters={
+                'status': 1,
+                'process_message': "Error: RuntimeError: Server shutdown while process was running in background"
+            }
+        ).push_query()
+    except (OperationalError, PsycopgOperationalError):
+        logger.warning("... Target database does not connectable.")
+
+    logger.critical("Success server has been shut down :'(")
 
 
 def push_trigger_schedule() -> int:
@@ -172,7 +181,8 @@ def push_trigger_schedule() -> int:
                     external_parameters={'pipeline_name': pipeline.name, 'run_mode': 'common'}
                 )
                 logger.info(
-                    f"End trigger {pipeline.name!r} with status: {process.status} with time {process.duration} sec"
+                    f"End trigger {pipeline.name!r} with status: {process.status} "
+                    f"with time {process.duration} sec."
                 )
                 ps_time_all += process.duration
         except (ObjectBaseError, CatalogBaseError) as err:
@@ -199,7 +209,8 @@ def push_cron_schedule(group_name: str, waiting_process: int = 300) -> int:
                     external_parameters={'pipeline_name': pipeline.name, 'run_mode': 'common'},
                 )
                 logger.info(
-                    f"End trigger {pipeline.name!r} with status: {process.status} with time {process.duration} sec"
+                    f"End trigger {pipeline.name!r} with status: {process.status} "
+                    f"with time {process.duration} sec"
                 )
                 ps_time_all += process.duration
         except (ObjectBaseError, CatalogBaseError) as err:
@@ -223,7 +234,12 @@ def push_retention() -> int:
         return 0
 
 
-def push_load_file_to_db(filename: str, target: str, truncate: bool = False, compress: Optional[str] = None):
+def push_load_file_to_db(
+        filename: str,
+        target: str,
+        truncate: bool = False,
+        compress: Optional[str] = None
+):
     """Push load csv file to target table with short name
     :usage:
         >> push_load_file_to_db('initial/ilticd/ilticd_20220821.csv', 'ilticd')

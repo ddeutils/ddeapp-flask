@@ -15,6 +15,7 @@ log/
 data/landing/
 data/success/
 data/postgres-data/
+*.db
 
 # SSH Public Key
 conf/*.pem

@@ -12,7 +12,7 @@ from flask import (
 )
 from ....errors import ValidateFormsError
 from ....securities import apikey_required
-from ....utils.base import get_run_date
+from application.core.legacy.base import get_run_date
 from ....utils.reusables import (
     random_sting,
     hash_string,
@@ -58,17 +58,26 @@ def start_framework():
         _bg_queue.put(True)
         for i in range(5):
             time.sleep(wait)
-            logger.info(f"run_id: {_run_id!r} send log {i} from worker")
+            logger.info(
+                f"run_id: {_run_id!r} send log {i} from worker"
+            )
         time.sleep(0.5)
         return background_tasks_demo_return(output, _process_id)
 
     def background_tasks_demo_return(output, token):
-        logger.info(f"End: Thread run successful with output: {output!r} and token: {token!r}")
+        logger.info(
+            f"End: Thread run successful with output: {output!r} and token: {token!r}"
+        )
         return output
 
     # -------------------------- run with thread
-    thread = ThreadWithControl(target=background_tasks_demo, args=input_args, kwargs=input_kwargs,
-                               name='pipeline', daemon=True)
+    thread = ThreadWithControl(
+        target=background_tasks_demo,
+        args=input_args,
+        kwargs=input_kwargs,
+        name='pipeline',
+        daemon=True
+    )
     thread.start()
     # threader.threadList.append(thread)
     # -------------------------- run with process

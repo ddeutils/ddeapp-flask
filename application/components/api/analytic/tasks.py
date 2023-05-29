@@ -6,7 +6,7 @@
 
 import datetime as dt
 from typing import Tuple
-from ....utils.base import TblCatalog
+from ....core.legacy.base import TblCatalog
 from ....utils.logging_ import logging
 from ....utils.objects import Process
 from ....utils.models import (

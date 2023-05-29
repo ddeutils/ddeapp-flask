@@ -6,7 +6,7 @@
 
 import queue
 from ....errors import ObjectBaseError
-from ....utils.base import get_plural
+from ....core.legacy.base import get_plural
 from ....utils.config import Params
 from ....utils.logging_ import logging
 from ....utils.objects import (

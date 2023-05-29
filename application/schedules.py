@@ -2,7 +2,7 @@
 # Copyright (c) 2022 Korawich Anuttra. All rights reserved.
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
-# --------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 from flask_apscheduler import APScheduler
 from apscheduler.events import (
     EVENT_JOB_EXECUTED,
@@ -20,6 +20,18 @@ from .controls import (
 logger = logging.getLogger(__name__)
 
 
+def default_job(x, y) -> None:
+    logger.info(f"Default job start with args, {x}, and {y}")
+
+
+def schedule_check_process() -> None:
+    """
+    Check process in `ctr_task_process` table and alert if exists 2 status longtime
+    """
+    ps_false, ps_wait, ps_thread = pull_ctr_check_process()
+    logger.info(f"Check process false: {ps_false} waiting: {ps_wait} thread: {ps_thread}")
+
+
 # @scheduler.task('cron', id='retention_data', day='1st sun', jitter=600)
 def schedule_retention_data() -> None:
     """
@@ -27,15 +39,6 @@ def schedule_retention_data() -> None:
     """
     ps_time: int = push_retention()
     logger.info(f"Success run retention data by schedule with {ps_time} sec.")
-
-
-# @scheduler.task('cron', id='check_process', minute='*/10', jitter=10, misfire_grace_time=None)
-def schedule_check_process() -> None:
-    """
-    Check process in `ctr_task_process` table and alert if exists 2 status longtime
-    """
-    ps_false, ps_wait, ps_thread = pull_ctr_check_process()
-    logger.info(f"Check process false: {ps_false} waiting: {ps_wait} thread: {ps_thread}")
 
 
 # @scheduler.task('interval', id='trigger_schedule', minutes=1, jitter=5)
@@ -83,53 +86,67 @@ def schedule_close_ssh() -> None:
     push_close_ssh()
 
 
-def my_listener(event):
+def listener_log(event):
+    """Listener"""
     if event.exception:
-        print('The job crashed :(')
+        logger.warning('The job crashed :(')
     else:
-        print('The job worked :)')
+        logger.info('The job worked :)')
 
 
 def add_schedules(scheduler: APScheduler):
+    """Add job schedules without decorator functions"""
+    # scheduler.add_job(
+    #     'retention_data',
+    #     schedule_retention_data,
+    #     trigger='cron',
+    #     day='1st sun',
+    #     jitter=600
+    # )
 
     scheduler.add_job(
-        'retention_data',
-        schedule_retention_data,
-        trigger='cron',
-        day='1st sun',
-        jitter=600
-    )
-
-    scheduler.add_job(
-        'check_process',
-        schedule_check_process,
+        id='check_process',
+        func=schedule_check_process,
         trigger='cron',
         minute='*/10',
         jitter=10,
         misfire_grace_time=None,
+
+        # Usage configuration
+        max_instances=1,
+
+        # Option for using job store
+        jobstore='sqlite',
+        replace_existing=True,
     )
 
-    scheduler.add_job(
-        'trigger_schedule',
-        schedule_trigger,
-        trigger='interval', minutes=1, jitter=5,
-    )
+    # scheduler.add_job(
+    #     'trigger_schedule',
+    #     schedule_trigger,
+    #     trigger='interval',
+    #     minutes=1,
+    #     jitter=5,
+    # )
+    #
+    # scheduler.add_job(
+    #     'cron_everyday',
+    #     schedule_cron_everyday,
+    #     trigger='cron', hour='20', minute='5', jitter=60
+    # )
+    #
+    # scheduler.add_job(
+    #     'cron_every_quarter',
+    #     schedule_cron_every_quarter,
+    #     trigger='cron', month='*/3', day='19', hour='0', minute='10', jitter=300
+    # )
+    #
+    # scheduler.add_job(
+    #     'close_ssh',
+    #     schedule_close_ssh,
+    #     trigger='cron', minute='*/5', jitter=10, misfire_grace_time=None
+    # )
 
-    scheduler.add_job(
-        'cron_everyday',
-        schedule_cron_everyday,
-        trigger='cron', hour='20', minute='5', jitter=60
+    scheduler.add_listener(
+        listener_log, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR
     )
-
-    scheduler.add_job(
-        'cron_every_quarter',
-        schedule_cron_every_quarter, trigger='cron', month='*/3', day='19', hour='0', minute='10', jitter=300
-    )
-
-    scheduler.add_job(
-        'close_ssh',
-        schedule_close_ssh, trigger='cron', minute='*/5', jitter=10, misfire_grace_time=None
-    )
-
-    scheduler.add_listener(my_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
     return scheduler

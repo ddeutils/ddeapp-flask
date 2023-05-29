@@ -1,7 +1,14 @@
-Data Application Framework: *Flask and Postgres*
-===
+# Data Application Framework: *Flask and Postgres*
 
-This is the Fullstack Data Framework Application that was built with [Flask Micro-Web Framework](https://flask.palletsprojects.com/en/2.0.x/)
+**Table of Contents**:
+
+- [Overviews](#overviews)
+- [Building](#build-application-framework)
+- [API Document](#api-document)
+- [CI/CD Flow](#application-cicd-flow)
+- [Service Reference](#service-reference)
+
+This is the Full-Stack Data Framework Application that was built with [Flask Micro-Web Framework](https://flask.palletsprojects.com/en/2.0.x/)
 and does not use any vendor data orchestration framework like Airflow, Dagster, or Airbyte.
 So this application framework is easy to enhance, fix, and deploy on different environment
 because its [fewer dependencies](requirements.txt), less complex code,
@@ -13,66 +20,55 @@ but the core engine of this framework can do more than run and monitor data pipe
 
 This framework application runs on Docker container with AWS ECS service and was requested from AWS Batch or the Platform Web server
 via AWS load balancing service. After that, it will generate and deliver SQL statements to be performed in the AWS RDS,
-PostgreSQL database, for run a data pipeline.
+PostgresSQL database, for run a data pipeline.
 
 The AWS ECS service is the host for application framework orchestration, so the overhead of resources for running any transformation in data
 pipeline is using only the database engine, but the part of DataFrame transformation use CPU bound (This application framework already implement this function).
 
-### Short Topics:
+## Overviews
 
-- [Application Framework](#application-framework)
-- [Building](#build-application-framework)
-- [API Document](#api-document)
-- [CI/CD Flow](#application-cicd-flow)
-- [Service Reference](#service-reference)
-
----
-
-Application Framework
----
-
-  - **Web**
+- **Web**
     
-    The Web Application framework serve static templates to client. 
-    This session will show UI for control any framework components.
+  The Web Application framework serve static templates to client. 
+  This session will show UI for control any framework components.
 
     > - **pipeline**
     > - **catalog**
     > - **table**
     > - **administration**
     
-    This Web App use HTMX, Ajax for sync data from server,
+  This Web App use HTMX, Ajax for sync data from server,
     
-    - HTMX
+  - HTMX
       
-      **Pros**:
-        - Developer productivity: You can build modern user interfaces without touching JavaScript. For more on this, check out An SPA Alternative.
-        - Packs a punch: The library itself is small (~10k min.gz'd), dependency-free, and extendable.
+    **Pros**:
+      - Developer productivity: You can build modern user interfaces without touching JavaScript. For more on this, check out An SPA Alternative.
+      - Packs a punch: The library itself is small (~10k min.gz'd), dependency-free, and extendable.
       
-      **Cons**:
-        - Library maturity: Since the library is quite new, documentation and example implementations are sparse.
-        - Size of data transferred: Typically, SPA frameworks (like React and Vue) work by passing data back and forth between the client and server in JSON format. The data received is then rendered by the client. htmx, on the other hand, receives the rendered HTML from the server, and it replaces the target element with the response. The HTML in rendered format is typically larger in terms of size than a JSON response.
+    **Cons**:
+      - Library maturity: Since the library is quite new, documentation and example implementations are sparse.
+      - Size of data transferred: Typically, SPA frameworks (like React and Vue) work by passing data back and forth between the client and server in JSON format. The data received is then rendered by the client. htmx, on the other hand, receives the rendered HTML from the server, and it replaces the target element with the response. The HTML in rendered format is typically larger in terms of size than a JSON response.
 
-  - **RestAPI**
+- **RestAPI**
     
-    The RestAPI Application framework have 3 components that are *analytic*, *ingestion*, and *framework*.
-    The framework component is the core of this application that have 3 main modules are,
+  The RestAPI Application framework have 3 components that are *analytic*, *ingestion*, and *framework*.
+  The framework component is the core of this application that have 3 main modules are,
     
     > - **run data setup**
     > 
-    >   Setup all tables that config in the control pipeline table to database and initialize data if set initial
-    >   key in catalog file.
+    > Setup all tables that config in the control pipeline table to database and initialize data if set initial
+    > key in catalog file.
     > 
     > - **run data normal**
     >
-    >   Transformation or preparation process.
-    >      - *common mode* ( process with incremental tracking )
-    >      - *rerun mode* ( process without incremental tracking )
+    > Transformation or preparation process.
+    >    - *common mode* ( process with incremental tracking )
+    >    - *rerun mode* ( process without incremental tracking )
     > 
     > - **run data retention**
     >
-    >   Retention data to all tables in database that config retention value more than 0. This module contains
-    >   backup process, which mean a dumping data from current schema to the backup schema.
+    > Retention data to all tables in database that config retention value more than 0. This module contains
+    > backup process, which mean a dumping data from current schema to the backup schema.
 
 Before start this application, the needed environment parameters are,
 
@@ -87,37 +83,14 @@ AI_SCHEMA: AI schema name
 MAIN_SCHEMA: The platform schema name
 ```
 
-and the needed [python dependencies](requirements.txt) are,
-
-```text
-Flask==2.0.2
-flask_apscheduler==1.12.3
-numpy==1.21.5
-pandas==1.3.5
-psycopg2-binary==2.9.1
-python_dateutil==2.8.2
-pytz==2021.3
-PyYAML==6.0
-requests==2.26.0
-sshtunnel==0.4.0
-sqlalchemy==1.4.32
-yaml==0.2.5
-python-dateutil==2.8.2
-markupsafe==2.1.1
-click==8.1.3
-```
-
-```text
-# Optional for vendor plug-in function
-prophet
-statsmodels==0.13.1
-scipy==1.7.3
-scikit-learn==1.0.2
-```
-
+and the needed [python dependencies](requirements.txt).
 If you want to install it, you can use
 
 ```shell
+# Optional for vendor function.
+$ pip install --no-cache-dir -r requirements.pre.txt
+
+# Main requirement package of this application.
 $ pip install --no-cache-dir -r requirements.txt
 ```
 
@@ -127,117 +100,109 @@ $ pip install --no-cache-dir -r requirements.txt
 
 ---
 
-Build Application Framework
----
+## Build Application Framework
 
 There are 2 ways to build application with input parameters.
 If both types were created at the same time, the application
 inherits from `environment parameter` first.
 
-  - ### Built with setting `environment variables` in local
+### Built with setting `environment variables` in local
+     
+- *Docker image*
     
-    __*command line*__
+  ```shell
+  sudo docker build -t ${env}-application .
+  sudo docker images
+  # REPOSITORY          TAG        IMAGE ID       CREATED          ...
+  # ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
+  ```
     
-    - *Docker image*
+- *Docker container*
     
-    ```shell
-    sudo docker build -t ${env}-application .
-    sudo docker images
-    # REPOSITORY          TAG        IMAGE ID       CREATED          ...
-    # ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
-    ```
-    
-    - *Docker container*
-    
-    ```shell
-    $ mkdir -p log
-    $ export env = "development"
-    $ sudo docker run --${env}-application \
-    -e APIKEY='<api-key-in-env>' \
-    -e DB_HOST='<host>' \
-    -e DB_NAME='<database-name>' \
-    -e DB_USER='<user>' \
-    -e DB_PASS='<password>' \
-    -e DB_PORT='5432' \
-    -e AI_SCHEMA='ai' \
-    -e MAIN_SCHEMA='public' \
-    -e APP_ENV=${env} \
-    --restart=always -d -p 5000:5000 ${env}-application
-    $ sudo docker ps
-    # CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
-    # 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
-    ```
+  ```shell
+  $ mkdir -p log
+  $ export env = "development"
+  $ sudo docker run --${env}-application \
+  -e APIKEY='<api-key-in-env>' \
+  -e DB_HOST='<host>' \
+  -e DB_NAME='<database-name>' \
+  -e DB_USER='<user>' \
+  -e DB_PASS='<password>' \
+  -e DB_PORT='5432' \
+  -e AI_SCHEMA='ai' \
+  -e MAIN_SCHEMA='public' \
+  -e APP_ENV=${env} \
+  --restart=always -d -p 5000:5000 ${env}-application
+  $ sudo docker ps
+  # CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
+  # 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
+  ```
 
-  - ### Built with the `.env` file
+### Built with the `.env` file
 
-    set environment variables in *[.env](.env.%7Bdemo%7D)* file.
-    ```yaml
-    # Main Configurations
-    APIKEY: "<api-key-in-env>"
-    DB_HOST: "<host>"
-    DB_NAME: "<database-name>"
-    DB_USER: "<user>"
-    DB_PASS: "<password>"
-    DB_PORT: "5432"
-    AI_SCHEMA: "ai"
-    MAIN_SCHEMA: "public"
-    
-    # Optional for SSH Tunnel to Private Database in Local Machine
-    SSH_FLAG: "True"
-    SSH_HOST: "<host>"
-    SSH_USER: "<user>"
-    SSH_PRIVATE_KEY: "<`.pem` file in ./conf>"
-    SSH_PORT: "22"
-    ```
-    __*command line*__
-    
-    - *Docker image*
-    ```shell
-    $ export env = "development"
-    $ sudo docker build -t ${env}-application .
-    $ sudo docker images
-    # REPOSITORY          TAG        IMAGE ID       CREATED          ...
-    # ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
-    ```
-    
-    - *Docker container*
-    ```shell
-    $ mkdir -p log
-    $ sudo docker run --name=${env}-application --restart=always \
-    -v $(pwd)/.env:/app/.env \
-    --restart=always -d -p 5000:5000 ${env}-application
-    $ sudo docker ps
-    # CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
-    # 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
-    ```
-    
-  - ### Built with Docker Compose
+set environment variables in *[.env](.env.%7Bdemo%7D)* file.
 
-    __*command line*__
-    
-    - Start Docker Compose 
+```yaml
+# Main Configurations
+APIKEY: "<api-key-in-env>"
+DB_HOST: "<host>"
+DB_NAME: "<database-name>"
+DB_USER: "<user>"
+DB_PASS: "<password>"
+DB_PORT: "5432"
+AI_SCHEMA: "ai"
+MAIN_SCHEMA: "public"
 
-    ```shell
-    $ docker-compose  -f .\docker-compose.pg.yml up -d --build --force-recreate
-    ```
+# Optional for SSH Tunnel to Private Database in Local Machine
+SSH_FLAG: "True"
+SSH_HOST: "<host>"
+SSH_USER: "<user>"
+SSH_PRIVATE_KEY: "<`.pem` file in ./conf>"
+SSH_PORT: "22"
+```
     
-    - Clear all Docker Compose component
-    ```shell
-    $ docker-compose -f .\docker-compose.pg.yml down --rmi all --volumes
-    Stopping postgres ... done
-    Removing postgres ... done
-    Removing network flask-rds-data-engine_backend-network
-    Removing volume flask-rds-data-engine_pgdata
-    Removing image postgres:latest 
-    ```
+- *Docker image*
+  ```shell
+  $ export env = "development"
+  $ sudo docker build -t ${env}-application .
+  $ sudo docker images
+  # REPOSITORY          TAG        IMAGE ID       CREATED          ...
+  # ${env}-application  latest     b50e8cdd83ed   10 seconds ago   ...
+  ```
+    
+- *Docker container*
+  ```shell
+  $ mkdir -p log
+  $ sudo docker run --name=${env}-application --restart=always \
+  -v $(pwd)/.env:/app/.env \
+  --restart=always -d -p 5000:5000 ${env}-application
+  $ sudo docker ps
+  # CONTAINER ID      IMAGE               COMMAND                   CREATED         ...
+  # 873eca95a051      ${env}-application  "python ./manage.py run"  10 seconds ago  ...
+  ```
+    
+### Built with Docker Compose
 
-> **Note**:\
-> Other way to run this application in local is the Docker Compose with docker-compose.yml file
+- Start Docker Compose 
+
+  ```shell
+  $ docker-compose  -f .\docker-compose.pg.yml up -d --build --force-recreate
+  ```
+
+- Clear all Docker Compose component
+
+  ```shell
+  $ docker-compose -f .\docker-compose.pg.yml down --rmi all --volumes
+  Stopping postgres ... done
+  Removing postgres ... done
+  Removing network flask-rds-data-engine_backend-network
+  Removing volume flask-rds-data-engine_pgdata
+  Removing image postgres:latest 
+  ```
 
 ---
 
-API Document
----
+## API Document
 
 The first thing you should do after running this application is to perform an API health checking with
 below the curl command,
@@ -259,12 +224,11 @@ curl --location --request GET 'http://localhost:5000/apikey' \
 { "message": "Error: Unauthorised with 'APIKEY'" }
 ```
 
-[More details of API document](docs/README.md)
+More information of [API document](docs/README.md)
 
 ---
 
-Application CI/CD Flow
----
+## Application CI/CD Flow
 
 This application framework use [GoCD](https://www.gocd.org/) for create CI/CD pipeline
 to deploy with difference environments (like dev, sit, or prod)

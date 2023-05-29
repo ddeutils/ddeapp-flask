@@ -68,7 +68,7 @@ class Environs:
             result: dict = {}
             with open(os.path.join(AI_APP_PATH, __env_name), encoding='utf8') as file:
                 # TODO: fix reading logic of .env file
-                for line in file.readlines():
+                for line in file:
                     if line.startswith('#'):
                         continue
                     if len(line_split := line.replace('\n', '').split('=')) == 2:
@@ -84,7 +84,13 @@ class Environs:
             os.environ.update(**_result)
 
     def __getattr__(self, item: str):
-        return getattr(self.__dict__, item)
+        try:
+            return getattr(self.__dict__, item)
+        except AttributeError:
+            return None
 
     def __getitem__(self, item: str):
-        return self.__dict__[item]
+        try:
+            return self.__dict__[item]
+        except KeyError:
+            return None

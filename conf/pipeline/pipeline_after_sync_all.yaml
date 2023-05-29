@@ -9,8 +9,8 @@
 after_sync_article_master:
      id: 'ai_master'
      priority: 1
-     trigger: [ 'src_structure', 'src_sales_price', 'src_info_record', 'imp_replace' ]
-#     trigger: 'src_structure & src_sales_price & (src_info_record | imp_replace)'  # SUCCESS
+#     trigger: [ 'src_structure', 'src_sales_price', 'src_info_record', 'imp_replace' ]
+     trigger: 'src_structure & src_sales_price & (src_info_record | imp_replace)'  # SUCCESS
 #     trigger: 'src_structure & src_sales_price & (src_info_record | imp_replace' # FAILED
 #     trigger: 'src_structure & src_sales_price & (src_info_record) | imp_replace' # FAILED
 #     trigger: 'src_structure' # SUCCESS

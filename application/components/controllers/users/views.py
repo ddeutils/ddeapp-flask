@@ -24,7 +24,7 @@ from flask_login import (
     logout_user,
     login_required,
 )
-# from flask_mail import Message
+
 from ....extensions import (
     bcrypt,
     db,
@@ -36,6 +36,10 @@ from .forms import (
     UpdateAccountForm,
     RequestResetForm,
     ResetPasswordForm
+)
+from .tasks import (
+    send_reset_token,
+    send_reset_email,
 )
 from .models import User
 
@@ -158,24 +162,10 @@ def account():
     elif request.method == 'GET':
         form.username.data = current_user.username
         form.email.data = current_user.email
-    image_file = url_for('static', filename='assets/images/' + current_user.image_file)
+    image_file = url_for(
+        'static', filename=f'assets/images/{current_user.image_file}'
+    )
     return render_template('users/account.html', image_file=image_file, form=form)
-
-
-# def send_reset_email(user):
-#     token = user.get_reset_token()
-#     msg = Message('Password Reset Request', sender='korawichanuttra@gmail.com', recipients=[user.email])
-#     msg.body = f"""To reset your password, visit the following link:
-# { url_for('users.reset_token', token=token, _external=True) }
-#
-# If you did not make this request then simply ignore this email and no changes  will be made."""
-#     mail.send(msg)
-
-
-def send_reset_token(user):
-    token = user.get_reset_token()
-    # send_reset_email()
-    print(token)
 
 
 @users.route("/reset_password", methods=["GET", "POST"])
@@ -189,7 +179,7 @@ def reset_request():
     form = RequestResetForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
-        # send_reset_email(user)
+        send_reset_email(user)
         send_reset_token(user)
         flash('An email has been sent with instructions to reset your password.', 'info')
         return redirect(url_for('users.login_get'))

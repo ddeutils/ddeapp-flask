@@ -9,7 +9,8 @@ from flask import (
     request,
     jsonify,
     current_app,
-    abort
+    abort,
+    g
 )
 from flask_login import current_user
 from .models import User
@@ -26,14 +27,31 @@ def check_expired(func):
     return decorated_function
 
 
-def login_required(fn):
+def login_required_session(fn):
     @wraps(fn)
     def inner(*args, **kwargs):
         if session.get('logged_in'):
             return fn(*args, **kwargs)
         return redirect(url_for('login', next=request.path))
-
     return inner
+
+
+# Note:
+# The next value will exist in request.args after a GET request for the login page.
+# You’ll have to pass it along when sending the POST request from the login form.
+# You can do this with a hidden input tag, then retrieve it from request.form when
+# logging the user in.
+#
+#       `<input type="hidden" value="{{ request.args.get('next', '') }}"/>`
+#
+# docs: https://flask.palletsprojects.com/en/latest/patterns/viewdecorators/
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if g.user is None:
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 def requires_roles(*roles):
@@ -55,8 +73,7 @@ def requires_roles(*roles):
 
 def token_required(f):
     """
-    :ref:
-        - https://www.bacancytechnology.com/blog/flask-jwt-authentication
+    docs: https://www.bacancytechnology.com/blog/flask-jwt-authentication
     """
 
     @wraps(f)

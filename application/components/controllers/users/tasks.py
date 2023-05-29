@@ -1,6 +1,8 @@
-from flask import current_app
+from flask import current_app, url_for
+from flask_mail import Message
 from ....app import make_celery
-# from lib.flask_mailplus import send_template_message
+from ....extensions import mail
+from conf import settings
 
 
 celery = make_celery(current_app)
@@ -10,6 +12,26 @@ celery = make_celery(current_app)
 def create_task(task_type):
     print('Success task')
     return True
+
+
+def send_reset_email(user) -> None:
+    token = user.get_reset_token()
+    msg = Message(
+        'Password Reset Request',
+        sender=tuple(settings.ADMINS),
+        recipients=[user.email]
+    )
+    msg.body = (
+        f"""To reset your password, visit the following link:
+{ url_for('users.reset_token', token=token, _external=True) } \n
+If you did not make this request then simply ignore this email and no changes  will be made."""
+    )
+    mail.send(msg)
+
+
+def send_reset_token(user) -> None:
+    token = user.get_reset_token()
+    print(token)
 
 
 # @celery.task()
@@ -34,12 +56,6 @@ def create_task(task_type):
 
 
 # ========= from lib.flask_mailplus import send_template_message =========
-
-# from flask import render_template
-#
-# from snakeeyes.extensions import mail
-#
-#
 # def send_template_message(template=None, ctx=None, *args, **kwargs):
 #     """
 #     Send a templated e-mail using a similar signature as Flask-Mail:

@@ -57,3 +57,18 @@ class VerboseObject(Protocol):
 
 class VerboseDummy:
     verbose: bool = must_bool(os.getenv('DEBUG', 'False'))
+
+
+@dataclass
+class DataPipeline:
+    """Data class for the control table, `ctr_data_pipeline`."""
+    system_type: str
+    table_name: str
+    table_type: str
+    data_date: str
+    run_date: str
+    run_type: str
+    run_count_now: str
+    run_count_max: str
+    rtt_value: str
+    rtt_column: str

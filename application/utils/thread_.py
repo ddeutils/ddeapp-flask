@@ -1,4 +1,5 @@
 import concurrent.futures
+import contextlib
 import inspect
 import threading
 import asyncio
@@ -55,7 +56,9 @@ class ThreadWithControl(threading.Thread):
         self._target = None
         self._args = None
         self._kwargs = None
-        super().__init__(*args, **kwargs)  # same as `threading.Thread.join(self, *args, **kwargs)`
+
+        # same as `threading.Thread.join(self, *args, **kwargs)`
+        super().__init__(*args, **kwargs)
         self._stop_event = threading.Event()
         self.check_count = 0
 
@@ -257,9 +260,7 @@ def main():
     t1.start()
     time.sleep(1)
     t1.exit()
-    try:
+    with contextlib.suppress(concurrent.futures.CancelledError):
         print(t1.result_future.result())
-    except concurrent.futures.CancelledError:
-        pass
     end_time = time.perf_counter()
     print(f"time cost {end_time - start_time:0.2f}")

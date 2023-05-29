@@ -11,7 +11,7 @@ from typing import (
     Optional,
     Union,
 )
-from ..utils.base import (
+from ..core.legacy.base import (
     TblCatalog,
     PipeCatalog,
 )

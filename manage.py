@@ -15,7 +15,10 @@ def cli():
     ...
 
 
-@click.command(name='load', short_help='load data from file in local to database')
+@click.command(
+    name='load',
+    short_help='load data from file in local to database',
+)
 @click.option(
     '-f', '--filename',
     required=True,
@@ -51,14 +54,22 @@ def load(filename: str, target: str, truncate: bool, compress: str):
     if compress.startswith("'"):
         compress: str = compress.strip("'")
     click.echo(f"Start load data from {filename!r} to table {target!r}")
-    load_data(filename=filename, target=target, truncate=truncate, compress=compress)
+    load_data(
+        filename=filename, target=target, truncate=truncate, compress=compress
+    )
 
 
-@click.command(name='migrate', short_help='migrate catalog from configuration to target database')
+@click.command(
+    name='migrate',
+    short_help='migrate catalog from configuration to target database',
+)
 @click.option(
     '-c', '--condition',
     type=str,
-    help='filter condition for get the list of table name from control pipeline table'
+    help=(
+            'filter condition for get the list of table name '
+            'from control pipeline table'
+    )
 )
 @click.option(
     '--debug',
@@ -97,7 +108,7 @@ def migrate(condition: str, debug: bool):
     help='run application only the API component'
 )
 @click.option(
-    '--recreate',
+    '--recreated',
     type=bool,
     default=False,
     help='re-create control tables to target database'
@@ -112,12 +123,12 @@ def runserver(
         debug: bool,
         thread: bool,
         api: bool,
-        recreate: bool,
+        recreated: bool,
         server: bool,
 ):
-    """Run Application Server
+    """Run WSGI Application or Server which implement by waitress
     :usage:
-        >> $ python manage.py run --debug=true
+        ..> $ python manage.py run --debug=true --server=True
 
     :note:
         - Re-loader will be True if run server in debug mode
@@ -125,18 +136,31 @@ def runserver(
     """
     os.environ['DEBUG'] = str(debug).capitalize()
 
+    from flask import Flask
+    from application.utils.logging_ import get_logger
     from application.app import create_app
+    logger = get_logger(__name__)
 
+    click.echo("Start Deploy the application with input argument")
+    logger.debug("Testing logging ...")
+
+    # application factory able to use file `wsgi.py`
+    app: Flask = create_app(
+        frontend=(not api),
+        recreated=recreated,
+    )
     if server:
         from waitress import serve
         serve(
-            app=create_app(frontend=(not api), recreate=recreate),
+            app=app,
             host='0.0.0.0',
             port=5000,
+            threads=4,
+            url_scheme='http',
+            # The URL prefix for adding in the font of main application.
+            url_prefix='',
         )
     else:
-        # application factory able to use file `wsgi.py`
-        app = create_app(frontend=(not api), recreate=recreate)
         app.run(**{
             "debug": debug,
             "threaded": thread,
