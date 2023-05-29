@@ -1,6 +1,6 @@
 import pickle
 from pathlib import Path
-from ....utils.base import (
+from ....core.legacy.base import (
     get_catalog_all,
     TblCatalog,
     PipeCatalog,

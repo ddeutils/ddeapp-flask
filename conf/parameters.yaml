@@ -18,6 +18,7 @@ map_tbl_ps_sla:
 
 map_tbl:
     # Table Catalog configuration
+    datatype: ['datatype', 'type', 'dtype']
     desc: ["description", "descriptions"]
     profile: ['create', 'profile', 'profiles']
     process: ['update', 'process', 'processes', 'function', 'functions']

@@ -322,7 +322,7 @@ imp_min_max_service_level:
     primary_key: ['class_version', 'class_convert_flag']
   initial:
     parameter: ['update_date']
-    values: "0.95, 0.90, 0.85, '{update_date}a'"
+    values: "0.95, 0.90, 0.85, '{update_date}'"
   function:
     validate_service_level_value:
       parameter: [

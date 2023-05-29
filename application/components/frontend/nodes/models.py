@@ -2,12 +2,12 @@ import pickle
 from pathlib import Path
 from dataclasses import dataclass
 from ....extensions import db
-from ....utils.base import (
+from ....core.legacy.base import (
     PipeCatalog
 )
 from ....errors import CatalogNotFound
-from sqlalchemy.orm import synonym, reconstructor
-from sqlalchemy import and_, or_, not_
+from sqlalchemy.orm import reconstructor
+from sqlalchemy import or_
 
 
 class Node(db.Model):

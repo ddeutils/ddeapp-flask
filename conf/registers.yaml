@@ -19,21 +19,21 @@ control_frameworks:
     # This key was generated before this application started for
     # setup automate process if table or data from configuration
     # does not exist in target database.
-#    - name: 'sql:ctr_data_logging'
-#    - name: 'sql:ctr_task_process'
-#    - name: 'sql:ctr_data_parameter'
+    - name: 'sql:ctr_data_logging'
+    - name: 'sql:ctr_task_process'
+    - name: 'sql:ctr_data_parameter'
     - name: 'sql:ctr_data_pipeline'
-#    - name: 'sql:ctr_task_schedule'
+    - name: 'sql:ctr_task_schedule'
 
-#    - name: 'sql:ctr_web_user'
-#    - name: 'sql:ctr_web_role'
-#    - name: 'sql:ctr_web_user_role'
-#    - name: 'sql:ctr_web_group'
-#    - name: 'sql:ctr_web_group_to_group'
-#    - name: 'sql:ctr_web_user_group'
-#    - name: 'sql:ctr_web_group_role'
-#    - name: 'sql:ctr_web_policy'
-#    - name: 'sql:ctr_web_role_policy'
+    - name: 'sql:ctr_web_user'
+    - name: 'sql:ctr_web_role'
+    - name: 'sql:ctr_web_user_role'
+    - name: 'sql:ctr_web_group'
+    - name: 'sql:ctr_web_group_to_group'
+    - name: 'sql:ctr_web_user_group'
+    - name: 'sql:ctr_web_group_role'
+    - name: 'sql:ctr_web_policy'
+    - name: 'sql:ctr_web_role_policy'
 
 functions:
     # This key was generated before this application started for

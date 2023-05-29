@@ -20,7 +20,9 @@ from flask import (
 from flasgger import LazyJSONEncoder
 from flask.logging import default_handler
 from celery import Celery
+from conf import settings
 from .utils.logging_ import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -52,25 +54,32 @@ def make_celery(app):
 def create_app(
         settings_override: Optional[dict] = None,
         frontend: bool = True,
+        recreated: bool = False,
 ):
     """Create a Flask application using the app factory pattern.
 
+        Flask is a WSGI application. A WSGI server is used to run the application,
+    converting incoming HTTP requests to the standard WSGI environ, and converting
+    outgoing WSGI responses to HTTP responses.
+    docs: https://flask.palletsprojects.com/en/2.2.x/deploying/
+
     :param settings_override: Override settings
     :param frontend: Run Flask server included frontend component flag
+    :param recreated: Re-create table in target database
     :return: Flask app
     """
     app = Flask(
         __name__,
 
-        # setup the template folder
+        # set up the template folder
         template_folder='./templates',
 
-        # setup the static folder and url path for request static file,
+        # set up the static folder and url path for request static file,
         # like url_for('static', filename='<filename-path>')
         static_folder='./static',
         static_url_path='/',
 
-        # setup the instance folder
+        # set up the instance folder
         # instance_path='./instance',
         instance_relative_config=False
     )
@@ -82,11 +91,13 @@ def create_app(
     app.json_encoder = LazyJSONEncoder
 
     # Set configuration from config object that create in `/conf/__init__.py`
-    app.config.from_object('conf.DevConfig')
+    app.config.from_object(settings)
 
     # update override configuration to app
-    if settings_override:
-        app.config.update(settings_override)
+    app.config.update(settings_override or {})
+
+    # import pprint
+    # pprint.pprint(app.config, indent=2)
 
     # Set the Jinja Template environment config
     app.jinja_env.lstrip_blocks = True
@@ -116,6 +127,10 @@ def create_app(
         csrf.exempt(frameworks)
         csrf.exempt(analytics)
         csrf.exempt(ingestion)
+
+        # Exempt Limiter with API blueprints
+        from .extensions import limiter
+        limiter.exempt(ingestion)
 
         if frontend:
             # Initialize Blueprints for Controller Static
@@ -164,6 +179,8 @@ def create_app(
                 # g.search_form = SearchForm()
                 ...
 
+            logger.info(f'Request "{request.method} {request.url}" {request.headers}')
+
         @app.get('/api')
         def api_index():
             logger.info("Start: Application was running ...")
@@ -183,7 +200,9 @@ def create_app(
         @app.get("/home")
         @limiter.limit("5/second", override_defaults=False)
         def home():
-            return redirect(url_for('nodes.pipeline'))
+            if frontend:
+                return redirect(url_for('nodes.pipeline'))
+            return redirect(url_for('api_index'))
 
         @app.get('/about')
         @limiter.limit("5/second", override_defaults=False)
@@ -223,8 +242,11 @@ def create_app(
                 'message': 'Success: Server shutting down ...'
             }), HTTP_200_OK
 
+        # Add events
+        events(app)
+
         # Init function and control framework table to database
-        if app.debug:
+        if recreated:
             from .controls import (
                 push_func_setup,
                 push_ctr_setup,
@@ -232,42 +254,70 @@ def create_app(
             push_func_setup()
             push_ctr_setup()
 
-        @app.teardown_appcontext
-        def called_on_teardown(error=None):
-            if error:
-                logger.warning(f'Tearing down with error, {error}')
-
-            # For resource management
-            from .extensions import db
-            db.session.remove()
-            db.engine.dispose()
-
-        # TODO: Catch error `psycopg2.OperationalError`
-        # With after_request we can handle the CORS response headers avoiding to add extra code to our endpoints
-        # docs: https://stackoverflow.com/questions/25594893/how-to-enable-cors-in-flask/52875875#52875875
-        @app.after_request
-        def after_request_func(response):
-            origin = request.headers.get('Origin')
-            print(f"origin: {origin}")
-            if request.method == 'OPTIONS':
-                response = make_response()
-                response.headers.add('Access-Control-Allow-Credentials', 'true')
-                response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-                # response.headers.add('Access-Control-Allow-Headers', 'x-csrf-token')
-                response.headers.add(
-                    'Access-Control-Allow-Methods',
-                    'GET, POST, OPTIONS, PUT, PATCH, DELETE'
-                )
-            else:
-                response.headers.add('Access-Control-Allow-Credentials', 'true')
-            if origin:
-                response.headers.add('Access-Control-Allow-Origin', origin)
-            return response
-
     return app
 
 
-def filters(app):
+def events(app: Flask):
+    """Add events
+    """
+
+    warp_app: Flask = app
+
+    @warp_app.teardown_appcontext
+    def called_on_teardown(error=None):
+        """Called function on app teardown event."""
+        if error:
+            logger.warning(f'Tearing down with error, {error}')
+
+        # For resource management
+        from .extensions import db
+        db.session.remove()
+        db.engine.dispose()
+
+    # Initial test target database connection
+    from sqlalchemy import text
+    from sqlalchemy.exc import OperationalError
+    from psycopg2 import OperationalError as PsycopgOperationalError
+    try:
+        from .utils.database import generate_engine
+        engine = generate_engine()
+        with engine.connect() as conn:
+            conn.execute(text("select 1"))
+    except (OperationalError, PsycopgOperationalError):
+        raise RuntimeError("Dose not connect to target database")
+
+    # TODO: Catch error `psycopg2.OperationalError`
+    # With after_request we can handle the CORS response headers avoiding to add extra code to our endpoints
+    # docs: https://stackoverflow.com/questions/25594893/how-to-enable-cors-in-flask/52875875#52875875
+    @warp_app.after_request
+    def after_request_func(response):
+        origin = request.headers.get('Origin')
+        # Check method options.
+        if request.method == 'OPTIONS':
+            response = make_response()
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+            # response.headers.add('Access-Control-Allow-Headers', 'x-csrf-token')
+            response.headers.add(
+                'Access-Control-Allow-Methods',
+                'GET, POST, OPTIONS, PUT, PATCH, DELETE'
+            )
+        else:
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+
+        if origin:
+            logger.debug(f"Origin: {origin}")
+            # Allow access with domain. If you want ot allow all domain, you can use `*`.
+            # The origin that contain 3 contents, {scheme}://{hostname}[:{port}].
+            # note: http://example.com and http://example.com:80 is the same origin because of
+            #       `http` schema. If it does not have port, it will be 80.
+            #       docs: https://tools.ietf.org/html/rfc6454#section-3.2.1
+            # docs: https://acoshift.me/2019/0004-web-cors.html
+            response.headers.add('Access-Control-Allow-Origin', origin)
+        return response
+
+
+def filters(app: Flask):
     """Register 0 or more custom Jinja filters on an element
 
     :param app: Flask application instance
@@ -285,29 +335,32 @@ def filters(app):
     from functools import partial
     from .utils.reusables import to_pascal_case
 
-    @app.template_filter('tag-user')
-    def tag_user(text):
-        return Markup(re.sub(r'@([a-zA-Z0-9_]+)', r'<a href="/\1">@\1</a>', text))
+    warp_app: Flask = app
+    logger.debug("Start set up filters to this application ...")
 
-    @app.template_filter('make-img')
+    @warp_app.template_filter('tag-user')
+    def tag_user(text):
+        return Markup(re.sub(r'@(\w+)', r'<a href="/\1">@\1</a>', text))
+
+    @warp_app.template_filter('make-img')
     def make_image(text):
         return re.sub(r'img([a-zA-Z0-9_./:-]+)', r'<img width="100px" src="\1">', text)
 
-    @app.template_filter('dumps')
+    @warp_app.template_filter('dumps')
     def dumps(text):
         return (
             json.dumps(json.loads(text), indent=4, separators=(',', ': '))
             if text else ""
         )
 
-    @app.template_filter('pascal')
+    @warp_app.template_filter('pascal')
     def pascal_case(text, joined: str = ''):
         return to_pascal_case(text, joined)
 
     def render_partial(name: str, renderer: Optional = None, **context_data) -> Markup:
         return Markup(renderer(name, **context_data))
 
-    @app.context_processor
+    @warp_app.context_processor
     def inject_render_partial():
         return {
             'render_partial': partial(render_partial, renderer=render_template),
@@ -315,7 +368,7 @@ def filters(app):
         }
 
     # Add global function mapping to Jinja template.
-    helpers = {
+    helpers: dict = {
         'len': len,
         'isinstance': isinstance,
         'str': str,
@@ -325,12 +378,14 @@ def filters(app):
     app.jinja_env.globals.update(**helpers)
 
 
-def extensions(app):
+def extensions(app: Flask) -> None:
     """Register 0 or more extensions (mutates the app passed in).
 
     :param app: Flask application instance
     :return: None
     """
+    logger.debug("Start set up extensions to this application ...")
+
     from .controls import push_ctr_stop_running
     atexit.register(push_ctr_stop_running)
 
@@ -345,7 +400,8 @@ def extensions(app):
         cors,
         csrf,
         assets,
-        scheduler
+        scheduler,
+        mail,
     )
     limiter.init_app(app)
     cache.init_app(app)
@@ -356,19 +412,24 @@ def extensions(app):
     login_manager.init_app(app)
     bcrypt.init_app(app)
     db.init_app(app)
+    mail.init_app(app)
 
-    # Flask Assets
+    # Flask Assets extension
     assets.init_app(app)
     assets.url = app.static_url_path
     assets.directory = app.static_folder
     assets.cache = f"{app.static_folder}/assets/cache"
     # assets.append_path('assets')
 
-    # scheduler.init_app(app)
-    # if app.debug:
-    #     # Register shutdown schedule
-    #     atexit.register(lambda: scheduler.shutdown(wait=False))
-    #     scheduler.start()
+    # Flask APScheduler extension
+    scheduler.init_app(app)
+
+    # Register shutdown schedule in not debugging mode.
+    if not app.debug:
+        from .schedules import add_schedules
+        add_schedules(scheduler)
+        atexit.register(lambda: scheduler.shutdown(wait=False))
+        scheduler.start()
 
 
 def load_data(

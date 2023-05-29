@@ -27,15 +27,16 @@ from ..errors import (
 
 
 def reduce_stm(stm: str, add_row_number: bool = False) -> str:
-    """Reduce statement
-    """
+    """Reduce statement and prepare statement if it wants to catch number of result"""
     _reduce_stm: str = ' '.join(stm.replace('\t', ' ').split()).strip()
     if add_row_number:
         _split_stm: list = _reduce_stm.split(';')
         _last_stm: str = _split_stm.pop(-1)
         if 'select count(*) as row_number ' not in _last_stm:
-            _last_stm: str = f"with row_table as ({_last_stm} returning 1 ) " \
-                             f"select count(*) as row_number from row_table"
+            _last_stm: str = (
+                f"with row_table as ({_last_stm} returning 1 ) "
+                f"select count(*) as row_number from row_table"
+            )
         _split_stm.append(_last_stm)
         return '; '.join(_split_stm)
     return _reduce_stm
@@ -103,8 +104,11 @@ class Value:
         self.vl_action: str = action or 'insert'  # update
         self.vl_expected_cols: [dict] = expected_cols or {}
         self.vl_expected_pk: [list] = expected_pk or []
-        self.vl_update_date: str = update_date if isinstance(update_date, str) \
+        self.vl_update_date: str = (
+            update_date
+            if isinstance(update_date, str)
             else update_date.strftime('%Y-%m-%d %H:%M:%S')
+        )
 
     def generate(self) -> Tuple:
         if self.vl_mode == 'common':
@@ -137,14 +141,29 @@ class Value:
             )
 
     def validate_col_pk(self, columns: list):
-        if self.vl_action != 'insert' and any(_ not in columns for _ in self.vl_expected_pk):
-            raise PrimaryKeyNotExists(f"Data column does not contain list of primary key, {str(self.vl_expected_pk)}")
+        if (
+                self.vl_action != 'insert' and
+                any(_ not in columns for _ in self.vl_expected_pk)
+        ):
+            raise PrimaryKeyNotExists(
+                f"Data column does not contain list of primary key, {str(self.vl_expected_pk)}"
+            )
 
     @staticmethod
     def validate_col_sql_inject(values: dict):
-        if any((('drop ' in value) or ('select ' in value) or ('delete ' in value) or ('insert ' in value))
-               for value in values.values() if value and isinstance(value, str)):
-            raise SQLInjection("data in payloads have sub SQL query like: `select`, `drop`, `delete`, `insert`")
+        if any(
+                (
+                        ('drop ' in value) or
+                        ('select ' in value) or
+                        ('delete ' in value) or
+                        ('insert ' in value)
+                )
+                for value in values.values()
+                if value and isinstance(value, str)
+        ):
+            raise SQLInjection(
+                "data in payloads have sub SQL query like: `select`, `drop`, `delete`, `insert`"
+            )
 
     def validate_col_outer(self, columns: list):
         if any(col not in self.vl_expected_cols for col in columns):
@@ -453,10 +472,12 @@ class Value:
 
     def _generate_result_str(self, columns, values) -> str:
         if self.vl_action == 'update':
-            return "({})".format(", ".join(f"'{_data}'" for _ in columns if (_data := values.get(_))))
-        return "({})".format(
-            ", ".join([f"'{_data}'" if (_data := values.get(_)) else "null" for _ in columns])
-        )
+            value: str = ", ".join(f"'{_data}'" for _ in columns if (_data := values.get(_)))
+        else:
+            value: str = ", ".join(
+                [f"'{_data}'" if (_data := values.get(_)) else "null" for _ in columns]
+            )
+        return f"({value})"
 
 
 class Statement:
@@ -485,7 +506,11 @@ class Statement:
     source_list: list = ['from', 'join', 'left join', 'right join', 'cross join', 'full join']
 
     __slots__ = (
-        'stm_statement', 'stm_with_count', 'stm_add_row_num', 'stm_result', 'stm_generate_flg'
+        'stm_statement',
+        'stm_with_count',
+        'stm_add_row_num',
+        'stm_result',
+        'stm_generate_flg'
     )
 
     def __init__(
@@ -533,11 +558,14 @@ class Statement:
             else f"{stm}; "
 
     def _generate(self) -> str:
+        """Generate statement from string type"""
         for _stm_name, _stm_sub_stm in self.stm_statement.items():
             if not isinstance(_stm_sub_stm, str):
-                raise TableArgumentError(f"process does not support for type {type(_stm_sub_stm)}")
-            _reduce_stm: str = reduce_stm(_stm_sub_stm)
+                raise TableArgumentError(
+                    f"process does not support for type {type(_stm_sub_stm)}"
+                )
 
+            _reduce_stm: str = reduce_stm(_stm_sub_stm)
             if _stm_name.startswith("with_"):
                 self.stm_with_count += 1
                 tbl_alias_stm = (

@@ -4,13 +4,21 @@
 # license information.
 # --------------------------------------------------------------------------
 
+"""
+This is the legacy base file for generate validator object with pure python code
+without any validate class package.
+
+The modern we will migrate the validator and statement generator to the Pydantic
+package with split to two files, validators.py and statements.py.
+"""
+
 import os
 import re
 import operator
 import fnmatch
 import yaml
 import importlib
-import pytz
+from dateutil import tz
 import datetime as dt
 from dateutil.relativedelta import relativedelta
 from typing import (
@@ -20,35 +28,34 @@ from typing import (
     Union,
     Iterator,
 )
-from ..utils.convertor import (
+from application.utils.convertor import (
     reduce_stm,
     Statement,
 )
-from ..utils.reusables import (
+from application.utils.reusables import (
     only_one,
     merge_dicts,
     must_list,
     must_bool,
     hash_string,
 )
-from ..utils.config import (
+from application.utils.config import (
     Params,
     AI_APP_PATH,
 )
-from ..utils.io import load_json_to_values
-from ..utils.logging_ import logging
-from ..utils.models import VerboseObject
-from ..errors import (
+from application.utils.io import load_json_to_values
+from application.utils.logging_ import logging
+from application.utils.models import VerboseObject
+from application.errors import (
     TableNotImplement,
     CatalogNotFound,
     CatalogArgumentError,
     TableValidatorError,
 )
+from application.core.models import Catalog
 
 params = Params(param_name='parameters.yaml')
-
 registers = Params(param_name='registers.yaml')
-
 logger = logging.getLogger(__name__)
 
 
@@ -73,8 +80,7 @@ def sort_by_priority(
         values: Union[list, dict],
         priority_lists: Optional[list] = None
 ):
-    """Sorted list by string prefix priority
-    """
+    """Sorted list by string prefix priority"""
     _priority_lists: list = priority_lists or params.list_tbl_priority
     priority_dict: dict = {k: i for i, k in enumerate(_priority_lists)}
 
@@ -98,7 +104,7 @@ def get_run_date(date_type: str = 'str', fmt: str = '%Y-%m-%d') -> Union[str, dt
         >> get_run_date(fmt='%Y/%m/%d')
         '2022/01/01'
     """
-    run_date: dt.datetime = dt.datetime.now(pytz.timezone('Asia/Bangkok'))
+    run_date: dt.datetime = dt.datetime.now(tz.gettz('Asia/Bangkok'))
     if date_type == 'str':
         return run_date.strftime(fmt)
     return run_date.date() if date_type == 'date' else run_date
@@ -173,7 +179,7 @@ def get_cal_date(
         run_type: str,
         cal_value: int,
         date_type: str = 'str',
-        fmt='%Y-%m-%d'
+        fmt: str = '%Y-%m-%d'
 ) -> Union[str, dt.date]:
     """Get date with internal calculation logic
     """
@@ -190,12 +196,11 @@ def get_cal_date(
 def get_function(func_string: str) -> callable:
     """Get function from imported string
     :usage:
-        >> get_function(func_string='application.vendor.replenishment.run_prod_cls_criteria')
-
+        ..> get_function(func_string='application.vendor.replenishment.run_prod_cls_criteria')
     """
-    module, function = func_string.rsplit(sep='.', maxsplit=1)
+    module, _function = func_string.rsplit(sep='.', maxsplit=1)
     mod = importlib.import_module(module)
-    return getattr(mod, function)
+    return getattr(mod, _function)
 
 
 def _get_config_filter_path(
@@ -218,6 +223,14 @@ def _get_config_filter_path(
     return False
 
 
+def _get_config_filter_key(keys, conf, all_mode: bool = True) -> bool:
+    """Key filtering gateway of configuration"""
+    return (
+        set(keys).issubset(set(conf))
+        if all_mode else len(set(keys).intersection(set(conf))) > 0
+    )
+
+
 def get_config_sht(
         config_name_sht: str,
         config_prefix: str,
@@ -233,11 +246,13 @@ def get_config_sht(
         if _get_config_filter_path(file, folder_config, prefix, config_prefix_file):
             with open(os.path.join(conf_path, file), encoding='utf8') as f:
                 _tbl_data = yaml.load(f, Loader=yaml.Loader)
+
                 for _tbl in _tbl_data:
                     if "".join(map(lambda x: x[0], _tbl.split("_"))) == config_name_sht:
                         _result = _tbl_data[_tbl]
                         _result['config_name'] = _tbl
                         _results.append(_result)
+
                 del _tbl_data
     if _results:
         return sorted(
@@ -282,10 +297,6 @@ def get_config(
     )
 
 
-def _get_config_filter_key(keys, conf, all_mode: bool = True) -> bool:
-    return set(keys).issubset(set(conf)) if all_mode else len(set(keys).intersection(set(conf))) > 0
-
-
 def get_catalog_all(
         folder_config: Optional[Union[str, list]] = None,
         key_exists: Optional[Union[str, list]] = None,
@@ -309,15 +320,13 @@ def get_catalog_all(
                     } if _key_exists else _config_data_raw
                     _files: dict = merge_dicts(_files, _config_data)
                     del _config_data_raw, _config_data
-    if priority_sorted:
-        return sort_by_priority(_files)
-    return _files
+    return sort_by_priority(_files) if priority_sorted else _files
 
 
 def split_datatype(datatype_full: str) -> Tuple[str, str]:
     for null_str in ['not null', 'null']:
         if search := re.search(null_str, datatype_full):
-            _nullable: str = search.group(0).strip()
+            _nullable: str = search[0].strip()
             return datatype_full.replace(_nullable, '').strip(), _nullable
     return datatype_full.strip(), 'null'
 
@@ -338,7 +347,12 @@ class TblCatalog:
     """Table Catalog for generate all configuration from .yaml file"""
 
     __slots__ = (
-        'tbl_name', 'tbl_type', 'tbl_name_sht', 'tbl_prefix', 'tbl_catalog', 'tbl_process_count',
+        'tbl_name',
+        'tbl_type',
+        'tbl_name_sht',
+        'tbl_prefix',
+        'tbl_catalog',
+        'tbl_process_count',
         'verbose'
     )
 
@@ -430,12 +444,14 @@ class TblCatalog:
     def tbl_features(self):
         return {col: feature['feature'] for col, feature in self.tbl_profile['features'].items()}
 
+    # [x] Migrate to modern style
     def validate_tbl_with_flag(self, flag: Optional[Union[str, bool]]) -> bool:
         try:
             return must_bool(flag, force_raise=True)
         except ValueError:
             return any(self.tbl_name.startswith(params.map_tbl_flag.get(_)) for _ in flag)
 
+    # [x] Migrate to modern style
     def validate_tbl_columns(self, columns: Union[list, dict], raise_error: bool = False) -> Optional[list]:
         _filter: list = [_col for _col in columns if _col in self.tbl_features]
         if len(_filter) != len(columns) and raise_error:
@@ -446,6 +462,7 @@ class TblCatalog:
         return _filter if isinstance(columns, list) else {
             _col: _type for _col, _type in columns.items() if _col in _filter}
 
+    # [x] Migrate to modern style
     def get_tbl_columns(self, pk_included: bool = False, datatype_included: bool = False) -> Union[list, dict]:
         if datatype_included:
             return self.tbl_profile['features'] if pk_included else \
@@ -456,6 +473,7 @@ class TblCatalog:
         return list(self.tbl_profile['features']) if pk_included else \
             list(filter(lambda x: x not in self.tbl_primary_key, self.tbl_profile['features']))
 
+    # [x] Migrate to modern style
     def get_tbl_dependency(self) -> Dict[str, Dict[int, Tuple[str]]]:
         _result: dict = {}
         for ps, attrs in sorted(self.tbl_process.items(), key=lambda x: x[1]['priority'], reverse=False):
@@ -463,6 +481,7 @@ class TblCatalog:
             _result[ps] = stm.mapping()
         return _result
 
+    # [x] Migrate to modern style
     def get_tbl_stm_drop(self, cascade: bool = False) -> str:
         _cascade: str = 'cascade' if cascade else ''
         return reduce_stm(params.bs_stm.drop.tbl.format(
@@ -470,6 +489,7 @@ class TblCatalog:
             cascade=_cascade
         ))
 
+    # [x] Migrate to modern style
     def get_tbl_stm_create(self) -> str:
 
         foreign: dict = self.tbl_foreign_key
@@ -494,6 +514,7 @@ class TblCatalog:
             partition=partition
         ))
 
+    # [x] Migrate to modern style
     def get_tbl_stm_create_bk(self, tbl_name_bk: Optional[str] = None) -> str:
         _tbl_name_bk: str = tbl_name_bk or f"{self.tbl_name}_bk"
         return re.sub(
@@ -502,6 +523,7 @@ class TblCatalog:
             self.get_tbl_stm_create()
         )
 
+    # [x] Migrate to modern style
     def get_tbl_stm_create_partition(self, start_period, end_period) -> str:
         """
         Reference: https://www.enterprisedb.com/postgres-tutorials/how-use-table-partitioning-scale-postgresql
@@ -520,6 +542,7 @@ class TblCatalog:
             f"AI framework does not support create partition table with type `{self.tbl_partition_type}`"
         )
 
+    # [x] Migrate to modern style
     def get_tbl_stm_ingest(self) -> str:
         """Generate insert statement for receive data from values string
         :statement:
@@ -553,6 +576,7 @@ class TblCatalog:
             conflict=conflict
         ), add_row_number=False)
 
+    # [x] Migrate to modern style
     def get_tbl_stm_update(self) -> str:
         """Generate update statement for receive data from values string
         :statement:
@@ -582,6 +606,7 @@ class TblCatalog:
             primary_key_columns=primary_key_columns
         ), add_row_number=False)
 
+    # [x] Migrate to modern style
     def get_tbl_conflict_set(
             self,
             excluded: Optional[list] = None,
@@ -605,6 +630,7 @@ class TblCatalog:
             )
         ])
 
+    # [x] Migrate to modern style
     def get_tbl_catalog(self, config: Optional[dict] = None) -> dict:
         """Get merge configuration from any properties of table
         :structure:
@@ -693,6 +719,7 @@ class TblCatalog:
         """Generate property from configuration to standard mapping"""
         pass
 
+    # [x] Migrate to modern style
     def _generate_profile(self, profiles: dict, excluded: Optional[list] = None) -> dict:
         """Generate profile from configuration to standard mapping"""
         _excluded: list = excluded or []
@@ -700,6 +727,7 @@ class TblCatalog:
         _prim_key: list = profiles.get(only_one(list(profiles), params.map_tbl.pk, default=False), [])
         _fore_key: dict = profiles.get(only_one(list(profiles), params.map_tbl.fk, default=False), {})
 
+        # Validate columns in primary key and foreign key list
         if _catch_cols := [f"{_!r}" for _ in _prim_key if _ not in _columns]:
             raise CatalogArgumentError(
                 f"Primary key {', '.join(_catch_cols)} does not exists in features of '{self.tbl_name}'"
@@ -712,33 +740,55 @@ class TblCatalog:
         profiles['features'] = _columns
         return profiles
 
+    # [x] Migrate to modern style
     @staticmethod
     def _loop_profile(profiles: dict, excluded: list):
+        """Loop Filter for data in profile key"""
         _columns: dict = {}
 
-        for index, _feature in enumerate(profiles.pop('features', {}).items(), start=1):
+        for index, _feature in enumerate(
+                profiles.pop('features', {}).items(),
+                start=1
+        ):
             _column: str = _feature[0]
+            _properties: Union[str, dict] = _feature[1]
+
+            # Skip column name which exists in excluded list
             if _column in excluded:
                 continue
 
-            _datatype, _nullable = split_datatype(_feature[1])
-            _columns[_column]: dict = {'order': index, 'nullable': False, 'feature': _feature[1]}
+            if isinstance(_properties, str):
+                _datatype, _nullable = split_datatype(_properties)
 
-            if re.search('unique', _datatype):
-                _datatype: str = ' '.join(_datatype.replace('unique', '').split())
+                _columns[_column]: dict = {
+                    'order': index,
+                    'nullable': False,
+                    'feature': _properties
+                }
 
-            if re.search('serial', _datatype):
-                _columns[_column]['datatype'] = _datatype.replace('serial', 'int')
+                if re.search('unique', _datatype):
+                    _datatype: str = ' '.join(_datatype.replace('unique', '').split())
 
-            elif re.search('default', _datatype):
-                _columns[_column]['datatype'] = _datatype.split('default')[0].strip()
+                if re.search('serial', _datatype):
+                    _columns[_column]['datatype'] = _datatype.replace('serial', 'int')
 
+                elif re.search('default', _datatype):
+                    _columns[_column]['datatype'] = _datatype.split('default')[0].strip()
+
+                else:
+                    _columns[_column]['datatype'] = _datatype
+                    _columns[_column]['nullable'] = not re.search('not null', _nullable)
             else:
-                _columns[_column]['datatype'] = _datatype
-                _columns[_column]['nullable'] = not re.search('not null', _nullable)
+                _columns[_column]: dict = {
+                    'order': index,
+                    'datatype': _properties['type'],
+                    'nullable': _properties.get('nullable', True),
+                    'feature': _properties
+                }
 
         return _columns
 
+    # [x] Migrate to modern style
     def _generate_process(self, processes: dict):
         """Generate processes from configuration to standard mapping"""
         _processes: dict = {}
@@ -783,6 +833,7 @@ class TblCatalog:
         self.tbl_process_count: int = _ps_count
         return _processes
 
+    # [x] Migrate to modern style
     def _generate_initial(self, initial: dict) -> dict:
         """Generate initial from configuration to standard mapping
         :structure:
@@ -850,7 +901,11 @@ class FuncCatalog:
     """Function Catalog for generate all configuration from .yaml file"""
 
     __slots__ = (
-        'func_name', 'func_type', 'func_name_sht', 'func_prefix', 'func_catalog',
+        'func_name',
+        'func_type',
+        'func_name_sht',
+        'func_prefix',
+        'func_catalog',
     )
 
     def __init__(
@@ -897,9 +952,11 @@ class FuncCatalog:
             cascade=_cascade
         ))
 
+    # [x] Migrate to modern style
     def get_func_stm_create(self) -> str:
         return self.func_profile['statement']
 
+    # [x] Migrate to modern style
     def get_func_catalog(self, config: Optional[dict] = None):
         """Get merge configuration from any properties of function
         :structure:
@@ -927,6 +984,7 @@ class FuncCatalog:
         }
         return self.func_catalog
 
+    # [x] Migrate to modern style
     def _generate_profile(self, profiles: Union[dict, str]):
         if isinstance(profiles, str):
             return {
@@ -949,10 +1007,16 @@ class FuncCatalog:
 
 
 class PipeCatalog:
-    """Pipeline Catalog for generate all configuration from .yaml file"""
+    """Pipeline Catalog for generate all configuration from .yaml file
+    """
 
     __slots__ = (
-        'pipe_name', 'pipe_catalog', 'pipe_nodes_count', 'pipe_ta', 'pipe_tr', 'verbose'
+        'pipe_name',
+        'pipe_catalog',
+        'pipe_nodes_count',
+        'pipe_ta',
+        'pipe_tr',
+        'verbose',
     )
 
     def __init__(
@@ -1074,6 +1138,7 @@ class PipeCatalog:
         verbose_log(self, "[Success] Mapping the loading configuration data to `pipe_catalog`", lvl=1, end='-')
         return self.pipe_catalog
 
+    # [x] Migrate to modern style
     def __generate_condition(self, trigger_lists: Union[list, Iterator[str]]) -> Union[list, set]:
         verbose_log(self, "Generate trigger condition ...", lvl=1)
 
@@ -1112,6 +1177,7 @@ class PipeCatalog:
             )
         return convert_element_with_type(_default[0])
 
+    # [x] Migrate to modern style
     def _generate_trigger(self, triggers: Union[str, list]):
         """
         :structure:
@@ -1146,6 +1212,7 @@ class PipeCatalog:
             )
         return self.__generate_condition(_trigger_split)
 
+    # [x] Migrate to modern style
     def _generate_nodes(self, nodes: Union[dict, list]):
         """Generate node from configuration catalog
         :structure:
@@ -1213,6 +1280,7 @@ class PipeCatalog:
         )
         return _nodes
 
+    # [x] Migrate to modern style
     def __generate_node_props(self, priority: float, node_props: Union[list, dict], node_name: Optional[str] = None):
         """Generate node properties with different type of node input argument.
         """
@@ -1239,70 +1307,3 @@ class PipeCatalog:
                 f"in catalog_name: {self.pipe_name}"
             )
         return _node_name, _priority, _node_choose
-
-
-def test_tbl_sql_type():
-    aam = TblCatalog(tbl_name='ai_date_master', tbl_type='sql')
-    # print(aam.tbl_catalog.get('profile'))
-    # print(aam.tbl_catalog.get('process'))
-    # print(aam.get_tbl_stm_update())
-    # print(aam.tbl_process)
-    print(aam.get_tbl_dependency())
-
-
-def test_tbl_sql_dependency():
-    # aam = TblCatalog(tbl_name='ai_article_master', tbl_type='sql')
-    # aam = TblCatalog(tbl_name='imp_forecast_adjust', tbl_type='sql')
-    aam = TblCatalog(tbl_name='ai_article_mapping_fc', tbl_type='sql')
-    print(aam.get_tbl_dependency())
-
-
-def test_tbl_func_type():
-    immsl = TblCatalog(tbl_name='imp_min_max_service_level', tbl_type='py')
-    print(immsl.get_tbl_columns(datatype_included=True))
-    print(immsl.tbl_initial)
-    print(immsl.tbl_process)
-
-
-def test_tbl_from_short_name():
-    aam = TblCatalog.short(short_name='aams')
-    print(aam.tbl_name_sht)
-    print(aam.get_tbl_columns())
-
-
-def test_func_func_type():
-    cie = FuncCatalog(func_name='func_count_if_exists', func_type='func')
-    print(cie.func_profile)
-
-
-def test_func_query_type():
-    qsd = FuncCatalog(func_name='query_shutdown', func_type='query')
-    # print(qsd.func_profile)
-    print(qsd.get_func_stm_create())
-
-
-def test_func_view_type():
-    view = FuncCatalog(func_name='vw_ai_opt_actual_sales_article', func_type='mview')
-    print(view.func_name)
-    print(view.func_profile)
-
-
-def test_pipe():
-    pam = PipeCatalog(pipe_name='after_sync_article_master')
-    # print(pam.pipe_catalog)
-    print(pam.pipe_trigger)
-
-
-if __name__ == '__main__':
-    # test_tbl_sql_type()
-    # test_tbl_sql_dependency()
-    # test_tbl_func_type()
-    # test_tbl_from_short_name()
-    # test_func_func_type()
-    # test_func_query_type()
-    # test_func_view_type()
-    # test_pipe()
-    # for _ in get_catalog_all(folder_config='pipeline', key_exists=params.map_pipe.trigger, key_exists_all_mode=False):
-    #     print(_)
-    #     print("-----------------------------------------")
-    ...

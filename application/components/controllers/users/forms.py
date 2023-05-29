@@ -51,7 +51,10 @@ class RegistrationForm(FlaskForm):
         ]
     )
     password = PasswordField(name='Password', validators=[DataRequired()])
-    confirm_password = PasswordField(name='Confirm Password', validators=[DataRequired(), EqualTo('password')])
+    confirm_password = PasswordField(
+        name='Confirm Password',
+        validators=[DataRequired(), EqualTo('password')],
+    )
     submit = SubmitField(name='Sign Up')
 
 
@@ -89,7 +92,9 @@ class UpdateAccountForm(FlaskForm):
             )
         ]
     )
-    picture = FileField('Update Profile Picture', validators=[FileAllowed(['jpg', 'png'])])
+    picture = FileField(
+        'Update Profile Picture', validators=[FileAllowed(['jpg', 'png'])]
+    )
     submit = SubmitField('Update')
 
 
@@ -111,5 +116,7 @@ class RequestResetForm(FlaskForm):
 
 class ResetPasswordForm(FlaskForm):
     password = PasswordField('Password', validators=[DataRequired()])
-    confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
+    confirm_password = PasswordField(
+        'Confirm Password', validators=[DataRequired(), EqualTo('password')]
+    )
     submit = SubmitField('Reset Password')

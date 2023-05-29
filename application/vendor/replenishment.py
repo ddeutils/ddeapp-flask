@@ -1,7 +1,7 @@
 import math
 import pandas as pd
 import scipy.stats as stats
-from application.utils.base import get_run_date
+from application.core.legacy.base import get_run_date
 from application.utils.logging_ import get_logger
 
 logger = get_logger(__name__)
