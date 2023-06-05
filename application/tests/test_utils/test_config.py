@@ -1,8 +1,4 @@
-import os
-import yaml
 import unittest
-import application.utils.config as conf
-
 
 parameters: dict = {
     "list_tbl_priority": ['ctr', 'src', 'ai', 'imp', 'plt'],

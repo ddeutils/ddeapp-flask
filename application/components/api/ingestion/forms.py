@@ -6,9 +6,9 @@
 
 from typing import Union
 from flask import request
-from ....errors import ValidateFormsError
-from ....core.legacy.base import get_run_date
-from ....utils.validations import (
+from application.core.errors import ValidateFormsError
+from application.core.base import get_run_date
+from application.components.api.validations import (
     ContentValidate,
     validate_parameter,
     validate_run_date,

@@ -6,7 +6,6 @@
 
 import re
 import importlib
-from enum import Enum
 from typing import (
     Optional,
     Dict,
@@ -17,8 +16,12 @@ from typing import (
     Callable,
     Iterator,
     AbstractSet,
+    Generator
 )
-from datetime import datetime, date
+from datetime import (
+    datetime,
+    date,
+)
 from pydantic import (
     BaseModel,
     Field,
@@ -26,24 +29,56 @@ from pydantic import (
     validator,
     ValidationError
 )
-from functools import singledispatch
-from application.utils.config import Params
-from application.utils.reusables import (
-    only_one,
-    must_bool,
-    must_list,
-)
-from application.utils.convertor import (
+from functools import singledispatch, partial
+from application.core.legacy.convertor import (
     reduce_stm,
     Statement,
 )
-from application.utils.io import load_json_to_values
-from application.utils.logging_ import get_logger
-from application.core.models import Status
-from application.core.base import LoadCatalog
+from application.core.utils.config import Params
+from application.core.utils.reusables import (
+    only_one,
+    must_bool,
+    must_list,
+    merge_dicts,
+)
+from application.core.connections.io import load_json_to_values
+from application.core.utils.logging_ import get_logger
+from application.core.models import (
+    Status,
+    ParameterType,
+    ParameterMode,
+    TaskMode,
+    TaskComponent,
+    Result,
+)
+from application.core.base import (
+    LoadCatalog,
+    get_process_id,
+    get_run_date,
+)
 
 params = Params(param_name='parameters.yaml')
 logger = get_logger(__name__)
+
+__all__ = (
+    'Column',
+    'Partition',
+    'Profile',
+    'Table',
+    'TableFrontend',
+    'Function',
+    'FunctionFrontend',
+    'Pipeline',
+    'PiplineFrontend',
+    'Schema',
+    'ReleaseDate',
+    'Task',
+)
+
+
+def sorted_set(values):
+    """Return Sorted List after parsing Set"""
+    return sorted(list(set(values)))
 
 
 def split_datatype(datatype_full: str) -> Tuple[str, str]:
@@ -73,10 +108,14 @@ def split_fk(value: str) -> Tuple[str, Optional[str]]:
     return value, None
 
 
-def catch_from_string(value: str, key: str, replace: Optional = None, flag: bool = True):
+def catch_from_string(
+        value: str, key: str, replace: Optional = None, flag: bool = True
+):
     """Catch keyword from string value and return True if exits"""
     if key in value:
-        return ' '.join(value.replace(key, (replace or '')).split()), (True if flag else key)
+        return ' '.join(
+            value.replace(key, (replace or '')).split()
+        ), (True if flag else key)
     return value, (False if flag else None)
 
 
@@ -97,21 +136,33 @@ def convert_str_to_dict(key: str, value: Union[str, dict]) -> dict:
     return {key: value} if isinstance(value, str) else value
 
 
-def filter_ps_type(ps_name_full: str) -> Tuple[str, str]:
+def filter_ps_type(
+        ps_name_full: str,
+        default: str = 'sql',
+) -> Tuple[str, str]:
     if ':' in ps_name_full:
         _name_split: list = ps_name_full.split(':')
         _type: str = _name_split.pop(0)
         return _type, _name_split[-1].split('.')[-1]
-    return 'sql', ps_name_full
+    return default, ps_name_full
 
 
 def filter_not_null(datatype: str) -> bool:
     return all(not re.search(word, datatype) for word in ['default', 'serial'])
 
 
+AbstractSetOrDict = Union[
+    AbstractSet[Union[int, str]], Dict[Union[int, str], Any]
+]
+
+
 class BaseUpdatableModel(BaseModel):
     """Base Model that was implemented updatable method and properties.
     """
+
+    @classmethod
+    def get_field_names(cls, alias=False):
+        return list(cls.schema(alias).get("properties").keys())
 
     @classmethod
     def get_properties(cls) -> list:
@@ -124,8 +175,8 @@ class BaseUpdatableModel(BaseModel):
     def dict(
             self,
             *,
-            include: Union[AbstractSet[Union[int, str]], Dict[Union[int, str], Any]] = None,
-            exclude: Union[AbstractSet[Union[int, str]], Dict[Union[int, str], Any]] = None,
+            include: AbstractSetOrDict = None,
+            exclude: AbstractSetOrDict = None,
             by_alias: bool = False,
             skip_defaults: bool = None,
             exclude_unset: bool = False,
@@ -164,25 +215,36 @@ class BaseUpdatableModel(BaseModel):
         update = self.dict()
         update.update(data)
         for k, v in self.validate(update).dict(exclude_defaults=True).items():
-            # print(f"updating value of '{k}' from '{getattr(self, k, None)}' to '{v}'")
             setattr(self, k, v)
         return self
 
     class Config:
         # This config allow to validate before assign new data to any field
-        # docs: https://python.plainenglish.io/pydantic-model-config-with-examples-ce7679010cac
         validate_assignment = True
         allow_population_by_field_name = True
         use_enum_values = True
+        underscore_attrs_are_private = True
 
 
 class Tag(BaseUpdatableModel):
     """"""
-    author: str = Field(default=None)
-    description: Optional[str] = Field(default=None, description="Description")
-    labels: list = Field(default_factory=list)
-    version: date = Field(default='1990-01-01', alias='TagVersion')
-    ts: Optional[datetime] = Field(default=None, alias='TagTimestamp')
+    author: str = Field(
+        default=None,
+        description="Author"
+    )
+    description: Optional[str] = Field(
+        default=None, description="Description"
+    )
+    labels: list = Field(
+        default_factory=list
+    )
+    version: date = Field(
+        default='1990-01-01', alias='TagVersion'
+    )
+    ts: Optional[datetime] = Field(
+        default=None,
+        alias='TagTimestamp',
+    )
 
     @validator('author', pre=True, always=True)
     def set_author(cls, value):
@@ -202,7 +264,10 @@ class Tag(BaseUpdatableModel):
 
 class CommonType(BaseUpdatableModel):
     """Data Type model"""
-    type: str = Field(..., description='Type of data that implement with target database')
+    type: str = Field(
+        ...,
+        description='Type of data that implement with target database'
+    )
 
     @root_validator(pre=True)
     def prepare_values(cls, values):
@@ -235,11 +300,14 @@ class Column(BaseUpdatableModel):
     """Column model"""
     # Necessary value
     name: str = Field(
-        ..., alias="ColumnName",
+        ...,
         description="Name of Column that match in database",
+        alias="ColumnName",
     )
     datatype: Union[dict, str] = Field(
-        ..., description="Data type of value of this column", alias='DataType'
+        ...,
+        description="Data type of value of this column",
+        alias='DataType'
     )
 
     # Default value
@@ -247,72 +315,101 @@ class Column(BaseUpdatableModel):
         default=True, description="Nullable flag", alias='Nullable'
     )
     unique: bool = Field(
-        default=False, description="Unique key flag which can contain null value", alias='Unique'
+        default=False,
+        description="Unique key flag which can contain null value",
+        alias='Unique',
     )
     default: Union[int, str] = Field(
-        default=None, description='Default value of this column', alias='Default'
+        default=None,
+        description='Default value of this column',
+        alias='Default',
     )
     check: Optional[str] = Field(
-        default=None, description="Check statement before insert to database", alias='Check'
+        default=None,
+        description="Check statement before insert to database",
+        alias='Check',
     )
 
     # Special value that effect to parent model that include this model
     pk: bool = Field(
-        default=False, description="Primary key flag which can not contain null value", alias='PrimaryKey'
+        default=False,
+        description="Primary key flag which can not contain null value",
+        alias='PrimaryKey',
     )
     fk: dict = Field(
-        default_factory=dict, description="Foreign key reference", alias='ForeignKey'
+        default_factory=dict,
+        description="Foreign key reference",
+        alias='ForeignKey',
     )
 
     @root_validator(pre=True)
     def prepare_datatype_from_string(cls, values):
-        """Prepare datatype value that parsing to this model with different type,
-        string or dict type.
+        """Prepare datatype value that parsing to this model with different
+        types, string or dict type.
+
+        This filter will prepare datatype value from the format,
+            {DATATYPE} {UNIQUE} {NULLABLE} {DEFAULT}
+            {PRIMARY KEY|FOREIGN KEY} {CHECK}
+
+        Examples:
+        - varchar( 100 ) not null default 'O' check( <name> <> 'test' )
+        - serial not null primary key
         """
-        if not (datatype_key := only_one(values, params.map_tbl.datatype, default=False)):
+        if not (
+                datatype_key := only_one(
+                    values, params.map_tbl.datatype, default=False
+                )
+        ):
             raise ValueError('datatype does not contain in values')
 
         pre_datatype = values.pop(datatype_key)
         if not isinstance(pre_datatype, str):
             raise TypeError(
-                f'datatype value does not support for this type, {type(pre_datatype)}'
+                f'datatype value does not support for this type, '
+                f'{type(pre_datatype)}'
             )
 
-        # This filter will prepare datatype value from the format,
-        # {DATATYPE} {UNIQUE} {NULLABLE} {DEFAULT} {PRIMARY KEY|FOREIGN KEY} {CHECK}
-        #
-        # examples:
-        #     - varchar( 100 ) not null default 'undefined' check( <name> <> 'test' )
-        #     - serial not null primary key
-        #
         _datatype, _nullable = split_datatype(pre_datatype)
         values_update: dict = {'nullable': False}
 
         # Remove unique value from datatype
-        _datatype, values_update['unique'] = catch_from_string(_datatype, 'unique')
+        _datatype, values_update['unique'] = catch_from_string(
+            _datatype,
+            'unique',
+        )
 
         # Remove primary key value from datatype
-        _datatype, values_update['pk'] = catch_from_string(_datatype, 'primary key')
+        _datatype, values_update['pk'] = catch_from_string(
+            _datatype,
+            'primary key',
+        )
 
         # Rename serial value to int from datatype
-        _datatype, _ = catch_from_string(_datatype, 'serial', replace='int')
+        _datatype, _ = catch_from_string(
+            _datatype,
+            'serial',
+            replace='int'
+        )
 
         if 'check' in _datatype:
-            if m := re.search(r'check\s?\((?P<check>[^()]*(?:\(.*\))*[^()]*)\)', _datatype):
+            if m := re.search(
+                    r'check\s?\((?P<check>[^()]*(?:\(.*\))*[^()]*)\)',
+                    _datatype,
+            ):
                 _datatype, values_update['check'] = catch_from_string(
                     _datatype, m.group(), flag=False
                 )
             else:
                 raise ValueError(
-                    'datatype with type string does not support for this format of check'
+                    'datatype with type string does not support for '
+                    'this format of check'
                 )
         if re.search('default', _datatype):
             values['datatype'] = _datatype.split('default')[0].strip()
         else:
             values['datatype'] = _datatype
             values_update['nullable'] = not re.search('not null', _nullable)
-        values_update.update(values)
-        return values_update
+        return merge_dicts(values_update, values)
 
     @validator('name', pre=True)
     def prepare_name(cls, value) -> str:
@@ -331,12 +428,6 @@ class Column(BaseUpdatableModel):
         return values
 
 
-class PartitionType(Enum):
-    RANGE = 'range'
-    LIST = 'list'
-    HASH = 'hash'
-
-
 class Partition(BaseModel):
     """Partition model"""
     type: Optional[str] = Field(default=None)
@@ -351,7 +442,15 @@ class Reference(BaseModel):
 
 class ForeignKey(BaseModel):
     name: str
-    reference: Reference = Field(..., description='Reference mapping of foreign key')
+    reference: Reference = Field(
+        ...,
+        description='Reference mapping of foreign key'
+    )
+
+
+ValueListOrDict = Union[
+    List[dict], Dict[int, dict], Dict[str, Union[str, dict]]
+]
 
 
 class Profile(BaseUpdatableModel):
@@ -359,10 +458,22 @@ class Profile(BaseUpdatableModel):
 
     note: If data parsing with empty value, it will return default of mapping
     """
-    features: List[Column] = Field(default_factory=list, description='Mapping Column features with position order')
-    primary_key: List[str] = Field(default_factory=list, description='List of primary key or composite key')
-    foreign_key: List[dict] = Field(default_factory=list, description='Mapping of foreign keys')
-    partition: Partition = Field(default_factory=dict, description='Partition properties')
+    features: List[Column] = Field(
+        default_factory=list,
+        description='Mapping Column features with position order',
+    )
+    primary_key: List[str] = Field(
+        default_factory=list,
+        description='List of primary key or composite key',
+    )
+    foreign_key: List[dict] = Field(
+        default_factory=list,
+        description='Mapping of foreign keys',
+    )
+    partition: Partition = Field(
+        default_factory=dict,
+        description='Partition properties',
+    )
 
     @root_validator(pre=True)
     def prepare_values(cls, values):
@@ -372,7 +483,7 @@ class Profile(BaseUpdatableModel):
     @validator('features', pre=True)
     def prepare_features(
             cls,
-            value: Union[List[dict], Dict[int, dict], Dict[str, str], Dict[str, dict]]
+            value: ValueListOrDict
     ):
         """Prepare features before features type validation occurs"""
         logger.debug('Profile: ... Start pre-validate features')
@@ -392,13 +503,16 @@ class Profile(BaseUpdatableModel):
                 if isinstance(k, str):
                     if not isinstance(v, (str, dict)):
                         raise TypeError(
-                            f'the value type of mapping features does not support for type {type(v)}'
+                            f'the value type of mapping features '
+                            f'does not support for type {type(v)}'
                         )
-                    _features.append({'name': k, **convert_str_to_dict('datatype', v)})
+                    _features.append({
+                        'name': k, **convert_str_to_dict('datatype', v)
+                    })
                 elif not isinstance(k, int) or not isinstance(v, dict):
                     raise TypeError(
-                        f'the key type {type(k)} or the value type {type(v)} of features mapping does '
-                        f'not support for process'
+                        f'the key type {type(k)} or the value type {type(v)} '
+                        f'of features mapping does not support for process'
                     )
                 else:
                     _features.append(v)
@@ -411,7 +525,10 @@ class Profile(BaseUpdatableModel):
         """Validate for each data in the list of primary key.
         Note: If the list does not contain any data, this process will skip.
         """
-        logger.debug('Profile: ... Start validate primary_key and update pk flag to feature')
+        logger.debug(
+            'Profile: ... Start validate primary_key and update pk flag '
+            'to feature'
+        )
         _features: List[Column] = values.get('features')
         _columns_exist: list = [feature.name for feature in _features]
         if value not in _columns_exist:
@@ -419,12 +536,18 @@ class Profile(BaseUpdatableModel):
                 f'{value} in primary key does not exists in features'
             )
         _index: int = _columns_exist.index(value)
-        _features[_index] = _features[_index].update({'pk': True, 'nullable': False})
+        _features[_index] = _features[_index].update(
+            {'pk': True, 'nullable': False}
+        )
         return value
 
     @validator('foreign_key', pre=True)
-    def prepare_foreign_key(cls, value: Union[List[dict], Dict[str, Dict[str, str]]]):
-        """Prepare foreign key value before foreign key type validation occurs"""
+    def prepare_foreign_key(
+            cls,
+            value: Union[List[dict], Dict[str, Dict[str, str]]]
+    ):
+        """Prepare foreign key value before foreign key type validation occurs
+        """
         logger.debug('Profile: ... Start pre-validate foreign_key')
         if isinstance(value, list):
             return value
@@ -436,18 +559,24 @@ class Profile(BaseUpdatableModel):
         for feature, v in value.items():
             if isinstance(v, str):
                 table, ft = split_fk(v)
-                _fk.append({'name': feature, 'ref_table': table, 'ref_column': (ft or feature)})
+                _fk.append({
+                    'name': feature,
+                    'ref_table': table,
+                    'ref_column': (ft or feature),
+                })
             elif isinstance(v, dict):
                 _fk.append({'name': feature, **v})
             else:
                 raise TypeError(
-                    f'foreign key does not support for value of mapping with type {type(v)}'
+                    f'foreign key does not support for value of mapping '
+                    f'with type {type(v)}'
                 )
         return _fk
 
     @validator('foreign_key', pre=True, each_item=True)
     def prepare_for_each_foreign_key(cls, value):
-        """Prepare for each foreign key value in list before type validation occurs
+        """Prepare for each foreign key value in list before type validation
+        occurs
         """
         logger.debug('Profile: ... ... Start pre-validate for each foreign_key')
         if not isinstance(value, dict):
@@ -466,7 +595,8 @@ class Profile(BaseUpdatableModel):
     @validator('foreign_key', each_item=True)
     def validate_for_each_foreign_key(cls, value, values):
         """Validate for each foreign key in list after type validation.
-        This step will check and update fk value to the foreign key column in features.
+        This step will check and update fk value to the foreign key column in
+        features.
         """
         logger.debug('Profile: ... ... Start validate for each foreign_key')
         features: List[Column] = values.get('features')
@@ -519,8 +649,14 @@ class Profile(BaseUpdatableModel):
 class BaseProcess(BaseUpdatableModel):
     """Process model"""
     name: str = Field(..., description='Process name')
-    parameter: List[str] = Field(default_factory=list, description='List of process\'s parameter')
-    priority: int = Field(default=0, description='Process priority')
+    parameter: List[str] = Field(
+        default_factory=list,
+        description='List of process\'s parameter'
+    )
+    priority: int = Field(
+        default=0,
+        description='Process priority'
+    )
 
     @root_validator(pre=True)
     def prepare_base_values(cls, values):
@@ -530,8 +666,8 @@ class BaseProcess(BaseUpdatableModel):
             raise ValueError('name does not contain')
         return {
             'name': name,
-            'parameter': list(
-                set(values.pop(only_one(list(values), params.map_tbl.param), []))
+            'parameter': sorted_set(
+                values.pop(only_one(list(values), params.map_tbl.param), [])
             ),
             **values
         }
@@ -573,8 +709,8 @@ Process = Union[SQLProcess, PYProcess]
 
 
 class Table(BaseUpdatableModel):
-    """Catalog Model that receive data from yaml file and validate all values
-    to standard format for core engine that processable
+    """Table/Catalog Model that receive data from yaml file and validate all
+    values to standard format for core engine that processable.
 
         The Object of this model that why I choose Pydantic,
 
@@ -586,21 +722,29 @@ class Table(BaseUpdatableModel):
     """
     # Metadata of catalog model
     name: str = Field(..., description='Catalog name', alias='CatalogName')
-    shortname: str = Field(..., description='Catalog shortname which separate by _', alias='CatalogShortName')
+    shortname: str = Field(
+        ...,
+        description='Catalog shortname which separate by _',
+        alias='CatalogShortName'
+    )
     prefix: str = Field(..., alias='CatalogPrefix')
     type: str = Field(default='sql', alias='CatalogType')
 
     # Action metadata of catalog model
     profile: Profile = Field(..., description='Profile data of catalog')
-    process: Dict[str, Process] = Field(default_factory=dict, description='Process data of catalog')
-    initial: Any = Field(default_factory=dict, description='Initial data of catalog')
+    process: Dict[str, Process] = Field(
+        default_factory=dict, description='Process data of catalog'
+    )
+    initial: Any = Field(
+        default_factory=dict, description='Initial data of catalog'
+    )
 
     # Tag metadata of catalog model
     tag: Tag = Field(default_factory=dict, description='Tag of catalog')
 
     @classmethod
     def parse_shortname(cls, shortname: str):
-        """"""
+        """Parse shortname to Table Model"""
         return cls.parse_obj(LoadCatalog.from_shortname(
             name=shortname,
             prefix='',
@@ -610,7 +754,7 @@ class Table(BaseUpdatableModel):
 
     @classmethod
     def parse_name(cls, fullname: str):
-        """"""
+        """Parse name to Table Model"""
         _type, name = filter_ps_type(fullname)
         obj = LoadCatalog(
             name=name,
@@ -628,24 +772,38 @@ class Table(BaseUpdatableModel):
         if not (name := values.get('name')):
             raise ValueError('name does not set')
         prefix: str = name.split('_')[0]
-        if not (profile_key := only_one(values, params.map_tbl.profile, default=False)):
-            raise ValueError(
-                "Profile key does not found any key represent `create`/`profile`"
-            )
-        elif not (process_key := only_one(values, params.map_tbl.process, default=False)):
-            if prefix in params.list_tbl_prefix_must_have_process:
-                raise ValueError(
-                    "Catalog does not found any key represent `update`/`process`/`function`"
+        if not (
+                profile_key := only_one(
+                    values, params.map_tbl.profile, default=False,
                 )
+        ):
+            raise ValueError(
+                "Profile key does not found any key represent "
+                "`create`/`profile`"
+            )
+        elif (
+                not (
+                        process_key := only_one(
+                            values, params.map_tbl.process, default=False
+                        )
+                )
+                and prefix in params.list_tbl_prefix_must_have_process
+        ):
+            raise ValueError(
+                "Catalog does not found any key represent "
+                "`update`/`process`/`function`"
+            )
 
         _initial: dict = {}
-        if _initial_key := only_one(values, params.map_tbl.initial, default=False):
+        if _initial_key := only_one(
+                values, params.map_tbl.initial, default=False
+        ):
             _initial: Any = values.pop(_initial_key)
 
         # Make new mapping to model
         return {
             'name': name,
-            'shortname': "".join([word[0] for word in name.split("_")]),
+            'shortname': "".join(map(lambda w: w[0], name.split("_"))),
             'prefix': prefix,
             'type': values.get('type', params.list_tbl_types[0]),
             'profile': values.pop(profile_key),
@@ -653,7 +811,9 @@ class Table(BaseUpdatableModel):
             'initial': _initial,
             'tag': {
                 'version': values.pop('version', None),
-                'description': values.pop(only_one(values, params.map_tbl.desc), None),
+                'description': values.pop(
+                    only_one(values, params.map_tbl.desc), None,
+                ),
             }
         }
 
@@ -663,7 +823,9 @@ class Table(BaseUpdatableModel):
         if not value:
             raise ValueError('Profile value was emptied and did not set')
         elif not isinstance(value, dict):
-            raise TypeError(f'Profile value was not support for type {type(value)}')
+            raise TypeError(
+                f'Profile value was not support for type {type(value)}'
+            )
         return value
 
     @validator('process', pre=True)
@@ -677,37 +839,56 @@ class Table(BaseUpdatableModel):
                     reverse=False
                 )
         ):
-            if (ps_type := ps_details.get('type', values['type'])) not in params.list_tbl_types:
+            if (
+                    ps_type := ps_details.get('type', values['type'])
+            ) not in params.list_tbl_types:
                 raise ValueError(
                     f"framework does not support for process type {ps_type!r}"
                 )
             _processes[ps_name] = {
                 'name': ps_name,
-                'parameter': list(set(ps_details.get(only_one(list(ps_details), params.map_tbl.param), []))),
+                'parameter': sorted_set(
+                    ps_details.get(
+                        only_one(list(ps_details), params.map_tbl.param), [],
+                    )
+                ),
                 'priority': _ps_count + 1
             }
             if ps_type == 'sql':
-                _processes[ps_name]['statement'] = ps_details.get(only_one(list(ps_details), params.map_tbl.stm), "")
+                _processes[ps_name]['statement'] = ps_details.get(
+                    only_one(list(ps_details), params.map_tbl.stm), ""
+                )
             elif ps_type == 'py':
-                if not (ps_func_key := only_one(list(ps_details), params.map_tbl.func, default=False)):
+                if (
+                        not (
+                                ps_func_key := only_one(
+                                    list(ps_details),
+                                    params.map_tbl.func, default=False
+                                )
+                        )
+                ):
                     raise ValueError(
-                        f"Function does not set while process {ps_name!r} is {ps_type!r} type"
+                        f"Function does not set while process {ps_name!r} "
+                        f"has type {ps_type!r}"
                     )
                 _processes[ps_name]['function'] = ps_details[ps_func_key]
                 for stage in {'load', 'save'}:
                     sub_stage_details: dict = ps_details.get(stage, {})
                     _processes[ps_name][stage]: dict = {
                         'name': f'{stage}_{ps_name}',
-                        'parameter': list(
-                            set(
-                                sub_stage_details.get(
-                                    only_one(list(sub_stage_details), params.map_tbl.param), []
-                                )
+                        'parameter': sorted_set(
+                            sub_stage_details.get(
+                                only_one(
+                                    list(sub_stage_details),
+                                    params.map_tbl.param,
+                                ), [],
                             )
                         ),
                         'statement': sub_stage_details.get(
-                            only_one(list(sub_stage_details), params.map_tbl.stm),
-                            ""
+                            only_one(
+                                list(sub_stage_details), params.map_tbl.stm
+                            ),
+                            "",
                         )
                     }
             else:
@@ -729,11 +910,17 @@ class Table(BaseUpdatableModel):
         """Post prepare initial value"""
         logger.debug('Table: ... Start validate initial')
         _initial: dict = {
-            'parameter': list(set(value.get(only_one(list(value), params.map_tbl.param), []))),
+            'parameter': sorted_set(
+                value.get(only_one(list(value), params.map_tbl.param), [])
+            ),
         }
         if not value:
             return value
-        elif not (_value_key := only_one(list(value), ['value', 'values', 'file', 'files'], default=False)):
+        elif not (_value_key := only_one(
+                list(value),
+                ['value', 'values', 'file', 'files'],
+                default=False,
+        )):
             _initial['statement']: str = Statement(
                 value.get(only_one(list(value), params.map_tbl.stm), '')
             ).generate()
@@ -741,7 +928,8 @@ class Table(BaseUpdatableModel):
 
         profile: Profile = values['profile']
         _columns: list = [
-            feature.name for feature in profile.features
+            feature.name
+            for feature in profile.features
             if all(_ not in feature.datatype for _ in {'default', 'serial'})
         ]
 
@@ -756,8 +944,11 @@ class Table(BaseUpdatableModel):
             else f"({_values})"
         )
         _stm: str = (
-            f"insert into {{database_name}}.{{ai_schema_name}}.{values['name']} as {values['shortname']} "
-            f"( {', '.join(_columns)} ) values {initial_value}{profile.conflict()}"
+            f"insert into "
+            f"{{database_name}}.{{ai_schema_name}}.{values['name']} "
+            f"as {values['shortname']} "
+            f"( {', '.join(_columns)} ) "
+            f"values {initial_value}{profile.conflict()}"
         )
         _initial['statement']: str = reduce_stm(_stm, add_row_number=False)
         return _initial
@@ -770,7 +961,10 @@ class Table(BaseUpdatableModel):
         try:
             return must_bool(flag, force_raise=True)
         except ValueError:
-            return any(self.name.startswith(params.map_tbl_flag.get(_)) for _ in flag)
+            return any(
+                self.name.startswith(params.map_tbl_flag.get(_))
+                for _ in flag
+            )
 
     def validate_columns(
             self,
@@ -778,11 +972,14 @@ class Table(BaseUpdatableModel):
             raise_error: bool = False
     ) -> list:
         """Validate column of features"""
-        _filter: list = [_col for _col in columns if _col in self.profile.columns()]
+        _filter: list = list(
+            filter(lambda c: c in self.profile.columns(), columns)
+        )
         if len(_filter) != len(columns) and raise_error:
             _filter_out: set = set(list(columns)).difference(set(_filter))
             raise ValueError(
-                f"Column validate does not exists in {self.name} from {list(_filter_out)}"
+                f"Column validate does not exists in {self.name} "
+                f"from {list(_filter_out)}"
             )
         return (
             _filter if isinstance(columns, list)
@@ -790,19 +987,30 @@ class Table(BaseUpdatableModel):
         )
 
     def dependency(self) -> Dict[str, Dict[int, Tuple[str]]]:
+        """Return dependencies mapping"""
         _result: dict = {}
-        # FIXME: this method does not support for process type py
-        for ps, attrs in sorted(self.process.items(), key=lambda x: x[1]['priority'], reverse=False):
-            stm: Statement = Statement(attrs['statement'])
+        # FIXME: this method does not support for process type "py"
+        for ps, attrs in sorted(
+                self.process.items(),
+                key=lambda x: x[1].priority,
+                reverse=False,
+        ):
+            stm: Statement = Statement(attrs.statement)
             _result[ps] = stm.mapping()
         return _result
 
 
 class Function(BaseUpdatableModel):
-    """Function model"""
+    """Function/Catalog Model that receive data from yaml file and validate
+    all values to standard format for core engine that processable.
+    """
     # Metadata of pipeline model
     name: str = Field(..., description='Function name', alias='FunctionName')
-    shortname: str = Field(..., description='Function shortname which separate by _', alias='FunctionShortName')
+    shortname: str = Field(
+        ...,
+        description='Function shortname which separate by _',
+        alias='FunctionShortName'
+    )
     prefix: str = Field(..., alias='CatalogPrefix')
     type: str = Field(default='func', alias='CatalogType')
 
@@ -812,6 +1020,21 @@ class Function(BaseUpdatableModel):
     # Tag metadata of catalog model
     tag: Tag = Field(default_factory=dict, description='Tag of Function')
 
+    @classmethod
+    def parse_name(cls, fullname: str):
+        """Parse name to Function Model"""
+        _type, name = filter_ps_type(
+            fullname, default=params.list_func_types[0]
+        )
+        obj = LoadCatalog(
+            name=name,
+            prefix="",
+            folder=params.map_func_types.get(_type, 'function'),
+            prefix_file=_type,
+        ).load()
+        obj.update({'type': _type})
+        return cls.parse_obj(obj)
+
     @root_validator(pre=True)
     def prepare_values(cls, values):
         logger.debug('Function: Start validate pre-root ...')
@@ -819,19 +1042,31 @@ class Function(BaseUpdatableModel):
             raise ValueError('name does not set')
 
         prefix: str = name.split('_')[0]
-        if not (profile_key := only_one(values, params.map_func.create, default=False)):
+        if (
+                not (
+                        profile_key := only_one(
+                            values,
+                            params.map_func.create,
+                            default=False
+                        )
+                )
+        ):
             raise ValueError(
-                "Catalog does not found any key represent `create`/`function`/`statement`"
+                "Catalog does not found any key represent "
+                "`create`/`function`/`statement`"
             )
         return {
             'name': name,
-            'shortname': "".join([word[0] for word in name.split("_")]),
+            'shortname': "".join(map(lambda w: w[0], name.split("_"))),
             'prefix': prefix,
             'type': values.get('type', params.list_func_types[0]),
             'profile': values.pop(profile_key),
             'tag': {
                 'version': values.pop('version', None),
-                'description': values.pop(only_one(values, params.map_func.desc), None),
+                'description': values.pop(
+                    only_one(values, params.map_func.desc),
+                    None,
+                ),
             }
         }
 
@@ -851,11 +1086,14 @@ class Function(BaseUpdatableModel):
         elif isinstance(value, dict):
             if not (_stm_key := only_one(list(value), params.map_func.stm)):
                 raise ValueError(
-                    "Function profile does not set statement while profile key was dict type"
+                    "Function profile does not set statement while profile key "
+                    "was dict type"
                 )
             return {
                 'name': name,
-                'parameter': list(set(value.get(only_one(list(value), params.map_func.param), []))),
+                'parameter': sorted_set(
+                    value.get(only_one(list(value), params.map_func.param), [])
+                ),
                 'statement': value.get(_stm_key, '')
             }
         raise ValueError(
@@ -867,7 +1105,11 @@ class Pipeline(BaseUpdatableModel):
     """Pipeline model"""
     # Metadata of pipeline model
     name: str = Field(..., description='Pipeline name', alias='PipelineName')
-    shortname: str = Field(..., description='Pipeline shortname which separate by _', alias='PipelineShortName')
+    shortname: str = Field(
+        ...,
+        description='Pipeline shortname which separate by _',
+        alias='PipelineShortName'
+    )
 
     id: str = Field(..., description='Pipeline ID')
     priority: int = Field(default=0)
@@ -879,33 +1121,58 @@ class Pipeline(BaseUpdatableModel):
     # Tag metadata of catalog model
     tag: Tag = Field(default_factory=dict, description='Tag of Pipeline')
 
+    @classmethod
+    def parse_name(cls, name: str):
+        obj = LoadCatalog(
+            name=name,
+            prefix='',
+            folder='pipeline',
+            prefix_file='pipeline',
+        ).load()
+        return cls.parse_obj(obj)
+
     @root_validator(pre=True)
     def prepare_values(cls, values):
         logger.debug('Pipeline: Start validate pre-root ...')
 
         if not (name := values.get('name')):
             raise ValueError('name does not set')
-
-        if not (pipe_id := only_one(values, params.map_pipe.id, default=False)):
+        if not (
+                pipe_id := only_one(
+                    values, params.map_pipe.id, default=False
+                )
+        ):
             raise ValueError(
                 "Catalog does not found any key represent `id`/`pipeline_id`"
             )
-        if not (node_key := only_one(values, params.map_pipe.nodes, default=False)):
+        if not (
+                node_key := only_one(
+                    values, params.map_pipe.nodes, default=False
+                )
+        ):
             raise ValueError(
                 "Catalog does not found any key represent `nodes`/`tables`"
             )
-        # Make new mapping to model
+        # Make new mapping to Model
         return {
             'name': name,
-            'shortname': "".join([word[0] for word in name.split("_")]),
+            'shortname': "".join(map(lambda w: w[0], name.split("_"))),
             'id': values.pop(pipe_id),
             'priority': values.pop('priority', None),
-            'schedule': must_list(values.get(only_one(values, params.map_pipe.schedule), [])),
-            'trigger': values.get(only_one(values, params.map_pipe.trigger), []),
-            'alert': must_list(values.get(only_one(values, params.map_pipe.alert), [])),
+            'schedule': must_list(
+                values.get(only_one(values, params.map_pipe.schedule), [])
+            ),
+            'trigger': values.get(
+                only_one(values, params.map_pipe.trigger), []
+            ),
+            'alert': must_list(
+                values.get(only_one(values, params.map_pipe.alert), [])
+            ),
             'nodes': values.pop(node_key),
             'tag': {
-                'description': values.get(only_one(values, params.map_pipe.desc), ""),
+                'description': values.get(
+                    only_one(values, params.map_pipe.desc), ""
+                ),
             }
         }
 
@@ -913,16 +1180,19 @@ class Pipeline(BaseUpdatableModel):
     def prepare_trigger(cls, value, config):
         """Prepare trigger value
         :structure:
-            (i)     trigger: [ 'pipeline-id-01', ... ]
+            (i)     trigger: [ 'pipe-id-01', ... ]
 
-            (ii)    trigger: 'pipeline-id-01 & (pipeline-id-02 | pipeline-id-03)'
+            (ii)    trigger: 'pipe-id-01 & (pipe-id-02 | pipe-id-03)'
         """
 
         def __prepare_trigger(trigger: str) -> list:
             """Prepare trigger string value to list value"""
             _trigger: str = ''.join(trigger.strip().split())
             for _ in re.findall(r"(\([A-Za-z0-9_&|]+\))", _trigger):
-                if config.pipe_cond_and not in _ and config.pipe_cond_or not in _:
+                if (
+                        config.pipe_cond_and not in _
+                        and config.pipe_cond_or not in _
+                ):
                     _trigger = _trigger.replace(_, _.strip('()'))
             _trigger: str = _trigger.replace('(', '( ').replace(')', ' )')
             return list(map(
@@ -950,9 +1220,12 @@ class Pipeline(BaseUpdatableModel):
             )
         elif _trigger_split.count('(') != _trigger_split.count(')'):
             raise ValueError(
-                "trigger property does not valid with bracket of logical condition"
+                "trigger property does not valid with bracket of "
+                "logical condition"
             )
-        return cls.__generate_condition(_trigger_split, config.pipe_cond_and, config.pipe_cond_or)
+        return cls.__generate_condition(
+            _trigger_split, config.pipe_cond_and, config.pipe_cond_or
+        )
 
     @staticmethod
     def __generate_condition(
@@ -980,16 +1253,20 @@ class Pipeline(BaseUpdatableModel):
             elif trigger.endswith(')'):
                 if _default_index == 0:
                     raise ValueError(
-                        "trigger property does not valid with bracket of logical condition with ')'"
+                        "trigger property does not valid with bracket of "
+                        "logical condition with ')'"
                     )
-                _convert_result = convert_element_with_type(_default.pop(_default_index))
+                _convert_result = convert_element_with_type(
+                    _default.pop(_default_index)
+                )
                 _default_index -= 1
                 _default[_default_index]['element'].append(_convert_result)
             else:
                 _default[_default_index]['element'].append(trigger)
         if len(_default) > 1:
             raise ValueError(
-                "trigger property does not valid with bracket of logical condition with '('"
+                "trigger property does not valid with bracket of "
+                "logical condition with '('"
             )
         return convert_element_with_type(_default[0])
 
@@ -1007,7 +1284,9 @@ class Pipeline(BaseUpdatableModel):
                         priority: 1
                         choose: ['choose_process', ...]
 
-            (ii)    <node_name_full: `node_type:node_name`>: ['choose_process', ...]
+            (ii)    <node_name_full: `node_type:node_name`>:
+                        - 'choose_process'
+                        - ...
 
             (iii)   - name: <node_name_full: `node_type:node_name`>
                       choose: []
@@ -1018,16 +1297,15 @@ class Pipeline(BaseUpdatableModel):
                     - "<node_name_full: `node_type:node_name`>"
                     ...
         """
-
         _nodes: dict = {}
         if isinstance(value, list):
             for _default_priority, _node_props in enumerate(value, start=1):
-                _node_name, _priority, _node_choose = cls.__generate_node_props(
+                _name, _priority, _choose = cls.__generate_node_props(
                     _default_priority, _node_props
                 )
                 _nodes[_priority] = {
-                    'name': _node_name,
-                    'choose': _node_choose
+                    'name': _name,
+                    'choose': _choose
                 }
         elif isinstance(value, dict):
             _default_priority: float = 1
@@ -1036,42 +1314,54 @@ class Pipeline(BaseUpdatableModel):
                     key=lambda x: x[1].get('priority', 99),
                     reverse=False
             ):
-                _node_name, _priority, _node_choose = cls.__generate_node_props(
+                _name, _priority, _choose = cls.__generate_node_props(
                     _default_priority, node_props, node_name
                 )
                 _nodes[_priority] = {
-                    'name': _node_name,
-                    'choose': _node_choose
+                    'name': _name,
+                    'choose': _choose
                 }
                 _default_priority: float = _priority + 0.1
         return _nodes
 
     @staticmethod
-    def __generate_node_props(priority: float, node_props: Union[list, dict], node_name: Optional[str] = None):
+    def __generate_node_props(
+            priority: float,
+            node_props: Union[list, dict],
+            node_name: Optional[str] = None
+    ):
         """Generate node properties with different type of node input argument.
         """
         if isinstance(node_props, list):
             _priority: float = round(priority, 2)
             _node_choose: list = node_props
-            _node_name: str = node_name
+            _name: str = node_name
         elif isinstance(node_props, dict):
             _priority: float = round(node_props.get('priority') or priority, 2)
-            _choose: str = only_one(list(node_props), params.map_pipe.choose, default=True)
-            _type: str = only_one(list(node_props), params.map_pipe.type, default=True)
+            _choose: str = only_one(
+                list(node_props), params.map_pipe.choose, default=True
+            )
+            _type: str = only_one(
+                list(node_props), params.map_pipe.type, default=True
+            )
             if not node_name:
                 node_name: str = node_props['name']
-            _node_name: str = f"{_node_type}:{node_name}" if (
-                _node_type := node_props.get(_type) and ':' not in node_name) else node_name
+            _name: str = (
+                f"{_node_type}:{node_name}"
+                if (
+                    (_node_type := node_props.get(_type))
+                    and ':' not in node_name
+                ) else node_name)
             _node_choose: Optional[list] = node_props.get(_choose, [])
         elif isinstance(node_props, str):
             _priority = priority
             _node_choose: list = []
-            _node_name: str = node_props
+            _name: str = node_props
         else:
             raise ValueError(
-                f"node properties does not support for '{type(node_props)}' type"
+                f"node properties does not support for '{type(node_props)}'"
             )
-        return _node_name, _priority, _node_choose
+        return _name, _priority, _node_choose
 
     @validator('nodes')
     def validate_nodes(cls, value, values):
@@ -1081,7 +1371,6 @@ class Pipeline(BaseUpdatableModel):
             try:
                 Table.parse_name(fullname=v['name'])
             except ValidationError as e:
-                # print(e.errors())
                 raise ValueError(
                     f"From {name}, node name {v['name']} does not exists"
                 ) from e
@@ -1092,27 +1381,269 @@ class Pipeline(BaseUpdatableModel):
         pipe_cond_or: str = '|'
 
 
-class Task(BaseModel):
-    """Task model"""
-    id: str
-    status: Status = Field(default=Status.WAITING, description='Task status')
+class Schema(BaseUpdatableModel):
+    """Schema model"""
+    name: str = Field(..., description='Schema name', alias='SchemaName')
+
+
+class Parameter(BaseUpdatableModel):
+    """Parameter Model that receive data from interface of framework
+    """
+    others: dict = Field(
+        default_factory=dict,
+        description='Other parameters',
+    )
+    type: ParameterType = Field(
+        default=ParameterType.UNDEFINED.value,
+        description='Parameter type'
+    )
+    name: Optional[str] = Field(
+        default=None,
+        description='Parameter name'
+    )
+    dates: List[str] = Field(
+        default_factory=lambda: [get_run_date()],
+        description='Parameter dates'
+    )
+    mode: ParameterMode = Field(
+        default=ParameterMode.COMMON.value,
+        description='Module mode parameter'
+    )
+    drop_table: bool = Field(
+        default=False,
+        description='Drop Table parameter'
+    )
+    drop_schema: bool = Field(
+        default=False,
+        description='Drop Schema parameter'
+    )
+    cascade: bool = Field(
+        default=False,
+        description='Cascade flag parameter',
+    )
+
+    @root_validator(pre=True)
+    def prepare_values(cls, values):
+        """Prepare values after parsing to validators"""
+        logger.debug('Parameter: Start validate pre-root ...')
+        if _name := values.pop('table_name', None):
+            values['type'] = ParameterType.TABLE
+        elif _name := values.pop('pipeline_name', None):
+            values['type'] = ParameterType.PIPELINE
+        else:
+            _name = values.get('name', None)
+        values['name'] = _name
+
+        # Filter others parameters
+        _exist_others: dict = values.pop('others', {})
+        _others: dict = {
+            value: values[value]
+            for value in values
+            if (
+                    value != 'others'
+                    and value not in cls.get_field_names(alias=True)
+                    and value not in cls.get_field_names(alias=False)
+            )
+        }
+        return {
+            'others': merge_dicts(_others, _exist_others),
+            **values
+        }
+
+    @validator('dates', always=True)
+    def prepare_dates(cls, value, values):
+        logger.debug('Parameter: Start validate always dates ...')
+        if rd := values['others'].pop('run_dates', None):
+            return rd
+        elif rd := values['others'].pop('run_date', None):
+            return [rd]
+        return value
+
+    # class Config(BaseUpdatableModel.Config):
+    #     validate_all = True
+
+
+class ReleaseDate(BaseModel):
+    """Release Date Model"""
+    date: Optional[str] = Field(default=None, description="")
+    index: Optional[int] = Field(default=None, description="")
+    pushed: bool = Field(default=False, description="")
+
+
+class Task(BaseUpdatableModel):
+    """Task Model that generate or receive task from the framework data
+    """
+    module: str = Field(
+        ...,
+        description='Task module'
+    )
+    parameters: Parameter = Field(
+        default_factory=Parameter,
+        description='Task parameters',
+    )
+    mode: TaskMode = Field(
+        default=TaskMode.FOREGROUND.value,
+        description='Task mode with foreground or background'
+    )
+    component: TaskComponent = Field(
+        default=TaskComponent.UNDEFINED.value,
+        description='Task component of the data application framework',
+    )
+    status: Status = Field(
+        default=Status.WAITING.value,
+        description='Task status',
+    )
+    id: Optional[str] = Field(
+        default=None,
+        description='Task ID',
+    )
+    message: str = Field(
+        default='',
+        description='Task Message'
+    )
+    start_time: datetime = Field(
+        default_factory=partial(get_run_date, 'date_time')
+    )
+    release: ReleaseDate = Field(
+        default_factory=ReleaseDate
+    )
+
+    @classmethod
+    def make(cls, module: str) -> 'Task':
+        return cls(module=module)
+
+    @root_validator(pre=True)
+    def root_validate(cls, values):
+        logger.debug('Task: Start validate pre-root ...')
+        return values
+
+    @validator('parameters', always=True)
+    def prepare_parameters(cls, value: Parameter, values) -> Parameter:
+        """Prepare parameter value"""
+        logger.info("Task: Start validate always parameters")
+        if value.type == ParameterType.UNDEFINED:
+            value: Parameter = value.copy(update={'name': values['module']})
+        return value
+
+    @validator('id', always=True)
+    def generate_id(cls, value, values) -> str:
+        """Generate Task ID"""
+        logger.info("Task: Start validate always id")
+        return (value or get_process_id(
+            (
+                    values['module']
+                    + values['parameters'].type
+                    + values['parameters'].name
+            )
+        ))
+
+    def duration(self) -> int:
+        """Generate duration since this model start initialize data"""
+        return round(
+            (
+                    get_run_date(date_type='date_time') - self.start_time
+            ).total_seconds()
+        )
+
+    def runner(
+            self,
+            start: int = 0,
+    ) -> Generator[Tuple[int, str], None, None]:
+        """Yield index and date values from enumerate of dates"""
+        for idx, dt in enumerate(self.parameters.dates, start=0):
+            if idx < start:
+                continue
+            self.message += self.__add_newline(
+                msg=f"[ run_date: {dt} ]",
+                checker=self.message
+            )
+            self.release: ReleaseDate = ReleaseDate(
+                date=dt,
+                index=idx,
+                pushed=(idx != start)
+            )
+            yield idx, dt
+
+        # Revert the release value to default
+        self.release = ReleaseDate()
+
+    def receive(self, result: Result) -> 'Task':
+        """Receive result dataclass and merge status and message to self
+        """
+        logger.debug("Task: Start Receive data from Result")
+        self.status = result.status
+        self.message += self.__add_newline(
+            result.message,
+            checker=result.message
+        )
+        logger.debug("Task: End Receive data from Result")
+        return self
+
+    @staticmethod
+    def __add_newline(msg: str, checker: str) -> str:
+        """Return added newline message for empty string"""
+        return f'\n{msg}' if checker else msg
+
+
+class TableFrontend(Table):
+    """Table Catalog for Frontend component"""
+
+    @property
+    def catalog(self):
+        return {
+            'id': self.shortname,
+            **self.dict(
+                exclude={'catalog', 'tag'},
+                by_alias=False,
+            )
+        }
+
+class FunctionFrontend(Function):
+    """Function Catalog for Frontend component"""
+
+    @property
+    def catalog(self):
+        return {
+            'id': self.shortname,
+            **self.dict(
+                exclude={'catalog', 'tag'},
+                by_alias=False
+            )
+        }
+
+
+class PiplineFrontend(Pipeline):
+    """Pipeline Catalog for Frontend component"""
+
+    @property
+    def catalog(self):
+        return {
+            'type': 'pipe',
+            'prefix': 'pipe',
+            **self.dict(
+                exclude={'catalog', 'tag'},
+                by_alias=False
+            )
+        }
 
 
 @singledispatch
 def process(model):
     """Default processing definition"""
-    raise NotImplementedError(f"I don't know how to process {type(model)}")
+    raise NotImplementedError(
+        f"I don't know how to process {type(model)}"
+    )
 
 
 @process.register
 def _(model: Pipeline):
-    """Handle addresses
+    """Handle pipeline model
     """
-    print(f"Just got an address from {model}")
+    print(f"Pipeline: {model}")
 
 
 @process.register
 def _(model: Table):
-    """Handle Cat Requests
+    """Handle table model
     """
-    print(f"Processing {model} the cat!")
+    print(f"Table: {model}")

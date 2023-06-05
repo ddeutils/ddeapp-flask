@@ -17,7 +17,10 @@ class ColumnStatementTestCase(unittest.TestCase):
         """
         self.input_01: dict = {
             'name': 'column_name',
-            'datatype': 'varchar( 128 ) not null unique primary key check(column_name <> \'DEMO\')'
+            'datatype': (
+                'varchar( 128 ) not null unique primary key '
+                'check(column_name <> \'DEMO\')'
+            )
         }
         self.input_02: dict = {
             'name': 'column_name',
@@ -37,7 +40,10 @@ class ColumnStatementTestCase(unittest.TestCase):
         pre_result: Column = Column.parse_obj(self.input_01)
         result: ColumnStatement = ColumnStatement.parse_obj(pre_result)
 
-        respec_statement = "varchar( 128 ) NOT NULL UNIQUE PRIMARY KEY check(column_name <> 'DEMO')"
+        respec_statement: str = (
+            "varchar( 128 ) NOT NULL UNIQUE PRIMARY KEY "
+            "check(column_name <> 'DEMO')"
+        )
         self.assertEqual(respec_statement, result.statement())
 
         respec_constraints: list = [
@@ -54,4 +60,12 @@ class ProfileStatementTestCase(unittest.TestCase):
 
 
 class TableStatementTestCase(unittest.TestCase):
-    ...
+    def setUp(self) -> None:
+        ...
+
+    def test_parsing_01_to_statement_update(self):
+        respec: str = (
+            ""
+        )
+        result: str = ""
+        self.assertEqual(respec, result)

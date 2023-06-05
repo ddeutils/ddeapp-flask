@@ -10,16 +10,24 @@ from flask import (
     Blueprint,
     jsonify,
 )
-from ....utils.logging_ import logging
-from ....utils.validations import validate_table_short
+from application.core.models import (
+    Status,
+    Result,
+)
+from application.core.constants import (
+    HTTP_200_OK,
+    HTTP_401_UNAUTHORIZED
+)
+from application.core.utils.logging_ import logging
+from application.components.api.validations import validate_table_short
 from ....securities import apikey_required
 from ..analytic.tasks import (
     get_operation_process,
     get_dependency_data,
 )
 
-analytics = Blueprint('analytics', __name__)
 
+analytics = Blueprint('analytics', __name__)
 logger = logging.getLogger(__name__)
 
 
@@ -28,27 +36,27 @@ logger = logging.getLogger(__name__)
 def get_operation(process_id):
     """
     arguments:
-        process_id: int: The process_id that returning after request to run data or ingestion
-
+        process_id: int: The process_id that returning after request to
+                run data or ingestion.
     returns:
-        message:
-        logging:
-        status:
-        percent: 0.00 to 1.00
+        message: str
+        logging: str
+        status: Status
+        percent: float range from 0.00 to 1.00
     """
     log_length = 50
-    process, status = get_operation_process(escape(process_id))
-    logger.info(f"[{'=' * math.floor(status.percent * log_length)}"
-                f"{' ' * (log_length - math.floor(status.percent * log_length))}] ({status.percent:.2%}) "
-                f"> {process.id}")
-    resp = jsonify({
-        'message': status.message,
-        'logging': process.messages,
-        'status': process.status,
-        'percent': status.percent
-    })
-    resp.status_code = 200
-    return resp
+    result = get_operation_process(escape(process_id))
+    logger.info(
+        f"[{'=' * math.floor(result.percent * log_length)}"
+        f"{' ' * (log_length - math.floor(result.percent * log_length))}] "
+        f"({result.percent:.2%}) > {process_id}"
+    )
+    return jsonify({
+        'message': result.message,
+        'logging': result.logging,
+        'status': result.status,
+        'percent': result.percent
+    }), HTTP_200_OK
 
 
 @analytics.route('/dpc/', methods=['GET'])
@@ -58,26 +66,32 @@ def get_dependency(tbl_name_short: str = None):
     """
     arguments:
         tbl_name_short: path
-
     returns:
-        message:
-        status:
+        message: str
+        status: Status
         dependency: Dict[<process>, Dict[]]
     """
     if not tbl_name_short:
-        resp = jsonify({'message': "Error: Get dependency does not support get all yet"})
-        resp.status_code = 401
-        return resp
+        resp = jsonify({
+            'message': "Error: Get dependency does not support get all yet"
+        })
+        return resp, HTTP_401_UNAUTHORIZED
     elif validate_table_short(tbl_name_short):
-        resp = jsonify({'message': "Error: Please specific `table_short_name` that want to get data dependency"})
-        resp.status_code = 401
-        return resp
+        resp = jsonify({
+            'message': (
+                "Error: Please specific `table_short_name` "
+                "that want to get data dependency"
+            )
+        })
+        return resp, HTTP_401_UNAUTHORIZED
 
-    process, status = get_dependency_data(tbl_name_short)
-    resp = jsonify({
-        'message': process.messages,
-        'status': process.status,
-        'dependency': status.mapping
-    })
-    resp.status_code = 401 if process.status == 1 else 200
-    return resp
+    result: Result = get_dependency_data(tbl_name_short)
+    return jsonify({
+        'message': result.message,
+        'status': result.status,
+        'dependency': result.mapping
+    }), (
+        HTTP_200_OK
+        if result.status == Status.SUCCESS
+        else HTTP_401_UNAUTHORIZED
+    )

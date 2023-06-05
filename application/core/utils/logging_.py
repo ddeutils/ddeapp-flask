@@ -20,7 +20,9 @@ from ..utils.reusables import must_bool
 if not os.getenv('DEBUG'):
     os.environ['DEBUG']: str = 'True'
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), os.pardir, os.pardir)
+)
 LOG_DIR = os.path.join(ROOT, 'logs')
 DEBUG: bool = must_bool(os.getenv("DEBUG", "False"))
 LOG_CONF: bool = must_bool(os.getenv("LOG_CONF", "False"))
@@ -78,7 +80,11 @@ class HTTPSlackHandler(logging.Handler):
         log_entry = self.format(record)
         json_text = json.dumps({"text": log_entry})
         url = 'https://hooks.slack.com/services/<org_id>/<api_key>'
-        return requests.post(url, json_text, headers={"Content-type": "application/json"}).content
+        return requests.post(
+            url,
+            json_text,
+            headers={"Content-type": "application/json"}
+        ).content
 
 
 class NoConsoleFilter(logging.Filter):
@@ -86,7 +92,9 @@ class NoConsoleFilter(logging.Filter):
         super().__init__()
 
     def filter(self, record):
-        return not (record.levelname == logging.INFO) & ('no-console' in record.msg)
+        return (
+            not (record.levelname == logging.INFO) & ('no-console' in record.msg)
+        )
 
 
 class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
@@ -182,8 +190,7 @@ class RefmtTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
 
     @staticmethod
     def re_namer(default_name):
-        """
-        This will be called when doing the log rotation
+        """This will be called when doing the log rotation
         default_name is the default filename that would be assigned, e.g. Rotate_Test.log.YYYY-MM-DD
         Do any manipulations to that name here, for example this changes the name to Rotate_Test.YYYY-MM-DD.log
         """
@@ -237,7 +244,16 @@ class DailyRotatingFileHandler(logging.handlers.RotatingFileHandler):
         - 2016-10-06.log.alias.1
         - 2016-10-07.log.alias.1
     """
-    def __init__(self, alias, basedir, mode='a', maxBytes: int = 0, backupCount=0, encoding=None, delay=0):
+    def __init__(
+            self,
+            alias,
+            basedir,
+            mode='a',
+            maxBytes: int = 0,
+            backupCount=0,
+            encoding=None,
+            delay=0
+    ):
         """
         @summary:
         Set self.baseFilename to date string of today.
@@ -360,26 +376,35 @@ dictConfig({
     "version": 1,
     "disable_existing_loggers": True,
     "formatters": {
-
         "default": {
             '()': UTCFormatter,
-            # "format": "%(asctime)s.%(msecs)04d (%(name)s:%(threadName)s[%(thread)d]) - %(lineno)d %(levelname)-8s: "
-            #           "%(message)s",
-            # "format": "%(asctime)s (%(thread)06d) %(levelname)-8s|: %(message)s",
-            "format": "%(asctime)s (%(thread)06d) %(levelname)-8s|%(name)s: %(message)s",
-            "datefmt": '%Y-%m-%d %H:%M:%S'
-        },
-
-        "access": {
+            # "format": (
+            #     "%(asctime)s.%(msecs)04d (%(name)s:%(threadName)s"
+            #     "[%(thread)d]) - %(lineno)d %(levelname)-8s: %(message)s"
+            # ),
+            # "format": (
+            #     "%(asctime)s (%(thread)06d) %(levelname)-8s|: "
+            #     "%(message)s"
+            # ),
             "format": (
-                "%(asctime)s.%(msecs)04d (%(name)s:%(threadName)s[%(thread)d]) - %(lineno)d %(levelname)-8s: "
+                "%(asctime)s (%(thread)06d) %(levelname)-8s|%(name)s: "
                 "%(message)s"
             ),
             "datefmt": '%Y-%m-%d %H:%M:%S'
         },
-
+        "access": {
+            "format": (
+                "%(asctime)s.%(msecs)04d (%(name)s:%(threadName)s"
+                "[%(thread)d]) - %(lineno)d %(levelname)-8s: "
+                "%(message)s"
+            ),
+            "datefmt": '%Y-%m-%d %H:%M:%S'
+        },
         "fsting": {
-            "format": '{asctime}.{msecs:.0f} {levelname:<8s} ({name}:{threadName}) {message}',
+            "format": (
+                '{asctime}.{msecs:.0f} {levelname:<8s} '
+                '({name}:{threadName}) {message}'
+            ),
             "datefmt": '%Y-%m-%d %H:%M:%S',
             "style": '{',
             "validate": True
@@ -388,7 +413,7 @@ dictConfig({
 
     "filters": {
         "no_console_filter": {
-            (): "logging_function.NoConsoleFilter"
+            (): "logging_.NoConsoleFilter"
         }
     },
 
@@ -398,11 +423,12 @@ dictConfig({
             "class": "logging.StreamHandler",
             "level": "DEBUG",
             "formatter": "default",
-            "stream": "ext://flask.logging.wsgi_errors_stream",  # "ext://sys.stdout"
+            # Stream default is "ext://sys.stdout"
+            "stream": "ext://flask.logging.wsgi_errors_stream",
         },
 
         # "framework_file": {
-        #     "class": "logging_function.RefmtTimedRotatingFileHandler",
+        #     "class": "logging_.RefmtTimedRotatingFileHandler",
         #     "level": "DEBUG",
         #     "formatter": "default",
         #     "filename": os.path.join(LOG_DIR, "framework.log"),
@@ -427,7 +453,7 @@ dictConfig({
 
         # # Example for alert to slack
         # "slack": {
-        #     "class": "logging_function.HTTPSlackHandler",
+        #     "class": "logging_.HTTPSlackHandler",
         #     "formatter": "default",
         #     "level": "ERROR",
         # },
@@ -465,14 +491,12 @@ dictConfig({
         },
 
         "application.components.api.analytic.tasks": {
-            # "handlers": ["console"] if DEBUG else ["console", "framework_file"],
             "handlers": ["console"],
             "level": "DEBUG" if DEBUG else "INFO",
             "propagate": False
         },
 
         "application.components.api.framework": {
-            # "handlers": ["console"] if DEBUG else ["console", "framework_file"],
             "handlers": ["console"],
             "level": "DEBUG" if DEBUG else "INFO",
             "propagate": False

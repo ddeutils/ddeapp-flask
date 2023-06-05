@@ -11,15 +11,17 @@ from typing import (
     Optional,
     Union,
 )
-from ..utils.reusables import (
+from application.core.utils.reusables import (
     path_join,
     rows,
 )
-from ..utils.config import Params
-from ..utils.logging_ import logging
-from ..errors import WriteCSVError
+from application.core.utils.config import Params
+from application.core.utils.logging_ import logging
+from application.core.errors import WriteCSVError
 
-AI_APP_PATH: str = os.getenv('AI_APP_PATH', path_join(os.path.dirname(__file__), '../..'))
+AI_APP_PATH: str = os.getenv(
+    'AI_APP_PATH', path_join(os.path.dirname(__file__), '../../..')
+)
 
 registers = Params(param_name='registers.yaml')
 
@@ -34,7 +36,11 @@ def load_json_to_values(
     _results: list = []
 
     def _repr_value(content: str):
-        return 'null' if content == 'null' else f"""'{content.replace("'", "''")}'"""
+        return (
+            'null'
+            if content == 'null'
+            else f"""'{content.replace("'", "''")}'"""
+        )
 
     for _path in _filepath:
         with open(
@@ -79,7 +85,12 @@ def prepare_data(row: str, delimiter: str) -> list:
     data: list = []
     append = data.append
     for col in iter(row.split(delimiter)):
-        _col: str = col.strip().replace('"', '').replace("'", "'").replace(",", "_")
+        _col: str = (
+            col.strip()
+                .replace('"', '')
+                .replace("'", "'")
+                .replace(",", "_")
+        )
         # append(''.join(_ for _ in col if _.isalnum()))
         append(_col)
     return data

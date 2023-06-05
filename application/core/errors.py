@@ -11,6 +11,10 @@ class BaseError(Exception):
     """Base Exception class"""
 
 
+class AllExceptions(BaseError):
+    """Raise All Exceptions"""
+
+
 class CatalogBaseError(BaseError):
     """Catalog Base Exception"""
 
@@ -68,8 +72,15 @@ class DatabaseProcessError(ObjectBaseError):
 
 
 class DatabaseSchemaNotExists(ObjectBaseError):
-    """Exception raised for errors in schema does not exists"""
+    """Exception raised for errors in schema does not exist"""
 
+
+class ControlTableNotImplement(ObjectBaseError):
+    """Exception raised for errors in any non-implemented functional"""
+
+
+class ControlTableArgumentError(ObjectBaseError):
+    """Exception raised for errors in arguments of method"""
 
 class ControlTableValueError(ObjectBaseError):
     """Exception raised for errors in the control framework table value"""

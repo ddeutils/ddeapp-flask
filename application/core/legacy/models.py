@@ -7,8 +7,8 @@
 import os
 from typing import Protocol
 from dataclasses import dataclass, field
-from ..utils.convertor import reduce_text
-from ..utils.reusables import must_bool
+from application.core.legacy.convertor import reduce_text
+from application.core.utils.reusables import must_bool
 
 
 @dataclass
@@ -50,25 +50,12 @@ class DependencyStatus(BaseStatus):
 
 
 class VerboseObject(Protocol):
-    """This verbose object protocol should have verbose property
+    """Verbose Object protocol should have verbose property
     """
     verbose: bool
 
 
 class VerboseDummy:
+    """Verbose Object dummy
+    """
     verbose: bool = must_bool(os.getenv('DEBUG', 'False'))
-
-
-@dataclass
-class DataPipeline:
-    """Data class for the control table, `ctr_data_pipeline`."""
-    system_type: str
-    table_name: str
-    table_type: str
-    data_date: str
-    run_date: str
-    run_type: str
-    run_count_now: str
-    run_count_max: str
-    rtt_value: str
-    rtt_column: str

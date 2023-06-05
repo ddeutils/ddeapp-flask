@@ -22,7 +22,7 @@ from flask_jwt_extended import (
 )
 from flasgger import swag_from
 from email_validator import validate_email
-from ....constants import (
+from ....core.constants import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_401_UNAUTHORIZED,
@@ -41,7 +41,7 @@ auth = Blueprint("auth", __name__)
 
 
 @auth.post('/register')
-@swag_from('./docs/auth/register.yaml')
+# @swag_from('./docs/auth/register.yaml')
 def register():
     username = request.json['username']
     email = request.json['email']
@@ -54,7 +54,9 @@ def register():
         return jsonify({'error': "User is too short"}), HTTP_400_BAD_REQUEST
 
     if not username.isalnum() or " " in username:
-        return jsonify({'error': "Username should be alphanumeric, also no spaces"}), HTTP_400_BAD_REQUEST
+        return jsonify({
+            'error': "Username should be alphanumeric, also no spaces"
+        }), HTTP_400_BAD_REQUEST
 
     if not validate_email(email):
         return jsonify({'error': "Email is not valid"}), HTTP_400_BAD_REQUEST
@@ -91,20 +93,23 @@ def login():
     password = request.json.get('password', '')
 
     if user := User.query.filter_by(email=email).first():
-        is_pass_correct = bcrypt.check_password_hash(user.password, password)
-        if is_pass_correct:
+        if bcrypt.check_password_hash(user.password, password):
 
             # add additional info, such as aud
             additional_claims = {"aud": request.host}
 
             # create refresh token
-            refresh_token = create_refresh_token(identity=user.public_id, additional_claims=additional_claims)
+            refresh_token = create_refresh_token(
+                identity=user.public_id, additional_claims=additional_claims
+            )
 
-            # add refresh token to additional_claims
+            # add refresh token to additional_claims,
             # so we can use it later in the revoke part in logout action
             additional_claims['refresh_token'] = refresh_token
 
-            access_token = create_access_token(identity=user.public_id, additional_claims=additional_claims)
+            access_token = create_access_token(
+                identity=user.public_id, additional_claims=additional_claims
+            )
             return jsonify({
                 'user': {
                     'refresh_token': refresh_token,
@@ -126,7 +131,8 @@ def protected():
 
     if "aud" in claims and claims["aud"] in allowed_auds:
         # we can use current_user whenever we want,
-        # just need to add jwt_required and import current_user and add function user_lookup_callback,
+        # just need to add jwt_required and import current_user
+        # and add function user_lookup_callback,
         # and then, it's free to use
         # docs: https://flask-jwt-extended.readthedocs.io/en/stable/automatic_user_loading/
         return jsonify({

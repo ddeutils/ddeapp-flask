@@ -105,7 +105,10 @@ def node_log_data(name: str, selected: Optional[str] = None):
         db.session.connection()
     )
     # Prepare and Aggregate DataFrame.
-    logs_df = logs_df.reset_index(drop=True).astype({'row_record': int, 'process_time': int})
+    logs_df = (
+        logs_df.reset_index(drop=True)
+            .astype({'row_record': int, 'process_time': int})
+    )
 
     selected: str = selected or 'Day'
     if selected == 'Week':

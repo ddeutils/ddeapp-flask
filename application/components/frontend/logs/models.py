@@ -7,7 +7,7 @@ class TaskLog(db.Model):
     """Node Model represent table, `ctr_task_process`"""
     __tablename__ = 'ctr_task_process'
     __table_args__ = {
-        'autoload': True,
+        # 'autoload': True,
         'extend_existing': True,
         'autoload_with': db.engine
     }

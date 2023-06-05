@@ -1,10 +1,29 @@
-from functools import partial
-import random
-from dataclasses import dataclass, field
-from datetime import date
-from enum import Enum, auto
-from typing import List, Optional
-from functools import total_ordering
+# -------------------------------------------------------------------------
+# Copyright (c) 2022 Korawich Anuttra. All rights reserved.
+# Licensed under the MIT License. See LICENSE in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
+from typing import Union, Optional
+from dataclasses import (
+    dataclass,
+    field,
+)
+from datetime import datetime
+from functools import (
+    total_ordering,
+    partial
+)
+from strenum import StrEnum
+from enum import (
+    IntEnum,
+    Enum,
+)
+from application.core.base import get_run_date
+from application.core.legacy.convertor import reduce_text
+
+
+UNDEFINED: str = 'undefined'
 
 
 def enum_ordering(cls):
@@ -19,88 +38,126 @@ def enum_ordering(cls):
 
 
 @enum_ordering
-class Status(Enum):
-    SUCCESS = auto()
-    WAITING = auto()
-    FAILED = auto()
+class Status(IntEnum):
+    SUCCESS = 0
+    FAILED = 1
+    WAITING = 2
+    PROCESSING = 2
 
 
-@dataclass(frozen=True)
-class Profile:
-    features: dict = field(default_factory=dict, compare=True)
+class PartitionType(StrEnum):
+    RANGE = 'range'
+    LIST = 'list'
+    HASH = 'hash'
+
+
+class ParameterType(StrEnum):
+    TABLE = 'table'
+    PIPELINE = 'pipeline'
+    UNDEFINED = UNDEFINED
+
+
+class ParameterMode(StrEnum):
+    """Parameter Mode Enum"""
+    COMMON = 'common'
+    RERUN = 'rerun'
+
+class ParameterIngestMode(StrEnum):
+    """Parameter Ingestion Mode Enum"""
+    COMMON = 'common'
+    MERGE = 'merge'
+
+class TaskMode(StrEnum):
+    FOREGROUND = 'foreground'
+    BACKGROUND = 'background'
+
+
+class TaskComponent(StrEnum):
+    FRAMEWORK = 'framework'
+    INGESTION = 'ingestion'
+    ANALYTIC = 'analytic'
+    UNDEFINED = UNDEFINED
+
+
+class TaskStatus(StrEnum):
+    SUCCESSFUL = 'successful'
+    FAILED = 'failed'
+    PROCESSING = 'processing'
 
 
 @dataclass
-class Process:
-    parameter: list = field(default_factory=list, compare=True)
-    step: dict = field(default_factory=dict, compare=False)
-
-    def __post_init__(self) -> None:
-        if self.parameter:
-            self.parameter = list(set(self.parameter))
+class IngestionRow:
+    success: int
+    failed: int
 
 
 @dataclass
-class Initial:
-    parameter: list
-    statement: str
-
-
-@dataclass
-class Catalog:
-    """Data class for Catalog"""
-    name: str = field(compare=True)
-    type: str = field(default='sql', compare=True)
-    id: int = field(default_factory=partial(random.randint, 0, 100), compare=False, repr=False)
-    # version: str = field(default="", compare=False)
-    description: str = field(default="", compare=False)
-    profile: Profile = field(default_factory=Profile, compare=True, repr=False)
-    process: Process = field(default_factory=Process, compare=True, repr=False)
-    initial: dict = field(default_factory=dict, compare=True, repr=False)
-
-    @property
-    def name_short(self) -> str:
-        """Return the short name of this node with `_` separator"""
-        return "".join([word[0] for word in self.name.split("_")])
-
-    @property
-    def prefix(self) -> str:
-        """Return the prefix value of this node name with `_` separator"""
-        return self.name.split('_')[0]
-
-    def __post_init__(self) -> None:
-        """Post initialization for value validation"""
-        if self.name in {'test_catalog'}:
-            raise ValueError(
-                "Catalog name does not support for included test value."
-            )
-
-
-@dataclass(order=True)
-class Process:
-    id: str = field(compare=True)
+class BaseResult:
     status: Status
-
-
-def main() -> None:
-    aam = Catalog(
-        name='ai_article_master',
+    _message: str
+    _duration: datetime = field(
+        default_factory=partial(get_run_date, date_type='datetime')
     )
-    aad = Catalog(
-        name='ai_article_master',
-    )
-    print(aam)
-    print(aad)
-    print(aam == aad)
+
+    @property
+    def message(self):
+        return self._message
+
+    @message.setter
+    def message(self, msg: str):
+        self._message += (f'\n{msg}' if self._message else f'{msg}')
+
+    def update(
+            self,
+            msg: str,
+            status: Optional[Union[Status, int]] = None,
+    ):
+        if status is not None:
+            self.status: Status = (
+                status
+                if isinstance(status, Status)
+                else Status(status)
+            )
+        self.message: str = reduce_text(msg)
+        return self
+
+    def duration(self) -> int:
+        return round(
+            (
+                    get_run_date(date_type='date_time') - self._duration
+            ).total_seconds()
+        )
 
 
-def process():
-    print(list(Status))
-    process01 = Process(id='asc', status=Status.SUCCESS)
-    process02 = Process(id='asc', status=Status.FAILED)
-    print(process01 <= process02)
+@dataclass
+class CommonResult(BaseResult):
+    status: Status = Status.SUCCESS
+    _message: str = ""
 
 
-if __name__ == '__main__':
-    main()
-    process()
+@dataclass
+class AnalyticResult(BaseResult):
+    status: Status = Status.SUCCESS
+    _message: str = ""
+    percent: float = 0.0
+    logging: str = ""
+
+
+@dataclass
+class DependencyResult(BaseResult):
+    status: Status = Status.SUCCESS
+    _message: str = ""
+    mapping: dict = field(default_factory=dict)
+
+
+@dataclass
+class IngestionResult(BaseResult):
+    status: Status = Status.SUCCESS
+    _message: str = ""
+
+
+Result = Union[
+    CommonResult,
+    AnalyticResult,
+    DependencyResult,
+]

@@ -54,6 +54,45 @@ $ pip install Flask-Pony  # ORM
 $ pip install Flask-S3
 $ pip install Flask-CDN
 $ pip install Flask-Classful
+
+# Pending Review
+$ pip install Flask-Praetorian
+$ pip install Flask-HTTPAuth
+# - Analytic
+$ pip install Flask-Analytics
+$ pip install Flask-Matomo
+# - Searching
+$ pip install Flask-MSearch
+# - Tracing
+$ pip install flask_zipkin
+$ pip install Flask-Opentracing
+# -Other
+$ pip install Flask-SSLify
+$ pip install Flask-HTMLmin
+$ pip install Flask-Moment
+$ pip install Flask-Paginate
+$ pip install Flask-Reggie
+$ pip install Flask-FeatureFlags
+$ pip install flask-jsonrpc
+$ pip install flask-babel
+# Extension 3th party
+$ pip install Flask-GoogleMaps - Build and embed google maps in our Flask templates
+$ pip install Flask-Gravatar - Small and simple gravatar usage in Flask
+$ pip install Flask-Pusher - Pusher integration for Flask
+$ pip install Flask-Azure-Storage - Flask extension that provides integration with Azure Storage
+```
+
+#### Framework
+
+```shell
+$ pip install Connexion - Swagger/OpenAPI First framework for Python on top of Flask with automatic endpoint validation and OAuth2 support
+$ pip install Flask-MongoRest - Restful API framework wrapped around MongoEngine
+$ pip install Eve - REST API framework powered by Flask, MongoDB and good intentions
+$ pip install Flask-Restless - A Flask extension for creating simple ReSTful APIs from SQLAlchemy models
+$ pip install Flask-RESTful - Simple framework for creating REST APIs
+$ pip install Flask-RestPlus - syntaxic sugar, helpers and automatically generated Swagger documentation.
+$ pip install Flask-Potion - RESTful API framework for Flask and SQLAlchemy
+$ pip install Zappa - Build and deploy server-less Flask applications on AWS Lambda and API Gateway
 ```
 
 #### Define type of extensions
@@ -67,7 +106,6 @@ $ pip install Flask-Pony
 # Connect No-SQL
 $ pip install Flask-RQ
 $ pip install Flask-RQ2
-$ 
 ```
 
 ### Main of extensions

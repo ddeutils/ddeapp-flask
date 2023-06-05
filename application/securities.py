@@ -14,6 +14,11 @@ from flask import (
     current_app,
 )
 from conf import settings
+from application.core.constants import (
+    HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
+    HTTP_403_FORBIDDEN,
+)
 
 
 def is_valid(api_key: str):
@@ -30,12 +35,12 @@ def apikey_required(func):
     def decorator(*args, **kwargs):
         if not (api_key := request.headers.get("APIKEY")):
             resp = jsonify({"message": "Please provide an APIKEY in header"})
-            resp.status_code = 400
+            resp.status_code = HTTP_400_BAD_REQUEST
             return resp
         if request.method in {"GET", "POST", "PUT", "DELETE"} and is_valid(api_key):
             return func(*args, **kwargs)
         resp = jsonify({"message": f"The provided API key, {api_key!r}, is not valid"})
-        resp.status_code = 403
+        resp.status_code = HTTP_403_FORBIDDEN
         return resp
     return decorator
 
@@ -57,7 +62,10 @@ def check_origin(func):
             response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
             return response
         else:
-            return make_response(jsonify({'error': 'Invalid origin'}), 401)
+            return make_response(
+                jsonify({'error': 'Invalid origin'}),
+                HTTP_401_UNAUTHORIZED,
+            )
     return wrapper
 
 

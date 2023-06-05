@@ -1,22 +1,27 @@
 import pickle
 from pathlib import Path
-from ....core.legacy.base import (
-    get_catalog_all,
-    TblCatalog,
-    PipeCatalog,
-    FuncCatalog,
-)
 from typing import (
     List,
     Dict,
     Optional,
 )
+from ....core.validators import (
+    TableFrontend,
+    FunctionFrontend,
+    PiplineFrontend,
+)
+from ....core.base import (
+    get_catalogs,
+    CATALOGS,
+)
+from application.core.utils.logging_ import get_logger
 from ...frontend.catalogs.models import (
     Category,
     Catalog,
 )
 
 
+logger = get_logger(__name__)
 __categories: Dict['str', Category] = {}
 __all_catalogs_list: List[Catalog] = []
 
@@ -24,28 +29,34 @@ __all_catalogs_list: List[Catalog] = []
 def load_catalogs(cache: bool = False):
     global __categories, __all_catalogs_list
 
-    file = Path(__file__).parent / 'cache' / 'categories.pickle'
+    filepath = Path(__file__).parent / 'cache' / 'categories.pickle'
 
     if cache:
-        with open(file, mode='rb') as f:
-            __categories = pickle.load(f)
-    else:
+        try:
+            with open(filepath, mode='rb') as f:
+                __categories = pickle.load(f)
+        except FileNotFoundError as err:
+            print(f"Error: {err}")
+            cache: bool = False
+
+    if not cache:
         cat_mapping = {
-            'catalog': TblCatalog,
-            'pipeline': PipeCatalog,
-            'function': FuncCatalog,
+            # 'catalog': TableFrontend,
+            # 'pipeline': PiplineFrontend,
+            'function': FunctionFrontend,
         }
         for cat, obj in cat_mapping.items():
-            raw_data = get_catalog_all(cat)
+            raw_data = get_catalogs(cat)
             data: List = [
-                obj(name).catalog
+                obj.parse_name(name).catalog
                 for name in raw_data
             ]
             __categories[cat] = Category(category=cat, data=data)
 
-    with open(file, mode='wb') as f:
+    with open(filepath, mode='wb') as f:
         pickle.dump(__categories, f)
 
+    logger.debug("Success load Catalogs from config.")
     rebuild_flat_file_list()
 
 
@@ -59,23 +70,22 @@ def rebuild_flat_file_list() -> None:
     }
     __all_catalogs_list = list(flat_set.values())
     __all_catalogs_list.sort(key=lambda vid: vid.id, reverse=True)
+    logger.debug("Success rebuild flat file list.")
 
 
 def category_by_name(category: str) -> Optional[Category]:
     """Get Catalog data from name.
     """
-    if not category or not category.strip() or category not in {
-        'catalog',
-        'pipeline',
-        'function'
-    }:
+    if (
+            not category
+            or not category.strip()
+            or category not in CATALOGS
+    ):
         return None
 
     category = category.strip().lower()
     cat = __categories.get(category)
-    if not cat:
-        return None
-    return cat
+    return cat or None
 
 
 def all_catalogs(page: int = 1, page_size: Optional[int] = None) -> List[Catalog]:
@@ -94,11 +104,17 @@ def all_categories() -> List[Category]:
 
 
 def catalog_by_id(catalog_id: str) -> Optional[Catalog]:
-    return next((catalog for catalog in all_catalogs() if catalog.id == catalog_id), None)
+    return next(
+        (catalog for catalog in all_catalogs() if catalog.id == catalog_id),
+        None
+    )
 
 
 def catalog_by_name(catalog_name: str) -> Optional[Catalog]:
-    return next((catalog for catalog in all_catalogs() if catalog.name == catalog_name), None)
+    return next(
+        (catalog for catalog in all_catalogs() if catalog.name == catalog_name),
+        None
+    )
 
 
 def search_catalogs(search_text: str) -> List[Catalog]:

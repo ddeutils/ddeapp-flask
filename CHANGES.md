@@ -14,7 +14,7 @@
 * [ ] Changing `psycogpg2` to `psycogpg3` (alias name is `psycopg`)
 
 
-## Version 0.2.0.b
+## Version 0.3.0.b
 
 > Pending
 
@@ -23,9 +23,7 @@
     - Support `asyncpg`
 * [ ] Adding another database types like SQLite, MySQL, or SQL Server
 
----
-
-## Version 0.2.0
+## Version 0.3.0
 
 * [ ] Reduce extension code which does not use or useless
     * [ ] Reduce static file
@@ -34,22 +32,33 @@
 * [ ] Design Pages and Capabilities flexible.
 
 * [ ] Fixing #? change transaction table to **partition table
-* [ ] Adding validate data view in database
-* [ ] Add `Pydantic` for type validator and receive json data
-* [ ] Adding swagger for API document
+* [ ] Adding Data Quality Views in Database
+* [ ] Add `Pydantic` for type validator and receive JSON data
+* [ ] Adding swagger for API documents
 * [ ] Adding Flask Extensions for control I/O if application
-
-
-* [ ] Fixing #? Ingestion merge `PUT` and `DELETE` methods together with same endpoint
-    * [ ] Adding Ingestion Module for delete data from platform with payload
 * [ ] Change physical of transaction table from default to partition by range of date
-* [ ] Change controlling thread for run data pipeline
+* [ ] Change controlling thread for run data pipeline to `Flask-Executor`
 * [ ] Add adjustment flow for `imp_mix_max_mos_criteria_fc/rdc/dc` values
 
-* [ ] Adding unittests
-    * [ ] Add to `utils` directory
+* [ ] Add Pull and Push Models on Control Object for any control tables
+* [ ] Change the `objects` file from legacy slot classes to Pydantic class supported
+* [ ] Change trigger value from `list` to `tuple` object
+* [ ] Change swagger from `flasgger` to `flask-swagger-ui`
+* [ ] Fix merge `PUT` and `DELETE` methods together with same endpoint
+  * [ ] Add module for delete data from platform with payload
 
 ---
+
+## Version 0.2.0
+
+* [x] Adding and Fixing #? Ingestion
+  * [x] Add updatable merge from payload
+  * [x] Add updatable common from payload
+* [x] Change level of `utils` directory to inside `core` directory
+* [x] Adding unittests for `core` directory
+    * [x] Add `validators` test
+    * [x] Add `statements` test
+* [x] Documents rename from `DAF` to `DFA`
 
 ## Version 0.1.0
 
@@ -81,8 +90,9 @@
     * [x] Mapping all relation together
 
 > **Note**: \
-> `Version 0.*.*` still support requirement from `pre-version 1.*.*` and `pre-Version 2.*.*`. \
-> We can deploy only the backend mode by this command, `python manage.py --api=True`
+> The `Version 0.*.*` still support requirement from `pre-version 1.*.*` and
+> `pre-Version 2.*.*`.\
+> We can deploy only the backend mode (API mode) by this command; `python manage.py --api=True`.
 
 ---
 
@@ -90,8 +100,6 @@
 
 * [x] Add foreign key feature in table configuration
 * [x] Adding initial data with Json files with key `file` or `files`
-
----
 
 ## Pre Version 2.0.4
 

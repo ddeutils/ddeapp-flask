@@ -12,43 +12,46 @@ from flask import (
     request,
     jsonify,
     make_response,
-    g,
     render_template,
     redirect,
     url_for,
 )
 from flasgger import LazyJSONEncoder
 from flask.logging import default_handler
-from celery import Celery
+from celery import Celery, Task
 from conf import settings
-from .utils.logging_ import logging
+from application.core.utils.logging_ import logging
 
 
 logger = logging.getLogger(__name__)
 
 
-def make_celery(app):
-    """Create a new Celery object and tie together the Celery config to the app's
-    config. Wrap all tasks in the context of the application.
+def make_celery(app: Flask) -> Celery:
+    """Create a new Celery object and tie together the Celery config to the
+    app's config. Wrap all tasks in the context of the application.
 
     :param app: Flask app
     :return: Celery app
 
     :ref:
         - https://testdriven.io/blog/flask-and-celery/
+        - https://flask.palletsprojects.com/en/2.3.x/patterns/celery/
     """
-    celery = Celery(app.import_name)
-    celery.conf.update(
-        app.config.get("CELERY_CONFIG", {})
-    )
 
-    class ContextTask(celery.Task):
-        def __call__(self, *args, **kwargs):
+    class FlaskTask(Task):
+        """Flask Task that implement from Celery Task"""
+        def run(self, *args, **kwargs):
+            pass
+
+        def __call__(self, *args: object, **kwargs: object) -> object:
             with app.app_context():
                 return self.run(*args, **kwargs)
 
-    celery.Task = ContextTask
-    return celery
+    celery_app = Celery(app.name, task_cls=FlaskTask)
+    celery_app.config_from_object(app.config["CELERY_CONFIG"])
+    celery_app.set_default()
+    app.extensions["celery"] = celery_app
+    return celery_app
 
 
 def create_app(
@@ -160,7 +163,7 @@ def create_app(
             app.register_blueprint(catalogs)
 
         from flask_login import current_user
-        from .constants import HTTP_200_OK
+        from .core.constants import HTTP_200_OK
         from .extensions import (
             limiter,
             cache,
@@ -179,7 +182,11 @@ def create_app(
                 # g.search_form = SearchForm()
                 ...
 
-            logger.info(f'Request "{request.method} {request.url}" {request.headers}')
+            logger.info(
+                f'Request "{request.method} {request.url}"\n'
+                f'Header:\n'
+                f'{request.headers}'
+            )
 
         @app.get('/api')
         def api_index():
@@ -191,9 +198,28 @@ def create_app(
         @app.get('/apikey')
         @apikey_required
         def apikey():
+            """API Key endpoint returning a JSON message
+            This is using docstrings for specifications.
+            ---
+            parameters:
+                -   name: APIKEY
+                    in: header
+                    type: string
+                    required: true
+            response:
+                200:
+                    description: Successful message
+                400:
+                    description: APIKEY does not exist in header
+                403:
+                    description: The provided API key value is not valid
+            """
             logger.info("Success: The AI app was running ...")
             return jsonify({
-                'message': "Success: Connect with the apikey, the application was running ..."
+                'message': (
+                    "Connect with the apikey successful, "
+                    "the application was running ..."
+                )
             }), HTTP_200_OK
 
         @app.get("/")
@@ -279,16 +305,22 @@ def events(app: Flask):
     from sqlalchemy.exc import OperationalError
     from psycopg2 import OperationalError as PsycopgOperationalError
     try:
-        from .utils.database import generate_engine
+        from application.core.connections.postgresql import generate_engine
         engine = generate_engine()
+
+        # Pre-connect to target database before start application
         with engine.connect() as conn:
             conn.execute(text("select 1"))
     except (OperationalError, PsycopgOperationalError):
         raise RuntimeError("Dose not connect to target database")
 
     # TODO: Catch error `psycopg2.OperationalError`
-    # With after_request we can handle the CORS response headers avoiding to add extra code to our endpoints
-    # docs: https://stackoverflow.com/questions/25594893/how-to-enable-cors-in-flask/52875875#52875875
+    # With after_request we can handle the CORS response headers
+    # avoiding to add extra code to our endpoints
+    # docs: (
+    #           https://stackoverflow.com/questions/25594893/ -
+    #           how-to-enable-cors-in-flask/52875875#52875875
+    #       )
     @warp_app.after_request
     def after_request_func(response):
         origin = request.headers.get('Origin')
@@ -307,10 +339,12 @@ def events(app: Flask):
 
         if origin:
             logger.debug(f"Origin: {origin}")
-            # Allow access with domain. If you want ot allow all domain, you can use `*`.
-            # The origin that contain 3 contents, {scheme}://{hostname}[:{port}].
-            # note: http://example.com and http://example.com:80 is the same origin because of
-            #       `http` schema. If it does not have port, it will be 80.
+            # Allow access with domain. If you want ot allow all domain,
+            # you can use `*`. The origin that contain 3 contents,
+            # {scheme}://{hostname}[:{port}].
+            # note: http://example.com and http://example.com:80 is the same
+            #       origin because of `http` schema. If it does not have port,
+            #       it will be 80.
             #       docs: https://tools.ietf.org/html/rfc6454#section-3.2.1
             # docs: https://acoshift.me/2019/0004-web-cors.html
             response.headers.add('Access-Control-Allow-Origin', origin)
@@ -328,12 +362,10 @@ def filters(app: Flask):
     """
     import re
     from datetime import datetime
-    from flask import (
-        Markup,
-        render_template,
-    )
+    from markupsafe import Markup
+    from flask import render_template
     from functools import partial
-    from .utils.reusables import to_pascal_case
+    from application.core.utils.reusables import to_pascal_case
 
     warp_app: Flask = app
     logger.debug("Start set up filters to this application ...")
@@ -344,7 +376,10 @@ def filters(app: Flask):
 
     @warp_app.template_filter('make-img')
     def make_image(text):
-        return re.sub(r'img([a-zA-Z0-9_./:-]+)', r'<img width="100px" src="\1">', text)
+        return re.sub(
+            r'img([a-zA-Z0-9_./:-]+)', r'<img width="100px" src="\1">',
+            text,
+        )
 
     @warp_app.template_filter('dumps')
     def dumps(text):
@@ -357,7 +392,11 @@ def filters(app: Flask):
     def pascal_case(text, joined: str = ''):
         return to_pascal_case(text, joined)
 
-    def render_partial(name: str, renderer: Optional = None, **context_data) -> Markup:
+    def render_partial(
+            name: str,
+            renderer: Optional = None,
+            **context_data
+    ) -> Markup:
         return Markup(renderer(name, **context_data))
 
     @warp_app.context_processor
@@ -407,7 +446,7 @@ def extensions(app: Flask) -> None:
     cache.init_app(app)
     csrf.init_app(app)
     jwt_manager.init_app(app)
-    swagger.init_app(app)
+    # swagger.init_app(app)
     cors.init_app(app)
     login_manager.init_app(app)
     bcrypt.init_app(app)
@@ -431,6 +470,15 @@ def extensions(app: Flask) -> None:
         atexit.register(lambda: scheduler.shutdown(wait=False))
         scheduler.start()
 
+    from .swagger import (
+        SWAGGER_UI_BLUEPRINT,
+        SWAGGER_URL,
+    )
+    app.register_blueprint(
+        SWAGGER_UI_BLUEPRINT,
+        url_prefix=SWAGGER_URL
+    )
+
 
 def load_data(
         filename: str,
@@ -443,7 +491,9 @@ def load_data(
     :return: None
     """
     from .controls import push_load_file_to_db
-    push_load_file_to_db(filename, target, truncate=truncate, compress=compress)
+    push_load_file_to_db(
+        filename, target, truncate=truncate, compress=compress
+    )
 
 
 def migrate_table() -> None:
