@@ -14,7 +14,7 @@
 * [ ] Changing `psycogpg2` to `psycogpg3` (alias name is `psycopg`)
 
 
-## Version 0.2.0.b
+## Version 0.3.0.b
 
 > Pending
 
@@ -23,9 +23,7 @@
     - Support `asyncpg`
 * [ ] Adding another database types like SQLite, MySQL, or SQL Server
 
----
-
-## Version 0.2.0
+## Version 0.3.0
 
 * [ ] Reduce extension code which does not use or useless
     * [ ] Reduce static file
@@ -45,13 +43,15 @@
 * [ ] Add Pull and Push Models on Control Object for any control tables
 * [ ] Change the `objects` file from legacy slot classes to Pydantic class supported
 * [ ] Change trigger value from `list` to `tuple` object
+* [ ] Change swagger from `flasgger` to `flask-swagger-ui`
+* [ ] Fix merge `PUT` and `DELETE` methods together with same endpoint
+  * [ ] Add module for delete data from platform with payload
 
 ---
 
-* [ ] Change swagger from `flasgger` to `flask-swagger-ui` 
-* [ ] Adding and Fixing #? Ingestion
-  * [ ] Fix merge `PUT` and `DELETE` methods together with same endpoint
-  * [ ] Add module for delete data from platform with payload
+## Version 0.2.0
+
+* [x] Adding and Fixing #? Ingestion
   * [x] Add updatable merge from payload
   * [x] Add updatable common from payload
 * [x] Change level of `utils` directory to inside `core` directory
