@@ -3,7 +3,7 @@ from dateutil import tz
 from datetime import timedelta
 from pathlib import Path
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from application.utils.database import generate_engine
+from application.core.connections.postgresql import generate_engine
 from functools import lru_cache
 
 
@@ -12,6 +12,7 @@ class BaseConfig(object):
 
     # Main configuration
     BASE_PATH: Path = Path(__file__).parent.parent
+    APP_INGEST_CHUCK: int = 5
 
     # Flask
     SECRET_KEY: str = '476e90c596a2311335c553599125bf92'
@@ -45,7 +46,11 @@ class BaseConfig(object):
         'pool_timeout': 7,
         'pool_pre_ping': True,
     }
-    SQLALCHEMY_DATABASE_URI: str = str(generate_engine().url)
+    SQLALCHEMY_DATABASE_URI: str = (
+        generate_engine()
+            .url
+            .render_as_string(hide_password=False)
+    )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Flask ApSchedule Configuration
@@ -104,9 +109,13 @@ class BaseConfig(object):
     # Flask Swagger
     SWAGGER = {
         'title': "AI API",
-        'uiversion': 3
+        'uiversion': 3,
     }
 
+    # Flask Executor
+    EXECUTOR_TYPE: str = 'thread'
+    EXECUTOR_MAX_WORKERS: int = 4
+    EXECUTOR_PROPAGATE_EXCEPTIONS: bool = True
 
 class DevConfig(BaseConfig):
     """Development environment configuration"""

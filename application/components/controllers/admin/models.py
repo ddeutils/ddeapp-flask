@@ -18,7 +18,7 @@ from ..users.models import (
     RolePolicy,
 )
 from ...frontend.nodes.models import Node
-from ....utils.reusables import to_snake_case
+from application.core.utils.reusables import to_snake_case
 
 
 class MetaView(type):

@@ -11,30 +11,38 @@ import fnmatch
 import yaml
 import importlib
 from dateutil import tz
-import datetime as dt
+from datetime import (
+    date,
+    datetime,
+    timedelta,
+)
 from dateutil.relativedelta import relativedelta
 from typing import (
     Tuple,
     Optional,
     Union,
+    Dict,
 )
-from application.utils.reusables import (
+
+from application.core.utils.reusables import (
     merge_dicts,
     must_list,
     hash_string,
 )
-from application.utils.config import (
+from application.core.utils.config import (
     Params,
     AI_APP_PATH,
 )
-from application.utils.logging_ import logging
-from application.errors import (
+from application.core.utils.logging_ import logging
+from application.core.errors import (
     CatalogNotFound,
 )
+
 
 params = Params(param_name='parameters.yaml')
 registers = Params(param_name='registers.yaml')
 logger = logging.getLogger(__name__)
+CATALOGS: list = ['catalog', 'pipeline', 'function']
 
 
 def sort_by_priority(
@@ -46,18 +54,28 @@ def sort_by_priority(
     priority_dict: dict = {k: i for i, k in enumerate(_priority_lists)}
 
     def priority_getter(value):
-        return next((
-            order for _, order in priority_dict.items() if value.startswith(_)),
+        return next(
+            (
+                order
+                for _, order in priority_dict.items()
+                if value.startswith(_)
+            ),
             len(values),
         )
 
     if isinstance(values, list):
         return sorted(values, key=priority_getter)
     else:
-        return {k: values[k] for k in sorted(values.keys(), key=priority_getter)}
+        return {
+            k: values[k]
+            for k in sorted(values.keys(), key=priority_getter)
+        }
 
 
-def get_run_date(date_type: str = 'str', fmt: str = '%Y-%m-%d') -> Union[str, dt.datetime, dt.date]:
+def get_run_date(
+        date_type: str = 'str',
+        fmt: str = '%Y-%m-%d'
+) -> Union[str, datetime, date]:
     """Get run_date value from now datetime
     :usage:
         >> get_run_date(date_type='datetime', fmt='%Y%m%d')
@@ -65,7 +83,7 @@ def get_run_date(date_type: str = 'str', fmt: str = '%Y-%m-%d') -> Union[str, dt
         >> get_run_date(fmt='%Y/%m/%d')
         '2022/01/01'
     """
-    run_date: dt.datetime = dt.datetime.now(tz.gettz('Asia/Bangkok'))
+    run_date: datetime = datetime.now(tz.gettz('Asia/Bangkok'))
     if date_type == 'str':
         return run_date.strftime(fmt)
     return run_date.date() if date_type == 'date' else run_date
@@ -91,21 +109,22 @@ def get_plural(
 
 
 def get_process_id(process: str, fmt: str = '%Y%m%d%H%M%S%f') -> str:
-    """Get process ID from input string that combine timestamp and hashing of argument
-    process together.
+    """Get process ID from input string that combine timestamp and hashing of
+    argument process together.
     """
     return get_run_date(fmt=fmt)[:-2] + hash_string(process)
 
 
 def get_process_date(
-        run_date: Union[str, dt.date],
+        run_date: Union[str, date],
         run_type: str,
         *,
         invert: bool = False,
         date_type: str = 'str',
         fmt: str = '%Y-%m-%d',
-) -> Union[str, dt.date]:
-    """Get process_date value that convert by `run_type` value like 'daily', 'weekly', ...
+) -> Union[str, date]:
+    """Get process_date value that convert by `run_type` value
+    like 'daily', 'weekly', etc.
     :usage:
         >>> get_process_date('2022-01-20', 'monthly')
         '2022-01-01'
@@ -116,40 +135,62 @@ def get_process_date(
         >>> get_process_date('2022-01-20', 'weekly')
         '2022-01-17'
     """
-    run_type: str = run_type if run_type in params.map_tbl_ps_date.keys() else 'daily'
-    run_date_ts: dt.date = dt.date.fromisoformat(run_date) if isinstance(run_date, str) else run_date
+    run_type: str = (
+        run_type
+        if run_type in params.map_tbl_ps_date.keys()
+        else 'daily'
+    )
+    run_date_ts: date = (
+        date.fromisoformat(run_date)
+        if isinstance(run_date, str) else run_date
+    )
 
     if run_type == 'weekly':
-        run_date_convert_ts = run_date_ts - dt.timedelta(run_date_ts.weekday()) if invert \
-            else run_date_ts - dt.timedelta(run_date_ts.isoweekday())
+        run_date_convert_ts = (
+            run_date_ts - timedelta(run_date_ts.weekday())
+            if invert
+            else run_date_ts - timedelta(run_date_ts.isoweekday())
+        )
     elif run_type == 'monthly':
-        run_date_convert_ts = run_date_ts.replace(day=1) + relativedelta(months=1) - relativedelta(days=1) if invert \
-            else run_date_ts.replace(day=1)
+        run_date_convert_ts = (
+            run_date_ts.replace(day=1)
+            + relativedelta(months=1)
+            - relativedelta(days=1)
+            if invert
+            else run_date_ts.replace(day=1))
     elif run_type == 'yearly':
-        run_date_convert_ts = run_date_ts.replace(month=1, day=1) + relativedelta(years=1) - relativedelta(days=1) \
-            if invert else run_date_ts.replace(month=1, day=1)
+        run_date_convert_ts = (
+            run_date_ts.replace(month=1, day=1)
+            + relativedelta(years=1)
+            - relativedelta(days=1)
+            if invert
+            else run_date_ts.replace(month=1, day=1)
+        )
     else:
         run_date_convert_ts = run_date_ts
-
-    return run_date_convert_ts.strftime(fmt) if date_type == 'str' else run_date_convert_ts
+    return (
+        run_date_convert_ts.strftime(fmt)
+        if date_type == 'str' else run_date_convert_ts
+    )
 
 
 def get_cal_date(
-        data_date: dt.date,
+        data_date: date,
         mode: str,
         run_type: str,
         cal_value: int,
         date_type: str = 'str',
-        fmt: str = '%Y-%m-%d'
-) -> Union[str, dt.date]:
+        fmt: str = '%Y-%m-%d',
+) -> Union[str, date]:
     """Get date with internal calculation logic
     """
     if mode not in {'add', 'sub', }:
         raise NotImplementedError(
-            f"Get calculation datetime logic does not support for mode: {mode!r}."
+            f"Get calculation datetime does not support for mode: {mode!r}"
         )
-    _result: dt.date = getattr(operator, mode)(
-        data_date, relativedelta(**{params.map_tbl_ps_date[run_type]: cal_value})
+    _result: date = getattr(operator, mode)(
+        data_date,
+        relativedelta(**{params.map_tbl_ps_date[run_type]: cal_value}),
     )
     return _result.strftime(fmt) if date_type == 'str' else _result
 
@@ -157,7 +198,9 @@ def get_cal_date(
 def get_function(func_string: str) -> callable:
     """Get function from imported string
     :usage:
-        ..> get_function(func_string='application.vendor.replenishment.run_prod_cls_criteria')
+        ..> get_function(
+        ...     func_string='vendor.replenishment.run_prod_cls_criteria'
+        ... )
     """
     module, _function = func_string.rsplit(sep='.', maxsplit=1)
     mod = importlib.import_module(module)
@@ -173,12 +216,12 @@ def _get_config_filter_path(
     """Path filtering gateway of configuration directory
     """
     if config_dir == 'catalog':
-        _conf_prefix: str = config_prefix or ''
-        _conf_prefix_file: str = config_prefix_file or 'catalog'
-        return fnmatch.fnmatch(path, f'{_conf_prefix_file}_{_conf_prefix}*.yaml')
+        _conf_pre: str = config_prefix or ''
+        _conf_pre_file: str = config_prefix_file or 'catalog'
+        return fnmatch.fnmatch(path, f'{_conf_pre_file}_{_conf_pre}*.yaml')
     elif config_dir in {'function', 'view', 'adhoc'}:
-        _conf_prefix_file: str = config_prefix_file or '*'
-        return fnmatch.fnmatch(path, f'{_conf_prefix_file}_*.yaml')
+        _conf_pre_file: str = config_prefix_file or '*'
+        return fnmatch.fnmatch(path, f'{_conf_pre_file}_*.yaml')
     elif config_dir == 'pipeline':
         return fnmatch.fnmatch(path, 'pipeline_*.yaml')
     return False
@@ -193,15 +236,23 @@ def _get_config_filter_key(keys, conf, all_mode: bool = True) -> bool:
 
 
 class LoadCatalog:
-    """Loading catalog data objet"""
+    """Loading catalog data object"""
 
     @classmethod
-    def all(cls):
-        return ...
-
-    @classmethod
-    def from_shortname(cls, *args, **kwargs) -> 'LoadCatalog':
-        return cls(*args, shortname=True, **kwargs)
+    def from_shortname(
+            cls,
+            name: str,
+            prefix: Optional[str],
+            folder: str,
+            prefix_file: str,
+    ) -> 'LoadCatalog':
+        return cls(
+            name,
+            prefix,
+            folder,
+            prefix_file,
+            shortname=True
+        )
 
     def __init__(
             self,
@@ -211,7 +262,8 @@ class LoadCatalog:
             prefix_file: str,
             shortname: bool = False,
     ):
-        """Main initialization of loading catalog object"""
+        """Main initialization of loading catalog object
+        """
         self.name: str = name
         self.prefix: str = f"{prefix}_" if prefix else ''
         self.folder: str = folder
@@ -235,21 +287,27 @@ class LoadCatalog:
 
     @staticmethod
     def sorted(results):
+        """Sorting version value method"""
         return sorted(
             results,
-            key=lambda x: dt.datetime.fromisoformat(x.get('version', '1990-01-01')),
+            key=lambda x: datetime.fromisoformat(
+                x.get('version', '1990-01-01')
+            ),
             reverse=True
         )
 
     def load(self):
         _results: list = []
         for file in sorted(os.listdir(self.path), reverse=False):
-            if _get_config_filter_path(file, self.folder, self.prefix, self.prefix_file):
+            if _get_config_filter_path(
+                    file, self.folder, self.prefix, self.prefix_file
+            ):
                 with open(os.path.join(self.path, file), encoding='utf8') as f:
                     _config_data: dict = yaml.load(f, Loader=yaml.Loader)
                     _result: list = (
                         self.filter_catalog_shortname(data=_config_data)
-                        if self.shortname else self.filter_catalog(data=_config_data)
+                        if self.shortname
+                        else self.filter_catalog(data=_config_data)
                     )
                     if _result:
                         _results.extend(_result)
@@ -257,22 +315,28 @@ class LoadCatalog:
         if _results:
             return self.sorted(_results)[0]
         raise CatalogNotFound(
-            f"Catalog {'shortname' if self.shortname else 'name'}: {self.name!r} not found in "
+            f"Catalog {'shortname' if self.shortname else 'name'}: "
+            f"{self.name!r} not found in "
             f"`./conf/{self.folder}/{self.prefix_file}_{self.prefix}*.yaml`"
         )
 
 
-def get_catalog_all(
-        folder_config: Optional[Union[str, list]] = None,
+def get_catalogs(
+        config_form: Optional[Union[str, list]] = None,
         key_exists: Optional[Union[str, list]] = None,
         key_exists_all_mode: bool = True,
         priority_sorted: bool = False
-):
+) -> Dict:
     """Get all raw configuration from .yaml file
     """
     _key_exists: list = must_list(key_exists)
-    _folder_config: list = must_list((folder_config or ['catalog', 'pipeline', 'function']))
-    conf_paths = map(lambda x: (os.path.join(AI_APP_PATH, registers.path.conf, x), x), _folder_config)
+    _folder_config: list = must_list(
+        (config_form or CATALOGS)
+    )
+    conf_paths = map(
+        lambda x: (os.path.join(AI_APP_PATH, registers.path.conf, x), x),
+        _folder_config
+    )
     _files: dict = {}
     for conf_path, fol_conf in conf_paths:
         for file in sorted(os.listdir(conf_path), reverse=False):
@@ -281,11 +345,18 @@ def get_catalog_all(
                     _config_data_raw: dict = yaml.load(f, Loader=yaml.Loader)
                     _config_data: dict = {
                         k: v for k, v in _config_data_raw.items()
-                        if _get_config_filter_key(_key_exists, v, all_mode=key_exists_all_mode)
+                        if _get_config_filter_key(
+                            _key_exists,
+                            v,
+                            all_mode=key_exists_all_mode
+                        )
                     } if _key_exists else _config_data_raw
                     _files: dict = merge_dicts(_files, _config_data)
                     del _config_data_raw, _config_data
-    return sort_by_priority(_files) if priority_sorted else _files
+    return (
+        sort_by_priority(_files)
+        if priority_sorted else _files
+    )
 
 
 def split_datatype(datatype_full: str) -> Tuple[str, str]:

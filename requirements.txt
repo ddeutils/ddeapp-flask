@@ -4,15 +4,15 @@
 waitress==2.1.2
 
 # - WSGI Application, claim it as the most micro-web-framework in Python
-Flask==2.2.3
-Werkzeug==2.2.3
+Flask==2.3.2
+Werkzeug==2.3.4
 
 # - Extension: Schduleer
 Flask-APScheduler==1.12.4
 apscheduler==3.10.1
 
 # - Extension: Limiter
-Flask-Limiter==3.3.0
+Flask-Limiter==3.3.1
 
 # - Extendion: Caching
 Flask-Caching==2.0.2
@@ -20,10 +20,11 @@ Flask-Caching==2.0.2
 # - Extension: DBMS ORM
 Flask-SQLAlchemy==3.0.3
 sshtunnel==0.4.0
-sqlalchemy==2.0.5.post1
-psycopg2-binary==2.9.5
+sqlalchemy==2.0.15
+psycopg2-binary==2.9.6
 asyncpg==0.27.0
 
+# - Extension: Authentication & Security
 flask-login==0.6.2
 Flask-Bcrypt==1.0.1
 flask-cors==3.0.10
@@ -39,30 +40,36 @@ Pillow==9.3.0
 # - Extension: Form
 Flask-WTF==1.1.1
 WTForms==3.0.1
-email-validator==1.3.1
+email-validator==2.0.0.post2
 
 # - Extension: Mail
 Flask-Mail==0.9.1
 
 # - Extension: JWT
-flask-jwt-extended==4.4.4
-pyjwt==2.6.0
+flask-jwt-extended==4.5.2
+pyjwt==2.7.0
 
 # - Extension: Swagger
-flasgger==0.9.5
+flasgger==0.9.7b2
+flask-swagger-ui==4.11.1
 
 click==8.1.3
-cryptography==39.0.2
-markupsafe==2.1.2
+cryptography==41.0.1
+markupsafe==2.1.3
 
-python_dateutil==2.8.2
-# celery==5.2.7
+# - Extension: Executor
+Flask-Executor==1.0.0
+celery==5.2.7
 # Redis==4.4.0
-more-itertools==9.1.0
 
-# Model for data class management
-pydantic==1.10.6
+# - Model for data class management
+pydantic==1.10.8
 python-dotenv==1.0.0
+StrEnum==0.4.10
+
+# - Others
+python_dateutil==2.8.2
+more-itertools==9.1.0
 
 # Analytic ====================
 # ------------------------------------------------

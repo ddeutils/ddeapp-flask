@@ -5,21 +5,24 @@
 # --------------------------------------------------------------------------
 
 import re
-import datetime as dt
+from datetime import (
+    date,
+    datetime,
+)
 from flask import request
 from typing import (
     Optional,
     Union,
 )
-from ..core.legacy.base import (
-    TblCatalog,
-    PipeCatalog,
-)
-from ..utils.reusables import (
+from application.core.utils.reusables import (
     convert_str_list,
     merge_dicts,
 )
-from ..errors import (
+from application.core.validators import (
+    Table,
+    Pipeline,
+)
+from application.core.errors import (
     CatalogNotFound,
     ValidateFormsError,
 )
@@ -28,7 +31,7 @@ from ..errors import (
 def validate_run_date(params: str) -> bool:
     re_pattern = re.compile(r'^20\d{2}-\d{2}-\d{2}$')
     if re_pattern.match(params):
-        _ = dt.date.fromisoformat(params)
+        _ = date.fromisoformat(params)
         return False
     return not re_pattern.match(params)
 
@@ -36,12 +39,14 @@ def validate_run_date(params: str) -> bool:
 def validate_update_date(params: str) -> bool:
     re_pattern = re.compile(r'^20\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$')
     if re_pattern.match(params):
-        _ = dt.datetime.fromisoformat(params)
+        _ = datetime.fromisoformat(params)
         return False
     return not re_pattern.match(params)
 
 
-def validate_parameter(params: str, fix_list: list, option: Optional[str] = None) -> bool:
+def validate_parameter(
+        params: str, fix_list: list, option: Optional[str] = None
+) -> bool:
     if option == 'split':
         return all(i != param for i in fix_list for param in params)
     return params not in fix_list
@@ -51,17 +56,19 @@ def validate_table(tbl_name: Optional[str], optional: bool = False) -> bool:
     try:
         if not tbl_name:
             return not optional
-        TblCatalog.loads(tbl_name)
+        Table.parse_name(tbl_name)
         return False
     except CatalogNotFound:
         return True
 
 
-def validate_table_short(tbl_name_sht: Optional[str], optional: bool = False) -> bool:
+def validate_table_short(
+        tbl_name_sht: Optional[str], optional: bool = False
+) -> bool:
     try:
         if not tbl_name_sht:
             return not optional
-        TblCatalog.short(tbl_name_sht)
+        Table.parse_shortname(tbl_name_sht)
         return False
     except CatalogNotFound:
         return True
@@ -71,7 +78,7 @@ def validate_pipeline(pipe_name, optional: bool = False) -> bool:
     try:
         if not pipe_name:
             return not optional
-        PipeCatalog(pipe_name)
+        Pipeline.parse_name(pipe_name)
         return False
     except CatalogNotFound:
         return True
@@ -89,11 +96,16 @@ class BaseValidate:
                 if not k.startswith('_')
             }
         except KeyError as key:
-            raise ValidateFormsError(str(key), message="key does not exists") from key
+            raise ValidateFormsError(
+                str(key), message="key does not exists"
+            ) from key
 
         self._methods: dict = {
             name: func for name in dir(self.__class__)
-            if callable(func := getattr(self.__class__, name)) and not name.startswith("_")
+            if (
+                    callable(func := getattr(self.__class__, name))
+                    and not name.startswith("_")
+            )
         }
         if add_values:
             self.data_result = merge_dicts(self.data_result, add_values)
@@ -125,15 +137,24 @@ class BaseValidate:
             if name.startswith('expand_'):
                 values: list = name.replace('expand_', '').split('_and_')
                 _result: dict = merge_dicts(
-                    _result, func(**{data: value for data, value in self.data_result.items() if data in values})
+                    _result,
+                    func(**{
+                        data: value
+                        for data, value in self.data_result.items()
+                        if data in values
+                    }),
                 )
         self.data_result = merge_dicts(self.data_result, _result)
 
-    def _co_validates(self):
+    def _co_validates(self) -> None:
         for name, func in self._methods.items():
             if name.startswith('co_validate_'):
                 values: list = name.replace('co_validate_', '').split('_and_')
-                func(**{data: value for data, value in self.data_result.items() if data in values})
+                func(**{
+                    data: value
+                    for data, value in self.data_result.items()
+                    if data in values
+                })
 
 
 class FormValidate(BaseValidate):
@@ -149,13 +170,17 @@ class FormValidate(BaseValidate):
         )
 
     @staticmethod
-    def refactor_run_date(run_date: str):
+    def refactor_run_date(run_date: str) -> dict:
         return {'run_dates': convert_str_list(run_date)}
 
     @classmethod
-    def validate_run_dates(cls, run_dates: list):
+    def validate_run_dates(cls, run_dates: list) -> None:
         if any(validate_run_date(run_date) for run_date in run_dates):
-            raise ValidateFormsError('run_dates', str(run_dates), "it does not ISO date format: YYYY-mm-dd'")
+            raise ValidateFormsError(
+                'run_dates',
+                str(run_dates),
+                "it does not ISO date format: YYYY-mm-dd'"
+            )
 
 
 class ContentValidate(BaseValidate):
@@ -171,13 +196,13 @@ class ContentValidate(BaseValidate):
         )
 
     @staticmethod
-    def refactor_data(data: Union[list, dict]):
+    def refactor_data(data: Union[list, dict]) -> dict:
         return {'payloads': data}
 
     @staticmethod
-    def refactor_mode(mode: str):
+    def refactor_mode(mode: str) -> dict:
         return {'ingest_action': mode}
 
     @staticmethod
-    def expand_tbl_name_short(tbl_name_short: str):
-        return {'table_name': TblCatalog.short(tbl_name_short).tbl_name}
+    def expand_tbl_name_short(tbl_name_short: str) -> dict:
+        return {'table_name': Table.parse_shortname(tbl_name_short).name}

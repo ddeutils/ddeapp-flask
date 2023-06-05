@@ -1,4 +1,5 @@
 # set base image (host OS)
+# TODO: Look more images in https://hub.docker.com/r/tiangolo/uwsgi-nginx/
 FROM python:3.8-slim
 
 RUN apt-get clean \

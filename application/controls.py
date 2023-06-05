@@ -11,21 +11,25 @@ from typing import (
 )
 from sqlalchemy.exc import OperationalError
 from psycopg2 import OperationalError as PsycopgOperationalError
-from .utils.logging_ import logging
-from .utils.objects import (
+from application.components.api.framework.tasks import foreground_tasks
+from application.core.utils.logging_ import logging
+from application.core.legacy.objects import (
     Pipeline,
     Node,
-    Process,
     Action,
     Control
 )
-from .utils.config import (
+from application.core.models import (
+    Result,
+    Status,
+)
+from application.core.services import Task
+from application.core.utils.config import (
     Params,
     Environs,
 )
-from .core.legacy.base import get_catalog_all
-from .components.api.framework.tasks import foreground_tasks
-from .errors import (
+from application.core.base import get_catalogs
+from application.core.errors import (
     ObjectBaseError,
     CatalogBaseError,
 )
@@ -38,60 +42,72 @@ env = Environs(env_name='.env')
 
 def push_close_ssh(force: bool = False):
     """Run close SSH function"""
-    from .utils.database import ssh_connect
+    from application.core.connections.postgresql import ssh_connect
     server = ssh_connect()
     if server.is_alive or force:
         server.close()
 
 
 def push_func_setup(
-        process: Optional[Process] = None
+        task: Optional[Task] = None
 ) -> None:
     """Run Setup function in `register.yaml`
     """
-    _process: Process = process or Process.make('function_setup')
+    task: Task = task or Task.make(module='function_setup')
     functions = registers.functions
-    for index, _func_prop in enumerate(functions, start=1):
+    for idx, _func_prop in enumerate(functions, start=1):
         try:
             _func: Action = Action(
                 _func_prop['name'],
-                process_id=_process.id,
+                process_id=task.id,
                 auto_create=False
             )
-        except ObjectBaseError as err:
+        except ObjectBaseError:
             _func: Action = Action(
                 _func_prop['name'],
-                process_id=_process.id,
+                process_id=task.id,
                 auto_create=True
             )
-        logger.info(f'START {index:02d}: {_func.name} {"~" * (30 - len(_func.name) + 31)}')
-        logger.info(f"Success: Setup {_func.name} with logging value {_func.process_time} sec")
+        logger.info(
+            f'START {idx:02d}: {_func.name} '
+            f'{"~" * (30 - len(_func.name) + 31)}'
+        )
+        logger.info(
+            f"Success: Setup {_func.name} "
+            f"with logging value {_func.process_time} sec"
+        )
 
 
 def push_ctr_setup(
-        process: Optional[Process] = None
+        task: Optional[Task] = None
 ) -> None:
     """Run Setup Control Framework table in `register.yaml`
     """
-    _process: Process = process or Process.make('control_setup')
-    for index, _ctr_prop in enumerate(
+    task: Task = task or Task.make(module='control_setup')
+    for idx, _ctr_prop in enumerate(
             registers.control_frameworks,
             start=1,
     ):
-        status: int = 0
+        status: Status = Status.SUCCESS
         try:
             _node = Node(
                 name=_ctr_prop['name'],
-                process_id=_process.id,
+                process_id=task.id,
                 run_mode='setup',
                 auto_init='Y',
                 auto_drop='Y',
             )
-            logger.info(f'START {index:02d}: {_node.name} {"~" * (30 - len(_node.name) + 31)}')
+            logger.info(
+                f'START {idx:02d}: {_node.name} '
+                f'{"~" * (30 - len(_node.name) + 31)}'
+            )
         except ObjectBaseError as err:
             logger.error(f'Error ObjectBaseError: {err}')
-            status: int = 1
-        logger.info(f"Success run {_ctr_prop['name']!r} after app start with status {status}")
+            status: Status = Status.FAILED
+        logger.info(
+            f"Success run {_ctr_prop['name']!r} "
+            f"after app start with status {status.value}"
+        )
 
 
 MAP_BG_PROCESS: dict = {}
@@ -112,8 +128,12 @@ def pull_ctr_check_process() -> Tuple[int, ...]:
     }):
         return 0, 0, len(MAP_BG_PROCESS)
 
-    ps_filter_false: dict = dict(filter(lambda x: x[1] == '1', ctr_pull.items()))
-    ps_filter_wait: dict = dict(filter(lambda x: x[1] == '2', ctr_pull.items()))
+    ps_filter_false: dict = dict(
+        filter(lambda x: x[1] == '1', ctr_pull.items())
+    )
+    ps_filter_wait: dict = dict(
+        filter(lambda x: x[1] == '2', ctr_pull.items())
+    )
     _del_key: list = []
     append = _del_key.append
     for k, v in MAP_BG_PROCESS.items():
@@ -153,12 +173,14 @@ def push_ctr_stop_running() -> None:
             name='query:query_shutdown',
             external_parameters={
                 'status': 1,
-                'process_message': "Error: RuntimeError: Server shutdown while process was running in background"
+                'process_message': (
+                    "Error: RuntimeError: Server shutdown while "
+                    "process was running in background"
+                )
             }
         ).push_query()
     except (OperationalError, PsycopgOperationalError):
         logger.warning("... Target database does not connectable.")
-
     logger.critical("Success server has been shut down :'(")
 
 
@@ -166,25 +188,32 @@ def push_trigger_schedule() -> int:
     """Push run data with trigger schedule
     """
     ps_time_all: int = 0
-    for pipe_name, pipe_props in sorted(get_catalog_all(
-            folder_config='pipeline',
+    for pipe_name, pipe_props in get_catalogs(
+            config_form='pipeline',
             key_exists=params.map_pipe.trigger,
-            key_exists_all_mode=False
-    ).items(), key=lambda x: x[1].get('priority'), reverse=False):
-        print(pipe_name)
+            key_exists_all_mode=False,
+            priority_sorted=True,
+    ).items():
         try:
             pipeline: Pipeline = Pipeline(pipe_name)
             if pipeline.check_pipe_trigger():
-                logger.info(f"Start trigger schedule for data pipeline: {pipeline.name!r}")
-                process: Process = foreground_tasks(
+                logger.info(
+                    f"Start trigger schedule "
+                    f"for data pipeline: {pipeline.name!r}"
+                )
+                result: Result = foreground_tasks(
                     module='data',
-                    external_parameters={'pipeline_name': pipeline.name, 'run_mode': 'common'}
+                    external_parameters={
+                        'pipeline_name': pipeline.name,
+                        'run_mode': 'common'
+                    }
                 )
                 logger.info(
-                    f"End trigger {pipeline.name!r} with status: {process.status} "
-                    f"with time {process.duration} sec."
+                    f"End trigger {pipeline.name!r} "
+                    f"with status: {result.status.name} "
+                    f"with time {result.duration()} sec."
                 )
-                ps_time_all += process.duration
+                ps_time_all += result.duration()
         except (ObjectBaseError, CatalogBaseError) as err:
             logger.error(f"{err.__class__.__name__}: {str(err)}")
             continue
@@ -195,24 +224,35 @@ def push_cron_schedule(group_name: str, waiting_process: int = 300) -> int:
     """Push run data with cron schedule
     """
     ps_time_all: int = 0
-    for pipe_name in sorted(get_catalog_all(
-            folder_config='pipeline',
+    for pipe_name, _ in get_catalogs(
+            config_form='pipeline',
             key_exists=params.map_pipe.schedule,
-            key_exists_all_mode=False
-    ), key=lambda x: x(1)['priority'], reverse=False):  # <-- FIXME: ['str' object is not callable]
+            key_exists_all_mode=False,
+            priority_sorted=True,
+    ):
         try:
             pipeline: Pipeline = Pipeline(pipe_name)
-            if pipeline.check_pipe_schedule(group=group_name, waiting_process=waiting_process):
-                logger.info(f"Start cron jon schedule for data pipeline: {pipeline.name!r}")
-                process: Process = foreground_tasks(
+            if pipeline.check_pipe_schedule(
+                    group=group_name,
+                    waiting_process=waiting_process,
+            ):
+                logger.info(
+                    f"Start cron jon schedule "
+                    f"for data pipeline: {pipeline.name!r}"
+                )
+                result: Result = foreground_tasks(
                     module='data',
-                    external_parameters={'pipeline_name': pipeline.name, 'run_mode': 'common'},
+                    external_parameters={
+                        'pipeline_name': pipeline.name,
+                        'run_mode': 'common',
+                    },
                 )
                 logger.info(
-                    f"End trigger {pipeline.name!r} with status: {process.status} "
-                    f"with time {process.duration} sec"
+                    f"End trigger {pipeline.name!r} "
+                    f"with status: {result.status.name} "
+                    f"with time {result.duration()} sec"
                 )
-                ps_time_all += process.duration
+                ps_time_all += result.duration()
         except (ObjectBaseError, CatalogBaseError) as err:
             logger.error(f"{err.__class__.__name__}: {str(err)}")
             continue
@@ -220,15 +260,18 @@ def push_cron_schedule(group_name: str, waiting_process: int = 300) -> int:
 
 
 def push_retention() -> int:
-    """Push run retention with `retention_search` pipeline which auto generate by framework engine
+    """Push run retention with `retention_search` pipeline which auto generate
+    by framework engine
     """
-    logger.info("Start run retention process with `retention_search` pipeline ...")
+    logger.info(
+        "Start run retention process with `retention_search` pipeline ..."
+    )
     try:
-        process: Process = foreground_tasks(
+        result: Result = foreground_tasks(
             module='retention',
             external_parameters={'pipeline_name': 'retention_search'},
         )
-        return process.duration
+        return result.duration()
     except (ObjectBaseError, CatalogBaseError) as err:
         logger.error(f"{err.__class__.__name__}: {str(err)}")
         return 0
@@ -244,12 +287,14 @@ def push_load_file_to_db(
     :usage:
         >> push_load_file_to_db('initial/ilticd/ilticd_20220821.csv', 'ilticd')
     """
-    _process: Process = Process.make('load_data_from_file')
+    task: Task = Task.make(module='load_data_from_file')
     node: Node = Node(
         name=Node.convert_short(target),
-        process_id=_process.id
+        process_id=task.id
     )
-    node.load_file(filename, truncate=truncate, compress=compress)
+    node.load_file(
+        filename, truncate=truncate, compress=compress
+    )
 
 
 def push_initialize_frontend():

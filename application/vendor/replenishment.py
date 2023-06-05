@@ -1,8 +1,8 @@
 import math
 import pandas as pd
 import scipy.stats as stats
-from application.core.legacy.base import get_run_date
-from application.utils.logging_ import get_logger
+from application.core.base import get_run_date
+from application.core.utils.logging_ import get_logger
 
 logger = get_logger(__name__)
 
@@ -15,7 +15,16 @@ def run_min_max_service_level(input_df: pd.DataFrame, service_level_type: str, s
     values: list = []
     update_datetime = get_run_date(fmt="%Y-%m-%d %H:%M:%S")
     service_level_divide = 1 if service_level_type == 'percent' else 100
-    input_values = input_df.values.tolist()
+    # input_values = input_df.values.tolist()
+    input_values: list = [
+        list(x)
+        for x in zip(
+            *(
+                input_df[x].values.tolist()
+                for x in input_df.columns
+            )
+        )
+    ]
     for value in input_values:
         result_version: int = int(value[-1])
         result_list: str = ', '.join([
@@ -24,7 +33,11 @@ def run_min_max_service_level(input_df: pd.DataFrame, service_level_type: str, s
         result_str: str = f"({result_list}, {result_version}, 'Y', '{update_datetime}')"
         values.append(result_str)
 
-    result_values: str = (", ".join([_ for _ in values if _ != '']) if any(_ != '' for _ in values) else "")
+    result_values: str = (
+        ", ".join([_ for _ in values if _ != ''])
+        if any(_ != '' for _ in values)
+        else ""
+    )
 
     logger.info("Convert service level value will update to database")
     return result_values
@@ -37,7 +50,15 @@ def run_prod_cls_criteria(input_df: pd.DataFrame):
     """
     values: list = []
     update_datetime: str = get_run_date(fmt="%Y-%m-%d %H:%M:%S")
-    input_values: list = input_df.values.tolist()
+    input_values: list = [
+        list(x)
+        for x in zip(
+            *(
+                input_df[x].values.tolist()
+                for x in input_df.columns
+            )
+        )
+    ]
     for value in input_values:
         result_version: int = int(value[-1])
         input_criteria = [float(_) for _ in value[:-1]]

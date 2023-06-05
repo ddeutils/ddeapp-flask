@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import os
 import functools
 import pandas as pd
 import warnings
@@ -12,7 +11,9 @@ import asyncio
 from cryptography.utils import CryptographyDeprecationWarning
 
 with warnings.catch_warnings():
-    warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
+    warnings.filterwarnings(
+        'ignore', category=CryptographyDeprecationWarning,
+    )
     from sshtunnel import SSHTunnelForwarder
 
 from typing import (
@@ -28,20 +29,21 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.engine.url import URL
-from application.utils.config import Environs
-from application.utils.reusables import (
+from application.core.utils.config import Environs
+from application.core.utils.reusables import (
     merge_dicts,
     chunks,
 )
-from application.errors import DatabaseProcessError
-from conf import settings
+from application.core.errors import DatabaseProcessError
 
 
 env = Environs()
 
 ParamType: Type = Optional[Union[dict, bool]]
 
-DRIVER: str = env.DB_DRIVER or 'postgresql+psycopg2'
+DRIVER: str = (
+        env.DB_DRIVER or 'postgresql+psycopg2'
+)
 
 
 def generate_url(
@@ -67,7 +69,9 @@ def query_format(
         parameters: ParamType
 ) -> Union[str, list]:
     database_name: str = (
-        'database' if 'sqlite' in DRIVER else env.DB_NAME
+        'database'
+        if 'sqlite' in DRIVER
+        else env.DB_NAME
     )
     _db_param = {
         'database_name': database_name,
@@ -81,23 +85,29 @@ def query_format(
             return statement
     if isinstance(statement, str):
         return statement.format(**merge_dicts(_db_param, parameters))
-    return [_state.format(**merge_dicts(_db_param, parameters)) for _state in statement]
+    return [
+        _state.format(**merge_dicts(_db_param, parameters))
+        for _state in statement
+    ]
 
 
 def ssh_connect():
+    from conf import settings
     return SSHTunnelForwarder(**{
         'ssh_address_or_host': (env.SSH_HOST, int(env.SSH_PORT)),
         'ssh_username': env.SSH_USER,
-        'ssh_private_key': str(settings.BASE_PATH / 'conf' / env.SSH_PRIVATE_KEY),
+        'ssh_private_key': str(
+            settings.BASE_PATH / 'conf' / env.SSH_PRIVATE_KEY
+        ),
         'remote_bind_address': (env.DB_HOST, int(env.DB_PORT)),
         'local_bind_address': ('localhost', int(env.DB_PORT)),
     })
 
 
 def convert_local(function: callable) -> callable:
-    """Connect private AWS RDS
-    Make sure the inbound security group rules of the private database instance
-    allow access from the EC2 instance OR from subnet of the EC2 instance.
+    """Connect private AWS RDS. Make sure the inbound security group rules
+    of the private database instance allow access from the EC2 instance OR
+    from subnet of the EC2 instance.
     """
     @functools.wraps(function)
     def wrapper(*args, **kwargs):
@@ -122,9 +132,13 @@ def generate_engine(
         conf_replace: Optional[dict] = None,
         parameters: Optional[dict] = None,
 ):
-    """Generate engine
+    """Generate database engine
     """
-    return create_engine(generate_url(conf_replace=conf_replace), pool_pre_ping=True, **(parameters or {}))
+    return create_engine(
+        generate_url(conf_replace=conf_replace),
+        pool_pre_ping=True,
+        **(parameters or {})
+    )
 
 
 @convert_local
@@ -133,15 +147,27 @@ def query_select(
         conf_replace: Optional[dict] = None,
         parameters: ParamType = None
 ) -> Iterator[dict]:
-    engine = create_engine(generate_url(conf_replace=conf_replace), pool_pre_ping=True)
-    _statement: str = query_format(statement, parameters) if parameters is not None else statement
+    engine = create_engine(
+        generate_url(conf_replace=conf_replace),
+        pool_pre_ping=True
+    )
+    _statement: str = (
+        query_format(statement, parameters)
+        if parameters is not None
+        else statement
+    )
     with engine.connect() as conn:
         with conn.begin():
             try:
-                output_df = pd.read_sql_query(text(_statement), con=conn, dtype='str')
+                output_df = pd.read_sql_query(
+                    text(_statement),
+                    con=conn,
+                    dtype='str',
+                )
             except SQLAlchemyError as error:
                 raise DatabaseProcessError(
-                    f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                    f"{type(error).__module__}:{type(error).__name__}: "
+                    f"{str(error.__dict__['orig'])}"
                     f" \nWith statement: \n{_statement}"
                 ) from error
         yield from output_df.to_dict(orient='index').values()
@@ -153,15 +179,26 @@ def query_select_df(
         conf_replace: Optional[dict] = None,
         parameters: ParamType = None
 ) -> pd.DataFrame:
-    engine = create_engine(generate_url(conf_replace=conf_replace), pool_pre_ping=True)
-    _statement: str = query_format(statement, parameters) if parameters is not None else statement
+    engine = create_engine(
+        generate_url(conf_replace=conf_replace),
+        pool_pre_ping=True,
+    )
+    _statement: str = (
+        query_format(statement, parameters)
+        if parameters is not None else statement
+    )
     with engine.connect() as conn:
         with conn.begin():
             try:
-                output_df = pd.read_sql_query(text(_statement), con=conn, dtype='str')
+                output_df = pd.read_sql_query(
+                    text(_statement),
+                    con=conn,
+                    dtype='str',
+                )
             except SQLAlchemyError as error:
                 raise DatabaseProcessError(
-                    f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                    f"{type(error).__module__}:{type(error).__name__}: "
+                    f"{str(error.__dict__['orig'])}"
                     f" \nWith statement: \n{_statement}"
                 ) from error
         return output_df
@@ -173,15 +210,24 @@ def query_select_one(
         conf_replace: Optional[dict] = None,
         parameters: ParamType = None
 ) -> dict:
-    engine = create_engine(generate_url(conf_replace=conf_replace), pool_pre_ping=True)
-    _statement: str = query_format(statement, parameters) if parameters is not None else statement
+    engine = create_engine(
+        generate_url(conf_replace=conf_replace),
+        pool_pre_ping=True,
+    )
+    _statement: str = (
+        query_format(statement, parameters)
+        if parameters is not None else statement
+    )
     with engine.connect() as conn:
         try:
             with conn.begin():
-                output_df = pd.read_sql_query(text(_statement), con=conn, dtype='str')
+                output_df = pd.read_sql_query(
+                    text(_statement), con=conn, dtype='str'
+                )
         except SQLAlchemyError as error:
             raise DatabaseProcessError(
-                f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                f"{type(error).__module__}:{type(error).__name__}: "
+                f"{str(error.__dict__['orig'])}"
                 f" \nWith statement: \n{_statement}"
             ) from error
     return output_df.to_dict(orient='index').get(0, {})
@@ -203,7 +249,10 @@ def query_insert_from_csv(
             delimiter: '<delimiter>'
             engine: 'python'
     """
-    engine = create_engine(generate_url(conf_replace=conf_replace), pool_pre_ping=True)
+    engine = create_engine(
+        generate_url(conf_replace=conf_replace),
+        pool_pre_ping=True,
+    )
     with engine.connect() as conn:
         with conn.begin():
             file_df = pd.read_csv(
@@ -228,7 +277,8 @@ def query_insert_from_csv(
 
                 except SQLAlchemyError as error:
                     raise DatabaseProcessError(
-                        f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                        f"{type(error).__module__}:{type(error).__name__}: "
+                        f"{str(error.__dict__['orig'])}"
                     ) from error
                 yield (idx + 1) * chunk_size, len(chunk)
 
@@ -239,15 +289,28 @@ def query_execute(
         conf_replace: Optional[dict] = None,
         parameters: ParamType = None
 ) -> None:
-    engine = create_engine(generate_url(conf_replace=conf_replace), pool_pre_ping=True)
-    _statement: Union[str, list] = query_format(statement, parameters) if parameters is not None else statement
-    with engine.execution_options(isolation_level="AUTOCOMMIT").connect() as conn:
+    engine = create_engine(
+        generate_url(conf_replace=conf_replace),
+        pool_pre_ping=True,
+    )
+    _statement: Union[str, list] = (
+        query_format(statement, parameters)
+        if parameters is not None else statement
+    )
+    with engine.execution_options(
+            isolation_level="AUTOCOMMIT"
+    ).connect() as conn:
         try:
-            for _state in (_statement if isinstance(_statement, list) else [_statement]):
+            for _state in (
+                    _statement
+                    if isinstance(_statement, list)
+                    else [_statement]
+            ):
                 conn.execute(text(_state))
         except SQLAlchemyError as error:
             raise DatabaseProcessError(
-                f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                f"{type(error).__module__}:{type(error).__name__}: "
+                f"{str(error.__dict__['orig'])}"
                 f" \nWith statement: \n{_statement}"
             ) from error
 
@@ -258,15 +321,29 @@ def query_execute_row(
         conf_replace: Optional[dict] = None,
         parameters: ParamType = None
 ) -> int:
-    engine = create_engine(generate_url(conf_replace=conf_replace), pool_pre_ping=True)
-    _statement: Union[str, list] = query_format(statement, parameters) if parameters is not None else statement
-    with engine.execution_options(isolation_level="AUTOCOMMIT").connect() as conn:
+    engine = create_engine(
+        generate_url(conf_replace=conf_replace),
+        pool_pre_ping=True,
+    )
+    _statement: Union[str, list] = (
+        query_format(statement, parameters)
+        if parameters is not None
+        else statement
+    )
+    with engine.execution_options(
+            isolation_level="AUTOCOMMIT"
+    ).connect() as conn:
         try:
-            for _state in (_statement if isinstance(_statement, list) else [_statement]):
+            for _state in (
+                    _statement
+                    if isinstance(_statement, list)
+                    else [_statement]
+            ):
                 return conn.execute(text(_state)).rowcount
         except SQLAlchemyError as error:
             raise DatabaseProcessError(
-                f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                f"{type(error).__module__}:{type(error).__name__}: "
+                f"{str(error.__dict__['orig'])}"
                 f" \nWith statement: \n{_statement}"
             ) from error
 
@@ -277,18 +354,29 @@ def query_transaction(
         conf_replace: Optional[dict] = None,
         parameters: ParamType = None
 ) -> int:
-    engine = create_engine(generate_url(conf_replace=conf_replace), pool_pre_ping=True)
-    _statement: Union[str, list] = query_format(statement, parameters) if parameters is not None else statement
+    engine = create_engine(
+        generate_url(conf_replace=conf_replace),
+        pool_pre_ping=True
+    )
+    _statement: Union[str, list] = (
+        query_format(statement, parameters)
+        if parameters is not None
+        else statement
+    )
     with engine.execution_options(autocommit=False).connect() as conn:
         with conn.begin():
             try:
-                for _state in (_statement if isinstance(_statement, list) else [_statement]):
+                for _state in (
+                        _statement
+                        if isinstance(_statement, list) else [_statement]
+                ):
                     _row: int = conn.execute(text(_state)).rowcount
                 return _row
             except SQLAlchemyError as error:
                 # conn.rollback()
                 raise DatabaseProcessError(
-                    f"{type(error).__module__}:{type(error).__name__}: {str(error.__dict__['orig'])}"
+                    f"{type(error).__module__}:{type(error).__name__}: "
+                    f"{str(error.__dict__['orig'])}"
                     f" \nWith statement: \n{_statement}"
                 ) from error
 
@@ -303,12 +391,16 @@ async def query_execute_async(
         asyncio.run(query_execute_async('select * from ai.ctr_data_pipeline'))
     """
     engine = create_async_engine(
-        generate_url(conf_replace=conf_replace, driver='asyncpg'), echo=False, pool_pre_ping=True
+        generate_url(conf_replace=conf_replace, driver='asyncpg'),
+        echo=False,
+        pool_pre_ping=True
     )
 
     # Pause the execution of the function for a short period of time
     # await asyncio.sleep(0.1)
-    async with engine.execution_options(isolation_level="AUTOCOMMIT").connect() as conn:
+    async with engine.execution_options(
+            isolation_level="AUTOCOMMIT"
+    ).connect() as conn:
         async with conn.begin():
             await conn.execute(text(statement))
     await engine.dispose()

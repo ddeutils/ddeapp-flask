@@ -10,6 +10,10 @@ without any validate class package.
 
 The modern we will migrate the validator and statement generator to the Pydantic
 package with split to two files, validators.py and statements.py.
+
+Note:
+- If any methods were migrated to modern, it will have comment on top of method
+  definition, `[x] Migrate to modern style`.
 """
 
 import os
@@ -28,31 +32,30 @@ from typing import (
     Union,
     Iterator,
 )
-from application.utils.convertor import (
+from application.core.legacy.convertor import (
     reduce_stm,
     Statement,
 )
-from application.utils.reusables import (
+from application.core.utils.reusables import (
     only_one,
     merge_dicts,
     must_list,
     must_bool,
     hash_string,
 )
-from application.utils.config import (
+from application.core.utils.config import (
     Params,
     AI_APP_PATH,
 )
-from application.utils.io import load_json_to_values
-from application.utils.logging_ import logging
-from application.utils.models import VerboseObject
-from application.errors import (
+from application.core.connections.io import load_json_to_values
+from application.core.utils.logging_ import logging
+from application.core.legacy.models import VerboseObject
+from application.core.errors import (
     TableNotImplement,
     CatalogNotFound,
     CatalogArgumentError,
     TableValidatorError,
 )
-from application.core.models import Catalog
 
 params = Params(param_name='parameters.yaml')
 registers = Params(param_name='registers.yaml')
@@ -66,11 +69,13 @@ def verbose_log(
         lvl: Optional[int] = 0,
         end: Optional[str] = None
 ) -> None:
-    """Verbose logging function that control the logging message with DEBUG level of
-    any object instance processes.
+    """Verbose logging function that control the logging message with DEBUG
+    level of any object instance processes.
     """
     if obj.verbose:
-        prefix_level: str = f'{gen} ' if (gen := ' '.join(['...'] * lvl)) else ''
+        prefix_level: str = (
+            f'{gen} ' if (gen := ' '.join(['...'] * lvl)) else ''
+        )
         logger.debug(prefix_level + message)
         if end:
             logger.debug(end * 75)
@@ -93,10 +98,16 @@ def sort_by_priority(
     if isinstance(values, list):
         return sorted(values, key=priority_getter)
     else:
-        return {k: values[k] for k in sorted(values.keys(), key=priority_getter)}
+        return {
+            k: values[k]
+            for k in sorted(values.keys(), key=priority_getter)
+        }
 
 
-def get_run_date(date_type: str = 'str', fmt: str = '%Y-%m-%d') -> Union[str, dt.datetime, dt.date]:
+def get_run_date(
+        date_type: str = 'str',
+        fmt: str = '%Y-%m-%d'
+) -> Union[str, dt.datetime, dt.date]:
     """Get run_date value from now datetime
     :usage:
         >> get_run_date(date_type='datetime', fmt='%Y%m%d')
@@ -130,8 +141,8 @@ def get_plural(
 
 
 def get_process_id(process: str, fmt: str = '%Y%m%d%H%M%S%f') -> str:
-    """Get process ID from input string that combine timestamp and hashing of argument
-    process together.
+    """Get process ID from input string that combine timestamp and hashing of
+    argument process together.
     """
     return get_run_date(fmt=fmt)[:-2] + hash_string(process)
 
@@ -144,7 +155,8 @@ def get_process_date(
         date_type: str = 'str',
         fmt: str = '%Y-%m-%d',
 ) -> Union[str, dt.date]:
-    """Get process_date value that convert by `run_type` value like 'daily', 'weekly', ...
+    """Get process_date value that convert by `run_type` value
+    like 'daily', 'weekly', etc.
     :usage:
         >>> get_process_date('2022-01-20', 'monthly')
         '2022-01-01'
@@ -155,22 +167,43 @@ def get_process_date(
         >>> get_process_date('2022-01-20', 'weekly')
         '2022-01-17'
     """
-    run_type: str = run_type if run_type in params.map_tbl_ps_date.keys() else 'daily'
-    run_date_ts: dt.date = dt.date.fromisoformat(run_date) if isinstance(run_date, str) else run_date
+    run_type: str = (
+        run_type
+        if run_type in params.map_tbl_ps_date.keys()
+        else 'daily'
+    )
+    run_date_ts: dt.date = (
+        dt.date.fromisoformat(run_date)
+        if isinstance(run_date, str) else run_date
+    )
 
     if run_type == 'weekly':
-        run_date_convert_ts = run_date_ts - dt.timedelta(run_date_ts.weekday()) if invert \
+        run_date_convert_ts = (
+            run_date_ts - dt.timedelta(run_date_ts.weekday())
+            if invert
             else run_date_ts - dt.timedelta(run_date_ts.isoweekday())
+        )
     elif run_type == 'monthly':
-        run_date_convert_ts = run_date_ts.replace(day=1) + relativedelta(months=1) - relativedelta(days=1) if invert \
-            else run_date_ts.replace(day=1)
+        run_date_convert_ts = (
+            run_date_ts.replace(day=1)
+            + relativedelta(months=1)
+            - relativedelta(days=1)
+            if invert
+            else run_date_ts.replace(day=1))
     elif run_type == 'yearly':
-        run_date_convert_ts = run_date_ts.replace(month=1, day=1) + relativedelta(years=1) - relativedelta(days=1) \
-            if invert else run_date_ts.replace(month=1, day=1)
+        run_date_convert_ts = (
+            run_date_ts.replace(month=1, day=1)
+            + relativedelta(years=1)
+            - relativedelta(days=1)
+            if invert
+            else run_date_ts.replace(month=1, day=1)
+        )
     else:
         run_date_convert_ts = run_date_ts
-
-    return run_date_convert_ts.strftime(fmt) if date_type == 'str' else run_date_convert_ts
+    return (
+        run_date_convert_ts.strftime(fmt)
+        if date_type == 'str' else run_date_convert_ts
+    )
 
 
 def get_cal_date(
@@ -179,16 +212,17 @@ def get_cal_date(
         run_type: str,
         cal_value: int,
         date_type: str = 'str',
-        fmt: str = '%Y-%m-%d'
+        fmt: str = '%Y-%m-%d',
 ) -> Union[str, dt.date]:
     """Get date with internal calculation logic
     """
     if mode not in {'add', 'sub', }:
         raise NotImplementedError(
-            f"Get calculation datetime logic does not support for mode: {mode!r}."
+            f"Get calculation datetime does not support for mode: {mode!r}"
         )
     _result: dt.date = getattr(operator, mode)(
-        data_date, relativedelta(**{params.map_tbl_ps_date[run_type]: cal_value})
+        data_date,
+        relativedelta(**{params.map_tbl_ps_date[run_type]: cal_value}),
     )
     return _result.strftime(fmt) if date_type == 'str' else _result
 
@@ -196,7 +230,9 @@ def get_cal_date(
 def get_function(func_string: str) -> callable:
     """Get function from imported string
     :usage:
-        ..> get_function(func_string='application.vendor.replenishment.run_prod_cls_criteria')
+        ..> get_function(
+        ...     func_string='vendor.replenishment.run_prod_cls_criteria'
+        ... )
     """
     module, _function = func_string.rsplit(sep='.', maxsplit=1)
     mod = importlib.import_module(module)
@@ -212,12 +248,12 @@ def _get_config_filter_path(
     """Path filtering gateway of configuration directory
     """
     if config_dir == 'catalog':
-        _conf_prefix: str = config_prefix or ''
-        _conf_prefix_file: str = config_prefix_file or 'catalog'
-        return fnmatch.fnmatch(path, f'{_conf_prefix_file}_{_conf_prefix}*.yaml')
+        _conf_pre: str = config_prefix or ''
+        _conf_pre_file: str = config_prefix_file or 'catalog'
+        return fnmatch.fnmatch(path, f'{_conf_pre_file}_{_conf_pre}*.yaml')
     elif config_dir in {'function', 'view', 'adhoc'}:
-        _conf_prefix_file: str = config_prefix_file or '*'
-        return fnmatch.fnmatch(path, f'{_conf_prefix_file}_*.yaml')
+        _conf_pre_file: str = config_prefix_file or '*'
+        return fnmatch.fnmatch(path, f'{_conf_pre_file}_*.yaml')
     elif config_dir == 'pipeline':
         return fnmatch.fnmatch(path, 'pipeline_*.yaml')
     return False
@@ -231,6 +267,7 @@ def _get_config_filter_key(keys, conf, all_mode: bool = True) -> bool:
     )
 
 
+# [x] Migrate to modern style by class object `LoadConfig`
 def get_config_sht(
         config_name_sht: str,
         config_prefix: str,
@@ -243,12 +280,16 @@ def get_config_sht(
     conf_path = os.path.join(AI_APP_PATH, registers.path.conf, folder_config)
     _results: list = []
     for file in sorted(os.listdir(conf_path), reverse=False):
-        if _get_config_filter_path(file, folder_config, prefix, config_prefix_file):
+        if _get_config_filter_path(
+                file, folder_config, prefix, config_prefix_file
+        ):
             with open(os.path.join(conf_path, file), encoding='utf8') as f:
                 _tbl_data = yaml.load(f, Loader=yaml.Loader)
 
                 for _tbl in _tbl_data:
-                    if "".join(map(lambda x: x[0], _tbl.split("_"))) == config_name_sht:
+                    if "".join(
+                            map(lambda x: x[0], _tbl.split("_"))
+                    ) == config_name_sht:
                         _result = _tbl_data[_tbl]
                         _result['config_name'] = _tbl
                         _results.append(_result)
@@ -257,7 +298,9 @@ def get_config_sht(
     if _results:
         return sorted(
             _results,
-            key=lambda x: dt.datetime.fromisoformat(x.get('version', '1990-01-01')),
+            key=lambda x: dt.datetime.fromisoformat(
+                x.get('version', '1990-01-01')
+            ),
             reverse=True
         )[0]
     raise CatalogNotFound(
@@ -266,20 +309,23 @@ def get_config_sht(
     )
 
 
+# [x] Migrate to modern style by class object `LoadConfig`
 def get_config(
         config_name: str,
         config_prefix: str,
         folder_config: str,
         config_prefix_file: str
 ) -> dict:
-    """Get the latest raw configuration from .yaml file which sorting by `version` key in
-    configuration data descending.
+    """Get the latest raw configuration from .yaml file which sorting by
+    `version` key in configuration data descending.
     """
     prefix: str = f"{config_prefix}_" if config_prefix else ''
     conf_path = os.path.join(AI_APP_PATH, registers.path.conf, folder_config)
     _results: list = []
     for file in sorted(os.listdir(conf_path), reverse=False):
-        if _get_config_filter_path(file, folder_config, prefix, config_prefix_file):
+        if _get_config_filter_path(
+                file, folder_config, prefix, config_prefix_file
+        ):
             with open(os.path.join(conf_path, file), encoding='utf8') as f:
                 _config_data: dict = yaml.load(f, Loader=yaml.Loader)
                 if _result := _config_data.get(config_name, {}):
@@ -289,14 +335,18 @@ def get_config(
     if _results:
         return sorted(
             _results,
-            key=lambda x: dt.datetime.fromisoformat(x.get('version', '1990-01-01')),
+            key=lambda x: dt.datetime.fromisoformat(
+                x.get('version', '1990-01-01')
+            ),
             reverse=True
         )[0]
     raise CatalogNotFound(
-        f"catalog_name: {config_name!r} not found in `./conf/{folder_config}/{config_prefix_file}_{prefix}*.yaml`"
+        f"catalog_name: {config_name!r} not found in "
+        f"`./conf/{folder_config}/{config_prefix_file}_{prefix}*.yaml`"
     )
 
 
+# [x] Migrate to modern style and rename to `get_catalogs`
 def get_catalog_all(
         folder_config: Optional[Union[str, list]] = None,
         key_exists: Optional[Union[str, list]] = None,
@@ -306,8 +356,13 @@ def get_catalog_all(
     """Get all raw configuration from .yaml file
     """
     _key_exists: list = must_list(key_exists)
-    _folder_config: list = must_list((folder_config or ['catalog', 'pipeline', 'function']))
-    conf_paths = map(lambda x: (os.path.join(AI_APP_PATH, registers.path.conf, x), x), _folder_config)
+    _folder_config: list = must_list(
+        (folder_config or ['catalog', 'pipeline', 'function'])
+    )
+    conf_paths = map(
+        lambda x: (os.path.join(AI_APP_PATH, registers.path.conf, x), x),
+        _folder_config,
+    )
     _files: dict = {}
     for conf_path, fol_conf in conf_paths:
         for file in sorted(os.listdir(conf_path), reverse=False):
@@ -316,7 +371,9 @@ def get_catalog_all(
                     _config_data_raw: dict = yaml.load(f, Loader=yaml.Loader)
                     _config_data: dict = {
                         k: v for k, v in _config_data_raw.items()
-                        if _get_config_filter_key(_key_exists, v, all_mode=key_exists_all_mode)
+                        if _get_config_filter_key(
+                            _key_exists, v, all_mode=key_exists_all_mode
+                        )
                     } if _key_exists else _config_data_raw
                     _files: dict = merge_dicts(_files, _config_data)
                     del _config_data_raw, _config_data
@@ -339,7 +396,8 @@ def filter_ps_type(ps_name_full: str) -> Tuple[str, str]:
     return 'sql', ps_name_full
 
 
-def filter_not_null(datatype: str) -> bool:
+def filter_sys_auto(datatype: str) -> bool:
+    """Return True if datatype is not System auto generate column"""
     return all(not re.search(word, datatype) for word in ['default', 'serial'])
 
 
@@ -359,9 +417,15 @@ class TblCatalog:
     @classmethod
     def short(cls, short_name: str):
         _tbl_catalog: dict = get_config_sht(
-            short_name, config_prefix='', folder_config='catalog', config_prefix_file='catalog'
+            short_name,
+            config_prefix='',
+            folder_config='catalog',
+            config_prefix_file='catalog',
         )
-        return cls(tbl_name=_tbl_catalog['config_name'], tbl_catalog=_tbl_catalog)
+        return cls(
+            tbl_name=_tbl_catalog['config_name'],
+            tbl_catalog=_tbl_catalog
+        )
 
     @classmethod
     def loads(cls, tbl_name_full: str):
@@ -371,7 +435,9 @@ class TblCatalog:
     @classmethod
     def validate_tbl_type(cls, tbl_type: str) -> str:
         if tbl_type not in params.list_tbl_types:
-            raise TableNotImplement(f"AI framework does not support for table type {tbl_type!r}")
+            raise TableNotImplement(
+                f"AI framework does not support for table type {tbl_type!r}"
+            )
         return tbl_type
 
     def __init__(
@@ -389,16 +455,20 @@ class TblCatalog:
         self.tbl_catalog: dict = self.get_tbl_catalog(config=tbl_catalog)
         if self.tbl_prefix not in params.list_tbl_priority:
             logger.warning(
-                f"The config {self.tbl_name} have table prefix name, `{self.tbl_prefix}`, "
-                f"which different from the agreed list"
+                f"The config {self.tbl_name} have table prefix name, "
+                f"`{self.tbl_prefix}`, which different from the agreed list"
             )
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.tbl_name!r}, tbl_type={self.tbl_type!r})"
+        return (
+            f"{self.__class__.__name__}"
+            f"({self.tbl_name!r}, tbl_type={self.tbl_type!r})"
+        )
 
     def __str__(self):
         return f"{self.tbl_type}:{self.tbl_name}"
 
+    # [x] Migrate to modern style
     @property
     def catalog(self) -> dict:
         return {
@@ -424,7 +494,10 @@ class TblCatalog:
     @property
     def tbl_primary_key(self) -> list:
         if any('primary_key_' in _ for _ in self.tbl_profile.keys()):
-            logger.warning(f"The config {self.tbl_name!r} does not have real primary key that set in database")
+            logger.warning(
+                f"The config {self.tbl_name!r} does not have real primary key "
+                f"that set in database"
+            )
             return self.tbl_profile.get('primary_key', [])
         return self.tbl_profile['primary_key']
 
@@ -434,7 +507,9 @@ class TblCatalog:
 
     @property
     def tbl_partition_type(self) -> str:
-        return only_one(list(self.tbl_profile), params.map_tbl.partition, default=False)
+        return only_one(
+            list(self.tbl_profile), params.map_tbl.partition, default=False
+        )
 
     @property
     def tbl_partition(self) -> list:
@@ -442,7 +517,10 @@ class TblCatalog:
 
     @property
     def tbl_features(self):
-        return {col: feature['feature'] for col, feature in self.tbl_profile['features'].items()}
+        return {
+            col: feature['feature']
+            for col, feature in self.tbl_profile['features'].items()
+        }
 
     # [x] Migrate to modern style
     def validate_tbl_with_flag(self, flag: Optional[Union[str, bool]]) -> bool:
@@ -463,20 +541,38 @@ class TblCatalog:
             _col: _type for _col, _type in columns.items() if _col in _filter}
 
     # [x] Migrate to modern style
-    def get_tbl_columns(self, pk_included: bool = False, datatype_included: bool = False) -> Union[list, dict]:
+    def get_tbl_columns(
+            self,
+            pk_included: bool = False,
+            datatype_included: bool = False,
+    ) -> Union[list, dict]:
         if datatype_included:
-            return self.tbl_profile['features'] if pk_included else \
-                {
-                    col: details for col, details in self.tbl_profile['features'].items()
+            return (
+                self.tbl_profile['features']
+                if pk_included
+                else {
+                    col: details
+                    for col, details in self.tbl_profile['features'].items()
                     if col not in self.tbl_primary_key
                 }
-        return list(self.tbl_profile['features']) if pk_included else \
-            list(filter(lambda x: x not in self.tbl_primary_key, self.tbl_profile['features']))
+            )
+        return (
+            list(self.tbl_profile['features'])
+            if pk_included
+            else list(filter(
+                lambda x: x not in self.tbl_primary_key,
+                self.tbl_profile['features']
+            ))
+        )
 
     # [x] Migrate to modern style
     def get_tbl_dependency(self) -> Dict[str, Dict[int, Tuple[str]]]:
         _result: dict = {}
-        for ps, attrs in sorted(self.tbl_process.items(), key=lambda x: x[1]['priority'], reverse=False):
+        for ps, attrs in sorted(
+                self.tbl_process.items(),
+                key=lambda x: x[1]['priority'],
+                reverse=False
+        ):
             stm: Statement = Statement(attrs['statement'])
             _result[ps] = stm.mapping()
         return _result
@@ -495,18 +591,30 @@ class TblCatalog:
         foreign: dict = self.tbl_foreign_key
 
         def _get_foreign_stm(column: str) -> str:
-            return f" references {{ai_schema_name}}.{foreign[column]}" if column in foreign else ''
+            return (
+                f" references {{ai_schema_name}}.{foreign[column]}"
+                if column in foreign else ''
+            )
 
-        features: str = ", ".join([f"{k} {v} {_get_foreign_stm(k)}" for k, v in self.tbl_features.items()])
-        primary: str = f', primary key ( {", ".join(prim)} )' if (prim := self.tbl_primary_key) else ""
+        features: str = ", ".join([
+            f"{k} {v} {_get_foreign_stm(k)}"
+            for k, v in self.tbl_features.items()
+        ])
+        primary: str = (
+            f', primary key ( {", ".join(prim)} )'
+            if (prim := self.tbl_primary_key) else ""
+        )
         if self.tbl_partition_type:
             partition: str = " {partition_type}( {partition_cols} )".format(
                 partition_type=" ".join(self.tbl_partition_type.split('_')),
                 partition_cols=", ".join(self.tbl_partition))
         else:
             partition: str = ""
-        _stm: str = """create table if not exists {{database_name}}.{{ai_schema_name}}.{table_name}
-            ( {features} {primary_key} ){partition}"""
+        _stm: str = (
+            "create table if not exists "
+            "{{database_name}}.{{ai_schema_name}}.{table_name}"
+            "( {features} {primary_key} ){partition}"
+        )
         return reduce_stm(_stm.format(
             table_name=self.tbl_name,
             features=features,
@@ -526,8 +634,8 @@ class TblCatalog:
     # [x] Migrate to modern style
     def get_tbl_stm_create_partition(self, start_period, end_period) -> str:
         """
-        Reference: https://www.enterprisedb.com/postgres-tutorials/how-use-table-partitioning-scale-postgresql
-        Reference: https://www.postgresql.fastware.com/postgresql-insider-prt-ove
+        ref: https://www.enterprisedb.com/postgres-tutorials/how-use-table-partitioning-scale-postgresql
+        ref: https://www.postgresql.fastware.com/postgresql-insider-prt-ove
         """
         if self.tbl_partition_type == 'partition_by_range':
             _tbl_name_partition = f"{{table_name}}_{start_period}_{end_period}"
@@ -539,7 +647,8 @@ class TblCatalog:
                 end_period=end_period
             ))
         raise TableNotImplement(
-            f"AI framework does not support create partition table with type `{self.tbl_partition_type}`"
+            f"AI framework does not support create partition table "
+            f"with type `{self.tbl_partition_type}`"
         )
 
     # [x] Migrate to modern style
@@ -577,7 +686,9 @@ class TblCatalog:
         ), add_row_number=False)
 
     # [x] Migrate to modern style
-    def get_tbl_stm_update(self) -> str:
+    def get_tbl_stm_update(
+            self
+    ) -> str:
         """Generate update statement for receive data from values string
         :statement:
 
@@ -593,9 +704,11 @@ class TblCatalog:
             included=self.tbl_primary_key,
             word_self=self.tbl_name_sht,
             word_target=f"{self.tbl_name_sht}_ud",
-            sep='and'
+            sep='and',
+            cast_type=True,
         )
-        _stm: str = """update {{database_name}}.{{ai_schema_name}}.{table_name} as {table_name_short}
+        _stm: str = """update {{database_name}}.{{ai_schema_name}}.{table_name} 
+            as {table_name_short}
             set {{string_columns_pairs}} from ( values {{string_values}} )
             as {table_name_short}_ud( {{string_columns}} )
             where {primary_key_columns}
@@ -613,18 +726,45 @@ class TblCatalog:
             included: Optional[list] = None,
             word_self: Optional[str] = None,
             word_target: Optional[str] = None,
-            sep: Optional[str] = None
+            sep: Optional[str] = None,
+            cast_type: bool = False,
     ):
+        """Generate set statement for ingestion component in
+        update and ingest mode.
+
+        :ingest:
+                SET
+                COLUMN = EXCLUDED.COLUMN,
+                COLUMN = EXCLUDED.COLUMN,
+                ...
+
+        :update:
+                WHERE
+                TABLE.COLUMN = TABLE_UD.COLUMN AND
+                TABLE.COLUMN = TABLE_UD.COLUMN AND
+                ...
+        """
         _excluded: list = self.validate_tbl_columns(excluded or [])
-        _included: list = self.validate_tbl_columns(included or list(self.get_tbl_columns(pk_included=False)))
-        word_self: str = f"{word_self}." if word_self else ''
-        word_target: str = word_target or 'excluded'
-        sep: str = sep or ','
+        _included: list = self.validate_tbl_columns(
+            included or list(self.get_tbl_columns(pk_included=False))
+        )
+        word_self: str = (f"{word_self}." if word_self else '')
+        word_target: str = (word_target or 'excluded')
+        sep: str = (sep or ',')
         return f" {sep} ".join([
-            f"{word_self}{col} = {word_target}.{col}"
-            for col, v in self.tbl_features.items()
+            (
+                f"{word_self}{col} = {word_target}.{col}"
+                + (
+                    f"::{attrs['datatype']}"
+                    if cast_type else ""
+                )
+            )
+            for col, attrs in self.get_tbl_columns(
+                pk_included=True,
+                datatype_included=True
+            ).items()
             if (
-                    filter_not_null(v)
+                    (filter_sys_auto(attrs['feature']) or included)
                     and col not in _excluded
                     and col in _included
             )
@@ -695,14 +835,22 @@ class TblCatalog:
             config_prefix_file='catalog'
         )
         _config_keys: list = list(_config)
-        if not (_create_key := only_one(_config_keys, params.map_tbl.profile, default=False)):
+        if not (
+                _create_key := only_one(
+                    _config_keys, params.map_tbl.profile, default=False)
+        ):
             raise CatalogNotFound(
-                f"Catalog does not found any key represent `create`/`profile` of {self.tbl_name!r}"
+                f"Catalog does not found any key represent "
+                f"`create`/`profile` of {self.tbl_name!r}"
             )
-        elif not (_process_key := only_one(_config_keys, params.map_tbl.process, default=False)):
+        elif not (
+                _process_key := only_one(
+                    _config_keys, params.map_tbl.process, default=False)
+        ):
             if self.tbl_prefix in params.list_tbl_prefix_must_have_process:
                 raise CatalogNotFound(
-                    f"Catalog does not found any key represent `update`/`process`/`function` of {self.tbl_name!r}"
+                    f"Catalog does not found any key represent "
+                    f"`update`/`process`/`function` of {self.tbl_name!r}"
                 )
 
         self.tbl_catalog: dict = {
@@ -711,7 +859,9 @@ class TblCatalog:
             'process': self._generate_process(_config.pop(_process_key, {}))
         }
 
-        if _initial_key := only_one(_config_keys, params.map_tbl.initial, default=False):
+        if _initial_key := only_one(
+                _config_keys, params.map_tbl.initial, default=False
+        ):
             self.tbl_catalog['initial'] = self._generate_initial(_config.pop(_initial_key))
         return self.tbl_catalog
 
@@ -720,21 +870,31 @@ class TblCatalog:
         pass
 
     # [x] Migrate to modern style
-    def _generate_profile(self, profiles: dict, excluded: Optional[list] = None) -> dict:
+    def _generate_profile(
+            self,
+            profiles: dict,
+            excluded: Optional[list] = None,
+    ) -> dict:
         """Generate profile from configuration to standard mapping"""
         _excluded: list = excluded or []
         _columns: dict = self._loop_profile(profiles, _excluded)
-        _prim_key: list = profiles.get(only_one(list(profiles), params.map_tbl.pk, default=False), [])
-        _fore_key: dict = profiles.get(only_one(list(profiles), params.map_tbl.fk, default=False), {})
+        _prim_key: list = profiles.get(
+            only_one(list(profiles), params.map_tbl.pk, default=False), [],
+        )
+        _fore_key: dict = profiles.get(
+            only_one(list(profiles), params.map_tbl.fk, default=False), {},
+        )
 
         # Validate columns in primary key and foreign key list
         if _catch_cols := [f"{_!r}" for _ in _prim_key if _ not in _columns]:
             raise CatalogArgumentError(
-                f"Primary key {', '.join(_catch_cols)} does not exists in features of '{self.tbl_name}'"
+                f"Primary key {', '.join(_catch_cols)} does not exists "
+                f"in features of '{self.tbl_name}'"
             )
         elif _catch_cols := [f"{_!r}" for _ in _fore_key if _ not in _columns]:
             raise CatalogArgumentError(
-                f"Foreign key {', '.join(_catch_cols)} does not exists in features of '{self.tbl_name}'"
+                f"Foreign key {', '.join(_catch_cols)} does not exists "
+                f"in features of '{self.tbl_name}'"
             )
 
         profiles['features'] = _columns
@@ -827,7 +987,8 @@ class TblCatalog:
                     _processes[ps_name][stage] = _stages
             else:
                 raise CatalogArgumentError(
-                    f"Process type {ps_type!r} which set in {self.tbl_name!r} does not support yet"
+                    f"Process type {ps_type!r} which set in {self.tbl_name!r} "
+                    f"does not support yet"
                 )
             _ps_count += 1
         self.tbl_process_count: int = _ps_count
@@ -863,8 +1024,18 @@ class TblCatalog:
         :warning:
             - Initial statement generator need primary key values in profile
         """
-        _initial: dict = {'parameter': list(set(initial.get(only_one(list(initial), params.map_tbl.param), []))), }
-        if not (_value_key := only_one(list(initial), ['value', 'values', 'file', 'files'], default=False)):
+        _initial: dict = {
+            'parameter': list(set(initial.get(
+                only_one(list(initial), params.map_tbl.param), [],
+            ))),
+        }
+        if not (
+                _value_key := only_one(
+                    list(initial),
+                    ['value', 'values', 'file', 'files'],
+                    default=False
+                )
+        ):
             _initial['statement']: str = Statement(
                 initial.get(only_one(list(initial), params.map_tbl.stm), '')
             ).generate()
@@ -931,6 +1102,7 @@ class FuncCatalog:
     def __str__(self):
         return f"{self.func_type}:{self.func_name}"
 
+    # [x] Migrate to modern style
     @property
     def catalog(self) -> dict:
         return {
@@ -997,12 +1169,14 @@ class FuncCatalog:
             }
             if not (_stm_key := only_one(list(profiles), params.map_func.stm)):
                 raise CatalogArgumentError(
-                    f"Function profile of {self.func_name!r} does not set statement while profile key was dict type"
+                    f"Function profile of {self.func_name!r} does not "
+                    f"set statement while profile key was dict type"
                 )
             _profiles['statement'] = Statement(profiles.get(_stm_key, '')).generate()
             return _profiles
         raise CatalogArgumentError(
-            f"AI framework function does not support for create type {type(profiles)!r} that set in {self.func_name!r}"
+            f"AI framework function does not support for create "
+            f"type {type(profiles)!r} that set in {self.func_name!r}"
         )
 
 
@@ -1036,9 +1210,11 @@ class PipeCatalog:
         self.pipe_catalog: dict = self.get_pipe_catalog(config=pipe_catalog)
         if any(_ == self.pipe_id for _ in self.pipe_trigger):
             raise CatalogArgumentError(
-                f"Pipeline: {self.pipe_id!r} does not support for `id` was included in `trigger` lists"
+                f"Pipeline: {self.pipe_id!r} does not support "
+                f"for `id` was included in `trigger` lists"
             )
-        verbose_log(self, f"[Success] initialize the pipeline catalog object name {self.pipe_name!r}", end='=')
+        verbose_log(self, f"[Success] initialize the pipeline catalog object "
+                          f"name {self.pipe_name!r}", end='=')
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.pipe_name!r})"
@@ -1046,6 +1222,7 @@ class PipeCatalog:
     def __str__(self):
         return self.pipe_name
 
+    # [x] Migrate to modern style
     @property
     def catalog(self) -> dict:
         return {
@@ -1111,7 +1288,9 @@ class PipeCatalog:
                     <node_name>: <node_type>
 
         """
-        verbose_log(self, "[Start] loading configuration data from `./conf/catalog` path ...", lvl=1)
+        verbose_log(
+            self, "[Start] loading configuration data from `./conf/catalog` path ...", lvl=1
+        )
         _config: dict = config or get_config(
             config_name=self.pipe_name,
             config_prefix='',
@@ -1135,7 +1314,8 @@ class PipeCatalog:
             'alert': must_list(_config.get(only_one(_config_keys, params.map_pipe.alert), [])),
             'nodes': self._generate_nodes(_config.pop(_node_key))
         }
-        verbose_log(self, "[Success] Mapping the loading configuration data to `pipe_catalog`", lvl=1, end='-')
+        verbose_log(
+            self, "[Success] Mapping the loading configuration data to `pipe_catalog`", lvl=1, end='-')
         return self.pipe_catalog
 
     # [x] Migrate to modern style
@@ -1163,7 +1343,8 @@ class PipeCatalog:
                 if _default_index == 0:
                     raise CatalogArgumentError(
                         f"trigger property in pipeline {self.pipe_name!r} "
-                        f"does not valid with bracket of logical condition with ')'"
+                        f"does not valid with bracket of logical condition "
+                        f"with ')'"
                     )
                 _convert_result = convert_element_with_type(_default.pop(_default_index))
                 _default_index -= 1
@@ -1185,7 +1366,11 @@ class PipeCatalog:
 
             (ii)    trigger: 'pipeline-id-01 & (pipeline-id-02 | pipeline-id-03)'
         """
-        verbose_log(self, f"[Start] Generate trigger value for pipeline name {self.pipe_name!r}", lvl=1)
+        verbose_log(
+            self,
+            f"[Start] Generate trigger value for pipeline name {self.pipe_name!r}",
+            lvl=1
+        )
 
         def __prepare_trigger(trigger: str) -> list:
             _trigger: str = ''.join(trigger.strip().split())
@@ -1195,15 +1380,25 @@ class PipeCatalog:
             _trigger: str = _trigger.replace('(', '( ').replace(')', ' )')
             return list(map(
                 lambda x: x.strip(),
-                _trigger.replace(self.pipe_ta, f' {self.pipe_ta} ').replace(self.pipe_tr, f' {self.pipe_tr} ').split()
+                (
+                    _trigger.replace(self.pipe_ta, f' {self.pipe_ta} ')
+                        .replace(self.pipe_tr, f' {self.pipe_tr} ')
+                        .split()
+                )
             ))
 
         if isinstance(triggers, list):
             return triggers
         _trigger_split: list = __prepare_trigger(triggers)
-        if any(_ not in {'&', '|'} for _ in list(filter(lambda x: x not in {'(', ')'}, _trigger_split))[1::2]):
+        if any(
+                _ not in {'&', '|'}
+                for _ in list(
+                    filter(lambda x: x not in {'(', ')'}, _trigger_split)
+                )[1::2]
+        ):
             raise CatalogArgumentError(
-                f"trigger property in pipeline {self.pipe_name!r} does not valid with logical condition"
+                f"trigger property in pipeline {self.pipe_name!r} "
+                f"does not valid with logical condition"
             )
         elif _trigger_split.count('(') != _trigger_split.count(')'):
             raise CatalogArgumentError(
@@ -1257,12 +1452,18 @@ class PipeCatalog:
                 }
         elif isinstance(nodes, dict):
             _default_priority: float = 1
-            for node_name, node_props in sorted(nodes.items(), key=lambda x: x[1].get('priority', 99), reverse=False):
+            for node_name, node_props in sorted(
+                    nodes.items(),
+                    key=lambda x: x[1].get('priority', 99),
+                    reverse=False,
+            ):
                 _node_name, _priority, _node_choose = self.__generate_node_props(
                     _default_priority, node_props, node_name
                 )
                 try:
-                    verbose_log(self, f"check node name {_node_name!r} exists in config catalog", lvl=2)
+                    verbose_log(
+                        self, f"check node name {_node_name!r} exists in config catalog", lvl=2
+                    )
                     TblCatalog.loads(_node_name)
                 except CatalogNotFound as error:
                     filter_error: str = str(error).replace('"', '')
@@ -1275,13 +1476,22 @@ class PipeCatalog:
         self.pipe_nodes_count: int = len(_nodes)
         verbose_log(
             self,
-            f"[Success] Generate {self.pipe_nodes_count} nodes for pipeline name {self.pipe_name!r}",
-            end='-', lvl=1
+            (
+                f"[Success] Generate {self.pipe_nodes_count} nodes "
+                f"for pipeline name {self.pipe_name!r}"
+            ),
+            end='-',
+            lvl=1,
         )
         return _nodes
 
     # [x] Migrate to modern style
-    def __generate_node_props(self, priority: float, node_props: Union[list, dict], node_name: Optional[str] = None):
+    def __generate_node_props(
+            self,
+            priority: float,
+            node_props: Union[list, dict],
+            node_name: Optional[str] = None
+    ):
         """Generate node properties with different type of node input argument.
         """
         if isinstance(node_props, list):

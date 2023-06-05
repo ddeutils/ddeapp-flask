@@ -12,12 +12,12 @@ from statsmodels.tsa.holtwinters import (
     SimpleExpSmoothing,
     ExponentialSmoothing,
 )
-from application.errors import FuncRaiseError
-from application.core.legacy.base import (
+from application.core.errors import FuncRaiseError
+from application.core.base import (
     get_run_date,
     get_process_date,
 )
-from application.utils.logging_ import get_logger
+from application.core.utils.logging_ import get_logger
 
 logger = get_logger(__name__)
 warnings.filterwarnings('ignore')
@@ -48,7 +48,9 @@ def resample(df, id_value, data_date):
 
     # Fill every day until just before forecast start date
     start_date = df['ds'].min()
-    end_date = dt.date.fromisoformat(data_date) + relativedelta(months=1, days=-1)  # get end of month
+
+    # Get end of month
+    end_date = dt.date.fromisoformat(data_date) + relativedelta(months=1, days=-1)
     if start_date is None or start_date > end_date or len(df) == 0:
         df_blank = pd.DataFrame(columns=['y'])
         df_blank.index.name = 'ds'
@@ -65,7 +67,8 @@ def resample(df, id_value, data_date):
 
 def get_fcst_date_idx(series_y, period):
     """
-    Generates the forecast date index based on the resampled DateTime indexed series
+    Generates the forecast date index based on the resampled DateTime
+    indexed series
 
     Parameters
     ----------
@@ -81,7 +84,11 @@ def get_fcst_date_idx(series_y, period):
     """
 
     date_index = series_y.index
-    return pd.date_range(date_index[-1], periods=period + 1, freq=date_index.freq)[1:]
+    return pd.date_range(
+        date_index[-1],
+        periods=period + 1,
+        freq=date_index.freq,
+    )[1:]
 
 
 def val_to_gr(series_y, periods=12):
@@ -102,7 +109,11 @@ def val_to_gr(series_y, periods=12):
         Series name is `growth`
     """
 
-    series_gr = series_y.pct_change(periods).iloc[periods:].replace([np.inf, -np.inf, None, np.nan], [1, -1, 1, 1])
+    series_gr = (
+        series_y.pct_change(periods)
+            .iloc[periods:]
+            .replace([np.inf, -np.inf, None, np.nan], [1, -1, 1, 1])
+    )
     series_gr.name = 'growth'
     return series_gr
 
@@ -125,19 +136,26 @@ def gr_to_val(series_y, series_gr, periods=12):
     Returns
     -------
     Series
-        Nominal value of the same DateTime index that results from previous_y + previous_y*growth
+        Nominal value of the same DateTime index that results
+        from previous_y + previous_y*growth
     """
 
     series_gr_shift = series_gr.copy()
     series_gr_shift.index = series_gr_shift.index.shift(-periods)
 
-    df_val = pd.merge(series_gr_shift, series_y, how='left', left_index=True, right_index=True)
+    df_val = pd.merge(
+        series_gr_shift,
+        series_y,
+        how='left',
+        left_index=True,
+        right_index=True
+    )
     series_val = df_val['y'] + df_val['y'] * df_val['growth']
     series_val.index = series_val.index.shift(periods)
     return series_val
 
 
-def extract_feat(series_y, lag=3, dropna=True):
+def extract_feat(series_y, lag=3, _dropna: bool = True):
     max_date_series_y = max(series_y.index)
 
     df_y_feat = series_y.copy()
@@ -150,8 +168,10 @@ def extract_feat(series_y, lag=3, dropna=True):
     df_y_feat['quarter'] = df_y_feat.index.quarter
     df_y_feat['year'] = df_y_feat.index.year
 
-    df_y_feat = pd.get_dummies(df_y_feat, columns=['month', 'quarter'], drop_first=False)
-    df_y_feat.dropna(inplace=dropna)
+    df_y_feat = pd.get_dummies(
+        df_y_feat, columns=['month', 'quarter'], drop_first=False
+    )
+    df_y_feat.dropna(inplace=_dropna)
 
     df_x = df_y_feat.loc[:, [i for i in df_y_feat.columns if i != 'y']]
     df_y = df_y_feat.loc[:, 'y']
@@ -159,7 +179,7 @@ def extract_feat(series_y, lag=3, dropna=True):
     return df_y_feat, df_x, df_y
 
 
-# Forecasting models and functions ------------------------------------------------------------------------------------
+# Forecasting models and functions ---------------------------------------------
 class DefaultModel:
     def __init__(self, series_y):
         self.series_y = series_y
@@ -179,12 +199,31 @@ class MovingAverage:
 
         if method == 'weighted':
             w = np.arange(1, window + 1)
-            self.ma = self.series_y.rolling(window=window, min_periods=1).apply(
-                lambda x: np.dot(x, w[-len(x):]) / w[-len(x):].sum()).iloc[-1]
+            self.ma = (
+                self.series_y
+                    .rolling(window=window, min_periods=1)
+                    .apply(
+                        lambda x: (
+                                np.dot(x, w[-len(x):])
+                                / w[-len(x):].sum()
+                        )
+                    )
+                    .iloc[-1]
+            )
         elif method == 'exponential':
-            self.ma = self.series_y.ewm(span=window, min_periods=1).mean().iloc[-1]
+            self.ma = (
+                self.series_y
+                    .ewm(span=window, min_periods=1)
+                    .mean()
+                    .iloc[-1]
+            )
         else:
-            self.ma = self.series_y.rolling(window=window, min_periods=1).mean().iloc[-1]
+            self.ma = (
+                self.series_y
+                    .rolling(window=window, min_periods=1)
+                    .mean()
+                    .iloc[-1]
+            )
 
         return self
 
@@ -205,7 +244,8 @@ class Arima:
             Whether to use auto arima or not
 
         growth: bool, default=False
-            Whether to convert series_y to growth first then convert the results back to nominal
+            Whether to convert series_y to growth first then convert
+            the results back to nominal
 
         periods: int
             Periods to calculate growth
@@ -224,29 +264,27 @@ class Arima:
             self.series_y_forecast = series_y
 
         if not auto:
-            self.m = SARIMAX(self.series_y_forecast, order=order_param, initialization='approximate_diffuse')
+            self.m = SARIMAX(
+                self.series_y_forecast,
+                order=order_param,
+                initialization='approximate_diffuse'
+            )
 
     def fit(self):
-        if self.auto:
-            # try:
-            #     self.m = pm.arima.auto_arima(self.series_y_forecast, m=12, simple_differencing=True)
-            # except:
-            #     self.m = pm.arima.auto_arima(self.series_y_forecast, m=1, simple_differencing=True)
-            pass
-        else:
-            pass
+        # if self.auto:
+        #     # try:
+        #     #     self.m = pm.arima.auto_arima(self.series_y_forecast, m=12, simple_differencing=True)
+        #     # except:
+        #     #     self.m = pm.arima.auto_arima(self.series_y_forecast, m=1, simple_differencing=True)
         self.m = self.m.fit(disp=False)
 
         return self
 
     def forecast(self, period):
-        if self.auto:
-            # predictions = self.m.predict(period)
-            # date_index = get_fcst_date_idx(self.series_y, period)
-            # fcst_value = pd.Series(data=predictions, index=date_index)
-            pass
-        else:
-            pass
+        # if self.auto:
+        #     predictions = self.m.predict(period)
+        #     date_index = get_fcst_date_idx(self.series_y, period)
+        #     fcst_value = pd.Series(data=predictions, index=date_index)
         fcst_value = self.m.forecast(period)
 
         if self.growth:
@@ -266,18 +304,33 @@ class RandomForest:
 
         self.max_date_series_y = max(series_y.index)
 
-    def fit(self, n_estimators=100, min_samples_split=6, min_samples_leaf=3, max_depth=None, max_features='auto',
-            random_state=1):
+    def fit(
+            self,
+            n_estimators=100,
+            min_samples_split=6,
+            min_samples_leaf=3,
+            max_depth=None,
+            max_features='auto',
+            random_state=1
+    ):
         self.m = RandomForestRegressor(
-            n_estimators=n_estimators, min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf,
-            max_depth=max_depth, max_features=max_features, random_state=random_state
+            n_estimators=n_estimators,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            max_depth=max_depth,
+            max_features=max_features,
+            random_state=random_state
         )
 
-        # Generate features and fit..
+        # Generate features and fit ...
         if self.growth:
-            self.df_y_feat, self.df_x, self.y = extract_feat(self.series_y_growth)
+            (
+                self.df_y_feat, self.df_x, self.y
+            ) = extract_feat(self.series_y_growth)
         else:
-            self.df_y_feat, self.df_x, self.y = extract_feat(self.series_y)
+            (
+                self.df_y_feat, self.df_x, self.y
+            ) = extract_feat(self.series_y)
 
         self.m.fit(self.df_x, self.y)
 
@@ -295,16 +348,23 @@ class RandomForest:
 
         self.total_series.name = 'y'
 
-        # Generate future features (concatenated with the original one) and predict..
+        # Generate future features (concatenated with the original one)
+        # and predict..
         for i in range(period, 0, -1):
-            self.df_y_feat_future, self.df_x_future, self.y_future = extract_feat(self.total_series, dropna=False)
+            (
+                self.df_y_feat_future,
+                self.df_x_future,
+                self.y_future
+            ) = extract_feat(self.total_series, _dropna=False)
             self.df_x_future = self.df_x_future.iloc[[-i]]
             y_pred = self.m.predict(self.df_x_future)
 
             self.total_series.iloc[-i] = y_pred
 
         fcst_value = self.total_series.iloc[-period:]
-        fcst_value.index = fcst_index  # re-initialise index so that it is a DatetimeIndex object with the correct 'freq'
+
+        # re-initialise index so that it is a DatetimeIndex object with the correct 'freq'
+        fcst_value.index = fcst_index
 
         if self.growth:
             fcst_value.name = 'growth'
@@ -324,12 +384,14 @@ class PProphet:
         return self
 
     def forecast(self, period):
-        future = self.m.make_future_dataframe(period, freq=self.series_y.index.freq, include_history=False)
+        future = self.m.make_future_dataframe(
+            period, freq=self.series_y.index.freq, include_history=False
+        )
         prediction = self.m.predict(future)
-        forecast = prediction[['ds', 'yhat']].set_index('ds')['yhat']
-        forecast.name = 'forecast'
+        _forecast = prediction[['ds', 'yhat']].set_index('ds')['yhat']
+        _forecast.name = 'forecast'
 
-        return forecast
+        return _forecast
 
 
 def expo01(series_y):
@@ -352,7 +414,9 @@ def expo03(series_y):
     if len(series_y) < 24:
         m = DefaultModel(series_y)
         return m.fit()
-    m = ExponentialSmoothing(series_y, trend='add', seasonal='add', seasonal_periods=12).fit()
+    m = ExponentialSmoothing(
+        series_y, trend='add', seasonal='add', seasonal_periods=12
+    ).fit()
     return m
 
 
@@ -501,14 +565,16 @@ def prophet01(series_y, freq=None):
     return m
 
 
-model_dict = {'expo01': expo01, 'expo02': expo02, 'expo03': expo03,
-              'sma01': sma01, 'sma02': sma02, 'sma03': sma03, 'wma01': wma01, 'wma02': wma02, 'wma03': wma03,
-              'ema01': ema01, 'ema02': ema02, 'ema03': ema03,
-              'arima01': arima01, 'arima02': arima02,
-              # 'autoarima01': autoarima01, 'autoarima02': autoarima02,
-              'randomforest01': randomforest01, 'randomforest02': randomforest02,
-              'prophet01': prophet01
-              }
+model_dict = {
+    'expo01': expo01, 'expo02': expo02, 'expo03': expo03,
+    'sma01': sma01, 'sma02': sma02, 'sma03': sma03,
+    'wma01': wma01, 'wma02': wma02, 'wma03': wma03,
+    'ema01': ema01, 'ema02': ema02, 'ema03': ema03,
+    'arima01': arima01, 'arima02': arima02,
+    # 'autoarima01': autoarima01, 'autoarima02': autoarima02,
+    'randomforest01': randomforest01, 'randomforest02': randomforest02,
+    'prophet01': prophet01
+}
 
 
 def forecast_model(series_y, model, data_date, fcst_period):
@@ -537,8 +603,12 @@ def run_model(df_y, model, data_date, fcst_period, test_period):
 
     # Gather results for the validation periods
     # Results for the forecasting period is 0
-    val_list = [pd.merge(res[i], series_y, how='inner', left_index=True, right_index=True) for i in
-                range(1, test_period + 1)]
+    val_list = [
+        pd.merge(
+            res[i], series_y, how='inner', left_index=True, right_index=True
+        )
+        for i in range(1, test_period + 1)
+    ]
     val_results = pd.concat(val_list)
     if len(val_results) > 0:
         ae = abs(val_results['forecast'] - val_results['y'])
@@ -548,10 +618,22 @@ def run_model(df_y, model, data_date, fcst_period, test_period):
 
     forecast_results = res[0]
 
-    return {'val_results': val_results, 'val_mae': val_mae, 'forecast_results': forecast_results}
+    return {
+        'val_results': val_results,
+        'val_mae': val_mae,
+        'forecast_results': forecast_results
+    }
 
 
-def run_all_models(df_y, id_value, models, data_date, fcst_period, test_period, top_n):
+def run_all_models(
+        df_y,
+        id_value,
+        models,
+        data_date,
+        fcst_period,
+        test_period,
+        top_n
+):
     res_dict = {
         m: run_model(df_y, m, data_date, fcst_period, test_period)
         for m in models
@@ -561,7 +643,11 @@ def run_all_models(df_y, id_value, models, data_date, fcst_period, test_period, 
     res_dict = sorted(res_dict.items(), key=lambda x: x[1]['val_mae'])
     top_n_models = res_dict[:top_n]
 
-    forecast_results = pd.concat([i[1]['forecast_results'] for i in top_n_models]).groupby(level=0).mean()
+    forecast_results = (
+        pd.concat([i[1]['forecast_results'] for i in top_n_models])
+            .groupby(level=0)
+            .mean()
+    )
     top_models = [i[0] for i in top_n_models]
     top_models = '|'.join(top_models)
 
@@ -595,14 +681,22 @@ def forecast(df, models, data_date, fcst_start, fcst_end, test_period, top_n):
     forecast_list = []
     for id_value in df['id'].unique():
         df_test_i = resample(df, id_value, data_date)
-        r_dict = run_all_models(df_test_i, id_value, models, data_date, fcst_period, test_period, top_n)
+        r_dict = run_all_models(
+            df_test_i,
+            id_value,
+            models,
+            data_date,
+            fcst_period,
+            test_period,
+            top_n
+        )
         forecast_list.append(r_dict['forecast_results'])
     results = pd.concat(forecast_list)
 
     return results.loc[results.index >= fcst_start]
 
 
-# module function ------------------------------------------------------------------------
+# module function --------------------------------------------------------------
 def run_tbl_forecast(
         input_df: pd.DataFrame,
         run_date: str,
@@ -618,7 +712,8 @@ def run_tbl_forecast(
     upload_datetime = get_run_date(date_type='date_time').isoformat()
     if date_range_sla_month_forecast > 0:
         run_date = (
-                dt.date.fromisoformat(run_date) + relativedelta(months=date_range_sla_month_forecast)
+                dt.date.fromisoformat(run_date)
+                + relativedelta(months=date_range_sla_month_forecast)
         ).strftime('%Y-%m-%d')
     forecast_start = get_process_date(run_date, 'monthly')
     forecast_end: str = (
@@ -627,13 +722,24 @@ def run_tbl_forecast(
     ).strftime('%Y-%m-%d')
     data_date: str = str(input_df["ds"].max())
 
-    input_df['ds'] = pd.to_datetime(input_df['ds'], format='%Y-%m-%d')  # works for both str and datetime inputs
+    # works for both str and datetime inputs
+    input_df['ds'] = pd.to_datetime(input_df['ds'], format='%Y-%m-%d')
     forecast_results = forecast(
-        input_df, model, data_date, forecast_start, forecast_end, forecast_test_period, forecast_top_model
+        input_df,
+        model,
+        data_date,
+        forecast_start,
+        forecast_end,
+        forecast_test_period,
+        forecast_top_model,
     )
     forecast_results.loc[forecast_results['forecast'] < 0, 'forecast'] = 0
     values: list = [
-        f"('{row['id']}', {row['forecast']}, '{i.date().isoformat()}', '{run_date}', '{upload_datetime}')"
+        (
+            f"('{row['id']}', {row['forecast']}, "
+            f"'{i.date().isoformat()}', '{run_date}', "
+            f"'{upload_datetime}')"
+        )
         for i, row in forecast_results.iterrows()
     ]
 

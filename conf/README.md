@@ -1,11 +1,17 @@
 # Config File Template
 
-This is show the standard template of config file, which used in framework
+**Table of Contents**:
+
+- [Catalog](#catalog)
+- [Function](#function)
+
+This is show the standard template of config file, which used in framework.
 
 ## Catalog
 
-- #### SQL Process catalog
-    - `/catalog/<prefix-table-name-with-detail>.yaml`
+### SQL Process catalog
+ 
+`/catalog/<prefix-table-name-with-detail>.yaml`
 
 ```yaml
 <table-name>:
@@ -40,9 +46,9 @@ This is show the standard template of config file, which used in framework
     
 ```
 
-- #### Function Process Catalog
+### Function Process Catalog
 
-    - `/catalog/<prefix-table-name-with-detail>.yaml`
+`/catalog/<prefix-table-name-with-detail>.yaml`
 
 ```yaml
 <table-name>:
@@ -80,12 +86,16 @@ This is show the standard template of config file, which used in framework
             "
     
 ```
-*Note:* In the save attribute must add parameter `function_value` for keep output of function to insert statement
+
+> **Note**: \
+> In the save attribute must add parameter `function_value` for keep output of 
+> function to insert statement.
 
 ## Function
 
-- #### Function
-    - `/function/<function-mapping-name>.yaml`
+### Function
+ 
+`/function/<function-mapping-name>.yaml`
 
 ```yaml
 <function-name>:

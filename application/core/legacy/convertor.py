@@ -14,8 +14,8 @@ from typing import (
     List,
     Dict,
 )
-from ..utils.reusables import merge_dicts
-from ..errors import (
+from application.core.utils.reusables import merge_dicts
+from application.core.errors import (
     TableArgumentError,
     ColumnsNotEqualError,
     DuplicateColumnError,
@@ -27,7 +27,9 @@ from ..errors import (
 
 
 def reduce_stm(stm: str, add_row_number: bool = False) -> str:
-    """Reduce statement and prepare statement if it wants to catch number of result"""
+    """Reduce statement and prepare statement if it wants to catch number of
+    result
+    """
     _reduce_stm: str = ' '.join(stm.replace('\t', ' ').split()).strip()
     if add_row_number:
         _split_stm: list = _reduce_stm.split(';')
@@ -134,10 +136,13 @@ class Value:
                     for k, v in self.vl_expected_cols.items()
                 ]
         ):
+            _raise: list = list(compress(
+                list(self.vl_expected_cols.keys()),
+                map(lambda x: not x, not_found)
+            ))
             raise NullableColumnError(
                 f"column which not null property, "
-                f"{list(compress(list(self.vl_expected_cols.keys()), map(lambda x: not x, not_found)))}, "
-                f"does not exists in data"
+                f"{str(_raise)}, does not exists in data"
             )
 
     def validate_col_pk(self, columns: list):
@@ -146,7 +151,8 @@ class Value:
                 any(_ not in columns for _ in self.vl_expected_pk)
         ):
             raise PrimaryKeyNotExists(
-                f"Data column does not contain list of primary key, {str(self.vl_expected_pk)}"
+                f"Data column does not contain list of primary key, "
+                f"{str(self.vl_expected_pk)}"
             )
 
     @staticmethod
@@ -162,14 +168,16 @@ class Value:
                 if value and isinstance(value, str)
         ):
             raise SQLInjection(
-                "data in payloads have sub SQL query like: `select`, `drop`, `delete`, `insert`"
+                "data in payloads have sub SQL query like: "
+                "`select`, `drop`, `delete`, `insert`"
             )
 
     def validate_col_outer(self, columns: list):
         if any(col not in self.vl_expected_cols for col in columns):
             outer: list = list(set(columns).difference(set(self.vl_expected_cols.keys())))
             raise OuterColumnError(
-                f"Data column, {outer}, was outer from configuration. Please check column name in payloads"
+                f"Data column, {outer}, was outer from configuration. "
+                f"Please check column name in payloads"
             )
 
     def _generate_common(self, values: Union[dict, list]) -> Tuple:
@@ -290,17 +298,21 @@ class Value:
                                 any(_ not in _col_previous for _ in _cols)
                         )
                 ):
-                    raise ColumnsNotEqualError("Columns in payload does not equal when use 'update' mode")
+                    raise ColumnsNotEqualError(
+                        "Columns in payload does not equal when use 'update' mode"
+                    )
                 _col_previous: list = _cols
                 _values_list.append(_values)
             return _cols, ", ".join(_values_list)
 
-        # ----------------------------------------- TODO: This line
         # Check duplicated
         self.validate_col_duplicate(_cols)
 
         # Check `update_date` exists
-        if 'update_date' in self.vl_expected_cols and 'update_date' not in _cols:
+        if (
+                'update_date' in self.vl_expected_cols
+                and 'update_date' not in _cols
+        ):
             _cols.append('update_date')
             values['update_date'] = self.vl_update_date
 
@@ -313,8 +325,16 @@ class Value:
         # Check SQL injection
         self.validate_col_sql_inject(values)
 
-        result_values = self._generate_result_str(_cols_expected, values)
-        result_columns = _cols if self.vl_action == 'update' else _cols_expected
+        result_values: str = (
+            self._generate_result_str(_cols, values)
+            if self.vl_action == 'update'
+            else self._generate_result_str(_cols_expected, values)
+        )
+        result_columns: list = (
+            _cols
+            if self.vl_action == 'update'
+            else _cols_expected
+        )
         return result_columns, result_values
 
     def _generate_merge(self, values: Union[dict, list]) -> Tuple:
@@ -467,16 +487,23 @@ class Value:
             self.validate_col_sql_inject(_data_insert)
 
             # TODO: Add action_mode == `update` in this ingest mode
-            _data_values_list.append(self._generate_result_str(_cols_expected, _data_insert))
+            _data_values_list.append(
+                self._generate_result_str(_cols_expected, _data_insert)
+            )
         return _cols_expected, ", ".join(_data_values_list)
 
     def _generate_result_str(self, columns, values) -> str:
         if self.vl_action == 'update':
-            value: str = ", ".join(f"'{_data}'" for _ in columns if (_data := values.get(_)))
-        else:
             value: str = ", ".join(
-                [f"'{_data}'" if (_data := values.get(_)) else "null" for _ in columns]
+                f"'{_data}'" for _ in columns if (_data := values.get(_))
             )
+        else:
+            value: str = ", ".join([
+                f"'{_data}'"
+                if (_data := values.get(_))
+                else "null"
+                for _ in columns
+            ])
         return f"({value})"
 
 
@@ -503,7 +530,9 @@ class Statement:
     :warning: If you set some statement after with_row_table, the result of row will be that set statement
     """
     target_list: list = ['insert into', 'update', 'delete from']
-    source_list: list = ['from', 'join', 'left join', 'right join', 'cross join', 'full join']
+    source_list: list = [
+        'from', 'join', 'left join', 'right join', 'cross join', 'full join'
+    ]
 
     __slots__ = (
         'stm_statement',
@@ -518,7 +547,10 @@ class Statement:
             statement: Union[str, dict],
             add_row_number: bool = False
     ):
-        self.stm_statement: dict = {'common_query': statement} if isinstance(statement, str) else statement
+        self.stm_statement: dict = (
+            {'common_query': statement}
+            if isinstance(statement, str) else statement
+        )
         self.stm_with_count: int = 0
         self.stm_add_row_num: bool = add_row_number
         self.stm_result: str = ""
@@ -547,15 +579,26 @@ class Statement:
         if not self.stm_generate_flg:
             self.generate()
         _params_all = re.findall(r'{([^{}]+?)}', self.stm_result)
-        return [param for param in _params_all if param not in {'database_name', 'ai_schema_name', }]
+        return [
+            param
+            for param in _params_all
+            if param not in {'database_name', 'ai_schema_name', }
+        ]
 
     @staticmethod
     def add_row_num(stm: str, include_with: bool = True) -> str:
-        return f"{'with ' if include_with else ''}row_table as ( {stm} returning 1 ) select count(*) from row_table;"
+        return (
+            f"{'with ' if include_with else ''}row_table as "
+            f"( {stm} returning 1 ) "
+            f"select count(*) from row_table;"
+        )
 
     def _add_row_num(self, stm: str) -> str:
-        return f"{self.add_row_num(stm, include_with=False)} " if self.stm_add_row_num \
+        return (
+            f"{self.add_row_num(stm, include_with=False)} "
+            if self.stm_add_row_num
             else f"{stm}; "
+        )
 
     def _generate(self) -> str:
         """Generate statement from string type"""

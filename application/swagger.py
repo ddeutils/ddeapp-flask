@@ -8,15 +8,17 @@ from flask import request
 from flasgger import (
     Swagger,
     LazyString,
+    NO_SANITIZER
 )
+from flask_swagger_ui import get_swaggerui_blueprint
 
 """
 docs:
-    - https://github.com/CryceTruly/bookmarker-api
-    - https://kanoki.org/2020/07/18/python-api-documentation-using-flask-swagger/
+- https://github.com/CryceTruly/bookmarker-api
+- https://kanoki.org/2020/07/18/python-api-documentation-using-flask-swagger/
 """
 
-
+# TODO: Change flasgger to flask_swagger_ui
 # Handle default config from the swagger
 _swagger_config = Swagger.DEFAULT_CONFIG
 _swagger_config.update({
@@ -31,53 +33,75 @@ swagger_config: dict = {
         "headers": [],
         "specs": [
             {
-                "endpoint": 'apispec',
-                "route": '/apispec.json',
-                "rule_filter": lambda rule: True,  # all in
+                "endpoint": 'api',
+                "route": '/api.json',
+                # "rule_filter": lambda rule: True,  # all in
+                # Filter of werkzeug.routing.Rule object
+                "rule_filter": lambda rule: 'apikey' in rule.endpoint,  # all in
                 "model_filter": lambda tag: True,  # all in
             },
-            {
-                "endpoint": 'apispec2',
-                "route": '/apispec2.json',
-                "rule_filter": lambda rule: True,  # all in
-                "model_filter": lambda tag: True,  # all in
-            }
+        #     {
+        #         "endpoint": 'apispec2',
+        #         "route": '/apispec2.json',
+        #         "rule_filter": lambda rule: True,  # all in
+        #         "model_filter": lambda tag: True,  # all in
+        #     }
         ],
         "static_url_path": "/flasgger_static",
-        # "static_folder": "static",  # must be set by user
+        # # "static_folder": "static",  # must be set by user
         "swagger_ui": True,
         "specs_route": "/api/ai/docs",
+        "openapi": "3.0.2",
     }
 }
 
-# The LazyString values will be evaluated only when jsonify encodes the value at runtime,
-# so you have access to Flask request, session, g, etc.. and also may want to access a database
-swagger_template: dict = {
-    "swagger": "2.0",
-    "info": {
+# The LazyString values will be evaluated only when jsonify encodes the value
+# at runtime, so you have access to Flask request, session, g, etc..
+# and also may want to access a database
+swagger_template: dict = dict(
+    swagger="3.0",
+    info={
         "title": "AI API",
         "description": "API for AI",
         "contact": {
-            "responsibleOrganization": "",
+            "responsibleOrganization": "Data Developer & Engineer",
             "responsibleDeveloper": "",
-            # "email": "demo@gmail.com",
-            # "url": "www.twitter.com/demo",
+            "email": "korawica@mail.com",
+            "url": "www.twitter.com/demo-korawica",
         },
-        # "termsOfService": "www.twitter.com/demo",
+        "termsOfService": "www.github.com/korawica",
         "version": "0.0.1"
     },
-    "host": LazyString(lambda: request.host),
+    # "host": 'localhost:5000',  #LazyString(lambda: request.host),
+    host=LazyString(lambda: str(request.host)),
     # the base path for blueprint registration.
-    "basePath": "/api/ai",
-    "schemes": [LazyString(lambda: 'https' if request.is_secure else 'http')],
-    "securityDefinitions": {
+    basePath="/apikey",  # "/api/ai"
+    schemes=[
+        'http',
+        # LazyString(lambda: 'https' if request.is_secure else 'http'),
+    ],
+    securityDefinitions={
         "Bearer": {
             "type": "apiKey",
             "name": "Authorization",
             "in": "header",
             "description": (
-                "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\""
+                (
+                    "JWT Authorization header using the Bearer scheme. "
+                    "Example: \"Authorization: Bearer {token}\""
+                )
             )
         }
     },
-}
+)
+
+
+SWAGGER_URL = '/api/ai/docs'
+API_URL = '/swagger.json'
+SWAGGER_UI_BLUEPRINT = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={
+        'app_name': "Python-Flask-REST-Data-Application"
+    }
+)

@@ -4,14 +4,11 @@ from flask import (
     Blueprint,
     render_template,
     request,
-    jsonify,
-    Response,
-    make_response
+    jsonify
 )
 from .models import TaskLog
 from ....extensions import db
-from ....utils.reusables import must_dict, must_list
-from ....infrastructures import response
+from application.core.utils.reusables import must_dict
 
 logs = Blueprint('logs', __name__, template_folder='templates')
 

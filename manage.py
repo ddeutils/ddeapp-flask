@@ -88,7 +88,10 @@ def migrate(condition: str, debug: bool):
     migrate_table()
 
 
-@click.command(name='run', short_help='run application server')
+@click.command(
+    name='run',
+    short_help='run application server',
+)
 @click.option(
     '--debug',
     type=bool,
@@ -130,14 +133,14 @@ def runserver(
     :usage:
         ..> $ python manage.py run --debug=true --server=True
 
-    :note:
+    Note:
         - Re-loader will be True if run server in debug mode
-            app.run(use_reloader=False)
+            > app.run(use_reloader=False)
     """
     os.environ['DEBUG'] = str(debug).capitalize()
 
     from flask import Flask
-    from application.utils.logging_ import get_logger
+    from application.core.utils.logging_ import get_logger
     from application.app import create_app
     logger = get_logger(__name__)
 

@@ -9,9 +9,9 @@ from typing import (
     Optional,
     Union,
 )
-from ....errors import ValidateFormsError
-from ....core.legacy.base import get_run_date
-from ....utils.validations import (
+from application.core.errors import ValidateFormsError
+from application.core.base import get_run_date
+from application.components.api.validations import (
     FormValidate,
     validate_parameter,
     validate_table,
@@ -34,22 +34,34 @@ class FormSetup(FormValidate):
     def validate_pipeline_name(cls, pipeline_name):
         if validate_pipeline(pipeline_name, optional=True):
             raise ValidateFormsError(
-                'table_name', pipeline_name, f"{pipeline_name!r} or any nodes does not exists in catalog"
+                'pipeline_name',
+                pipeline_name,
+                f"{pipeline_name!r} or any nodes does not exists in catalog"
             )
 
     @classmethod
     def validate_table_name(cls, table_name):
         if validate_table(table_name, optional=True):
-            raise ValidateFormsError('table_name', table_name, f"{table_name!r} does not exists in catalog")
+            raise ValidateFormsError(
+                'table_name',
+                table_name,
+                f"{table_name!r} does not exists in catalog"
+            )
 
     @classmethod
     def validate_initial_data(cls, initial_data):
-        if validate_parameter(initial_data, ['Y', 'N', 'A', 'S', 'I'], option='split'):
+        if validate_parameter(
+                initial_data, ['Y', 'N', 'A', 'S', 'I'], option='split'
+        ):
             raise ValidateFormsError('initial_data', initial_data)
 
     @classmethod
     def validate_drop_before_create(cls, drop_before_create):
-        if validate_parameter(drop_before_create, ['Y', 'N', 'C', 'A', 'S', 'I'], option='split'):
+        if validate_parameter(
+                drop_before_create,
+                ['Y', 'N', 'C', 'A', 'S', 'I'],
+                option='split',
+        ):
             raise ValidateFormsError('drop_before_create', drop_before_create)
 
     @classmethod
@@ -75,7 +87,9 @@ class FormSetup(FormValidate):
     @classmethod
     def co_validate_table_name_and_pipeline_name(cls, table_name, pipeline_name):
         if table_name is None and pipeline_name is None:
-            raise ValidateFormsError('table_name', table_name, "it does not set simultaneously with `pipeline_name`")
+            raise ValidateFormsError(
+                'table_name', table_name, "it does not set simultaneously with `pipeline_name`"
+            )
 
 
 class FormData(FormValidate):
@@ -110,7 +124,9 @@ class FormData(FormValidate):
     @classmethod
     def co_validate_table_name_and_pipeline_name(cls, table_name, pipeline_name):
         if table_name is None and pipeline_name is None:
-            raise ValidateFormsError('table_name', table_name, "it does not set simultaneously with `pipeline_name`")
+            raise ValidateFormsError(
+                'table_name', table_name, "it does not set simultaneously with `pipeline_name`"
+            )
 
 
 class FormRetention(FormValidate):
@@ -151,9 +167,17 @@ class FormRetention(FormValidate):
     @classmethod
     def co_validate_table_name_and_backup_table(cls, table_name, backup_table):
         if table_name is None and backup_table is not None:
-            raise ValidateFormsError('table_name', table_name, "it does not set while `backup_table` was set")
+            raise ValidateFormsError(
+                'table_name',
+                table_name,
+                "it does not set while `backup_table` was set"
+            )
 
     @classmethod
     def co_validate_table_name_and_pipeline_name(cls, table_name, pipeline_name):
         if table_name is None and pipeline_name is None:
-            raise ValidateFormsError('table_name', table_name, "it does not set simultaneously with `pipeline_name`")
+            raise ValidateFormsError(
+                'table_name',
+                table_name,
+                "it does not set simultaneously with `pipeline_name`"
+            )

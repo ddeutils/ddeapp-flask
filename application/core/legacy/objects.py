@@ -21,7 +21,8 @@ from typing import (
     Iterator,
     Any,
 )
-from ..utils.convertor import (
+from conf.settings import settings
+from application.core.legacy.convertor import (
     reduce_stm,
     reduce_value_pairs,
     reduce_value,
@@ -30,7 +31,7 @@ from ..utils.convertor import (
     Value,
     Statement
 )
-from ..core.legacy.base import (
+from application.core.legacy.base import (
     TblCatalog,
     FuncCatalog,
     PipeCatalog,
@@ -39,7 +40,6 @@ from ..core.legacy.base import (
     get_plural,
     get_process_id,
     get_process_date,
-    get_catalog_all,
     filter_ps_type,
     sort_by_priority,
     verbose_log,
@@ -47,7 +47,10 @@ from ..core.legacy.base import (
     registers,
     AI_APP_PATH,
 )
-from ..utils.database import (
+from application.core.base import (
+    get_catalogs
+)
+from application.core.connections.postgresql import (
     query_select_one,
     query_select,
     query_execute,
@@ -57,7 +60,7 @@ from ..utils.database import (
     query_insert_from_csv,
     ParamType,
 )
-from ..utils.reusables import (
+from application.core.utils.reusables import (
     only_one,
     path_join,
     merge_dicts,
@@ -66,12 +69,13 @@ from ..utils.reusables import (
     split_iterable,
     must_list,
 )
-from ..utils.logging_ import logging
-from ..utils.models import Status, VerboseDummy
-from ..utils.config import (
+from application.core.utils.logging_ import logging
+from application.core.utils.cache import ignore_unhash
+from application.core.utils.config import (
     Environs,
 )
-from ..errors import (
+from application.core.legacy.models import Status, VerboseDummy
+from application.core.errors import (
     TableNotFound,
     TableNotImplement,
     TableArgumentError,
@@ -90,20 +94,33 @@ from ..errors import (
 
 
 env = Environs(env_name='.env')
-
 logger = logging.getLogger(__name__)
 
 
+# [x] Migrate to modern style by `connections`
 def query_select_row(statement: str, parameters: Optional[dict] = None) -> int:
     """Enhance query function to get `row_number` value from result"""
-    if any(_ in statement for _ in {'select count(*) as row_number from ', 'func_count_if_exists'}):
-        return int(query_select_one(statement, parameters=parameters)['row_number'])
+    if any(
+            _ in statement
+            for _ in {
+                'select count(*) as row_number from ',
+                'func_count_if_exists',
+            }
+    ):
+        return int(
+            query_select_one(statement, parameters=parameters)['row_number']
+        )
     return query_execute_row(statement, parameters=parameters)
 
 
-def query_select_check(statement: str, parameters: Optional[dict] = None) -> bool:
+# [x] Migrate to modern style by `connections`
+def query_select_check(
+        statement: str, parameters: Optional[dict] = None
+) -> bool:
     """Enhance query function to get `check_exists` value from result"""
-    return eval(query_select_one(statement, parameters=parameters)['check_exists'])
+    return eval(
+        query_select_one(statement, parameters=parameters)['check_exists']
+    )
 
 
 def query_explain(statement: str, parameters: ParamType = True) -> dict:
@@ -116,40 +133,68 @@ def query_explain(statement: str, parameters: ParamType = True) -> dict:
         )
     if stm.stm_type == 'dql':
         _statement: str = params.ps_stm.explain.format(query=query.rstrip(';'))
-        return {"QUERY PLAN": ast.literal_eval(query_select_one(_statement, parameters=parameters)['QUERY PLAN'])}
+        return {
+            "QUERY PLAN": ast.literal_eval(
+                query_select_one(
+                    _statement,
+                    parameters=parameters
+                )['QUERY PLAN']
+            )
+        }
     elif stm.stm_type == 'dml':
-        _statement: str = params.ps_stm.explain.format(query=Statement.add_row_num(query.rstrip(';')).rstrip(';'))
-        return {"QUERY PLAN": ast.literal_eval(query_select_one(_statement, parameters=parameters)['QUERY PLAN'])}
+        _statement: str = params.ps_stm.explain.format(
+            query=Statement.add_row_num(query.rstrip(';')).rstrip(';')
+        )
+        return {
+            "QUERY PLAN": ast.literal_eval(
+                query_select_one(
+                    _statement,
+                    parameters=parameters
+                )['QUERY PLAN']
+            )
+        }
     raise FuncArgumentError(
         "query explain support only statement type be `dql` or `dml` only"
     )
 
 
+# [x] Migrate to modern style by `Schema` Model
 def push_schema_create(schema_name: str):
     """Push create schema"""
-    query_execute(reduce_stm(params.bs_stm.create.schema), parameters={'schema_name': schema_name})
+    query_execute(
+        reduce_stm(params.bs_stm.create.schema),
+        parameters={'schema_name': schema_name},
+    )
 
 
+# [x] Migrate to modern style by `Schema` Model
 def push_schema_drop(schema_name: str, cascade: bool = False):
     """Push drop schema"""
     query_execute(
         reduce_stm(params.bs_stm.drop.schema),
-        parameters={'schema_name': schema_name, 'cascade': ('cascade' if cascade else '')}
+        parameters={
+            'schema_name': schema_name,
+            'cascade': ('cascade' if cascade else '')
+        }
     )
 
 
+# [x] Migrate to modern style by `Schema` Model
 def check_schema_exists(schema_name: str) -> bool:
     """Check schema exists in database"""
-    return query_select_check(params.ps_stm.exists.schema, parameters={"schema_name": schema_name})
+    return query_select_check(
+        params.ps_stm.exists.schema, parameters={"schema_name": schema_name}
+    )
 
 
 def check_ai_exists() -> bool:
     return check_schema_exists(schema_name=env.get('AI_SCHEMA', 'ai'))
 
 
-def get_time_checkpoint(date_type: Optional[str] = None) -> Union[dt.datetime, dt.date]:
-    _date_type: str = date_type or 'date_time'
-    return get_run_date(date_type=_date_type)
+def get_time_checkpoint(
+        date_type: Optional[str] = None
+) -> Union[dt.datetime, dt.date]:
+    return get_run_date(date_type=(date_type or 'date_time'))
 
 
 def split_choose(choose: Union[str, list]) -> Tuple[list, list]:
@@ -165,12 +210,17 @@ def split_choose(choose: Union[str, list]) -> Tuple[list, list]:
 
 def _cal_ctr_params(parameters: dict) -> dict:
     proportion_value: int = parameters.get('proportion_value', 3)
-    proportion_inc_curr_m: str = parameters.get('proportion_inc_current_month_flag', 'N')
-    window_end: int = 1 if proportion_inc_curr_m == 'N' else 0
-    window_start: int = proportion_value if proportion_inc_curr_m == 'N' else (proportion_value - 1)
+    proportion_inc_curr_m: str = parameters.get(
+        'proportion_inc_current_month_flag', 'N'
+    )
     return {
-        'window_start': window_start,
-        'window_end': window_end,
+        'window_start': (
+            proportion_value
+            if proportion_inc_curr_m == 'N' else (proportion_value - 1)
+        ),
+        'window_end': (
+            1 if proportion_inc_curr_m == 'N' else 0
+        ),
         **parameters
     }
 
@@ -197,8 +247,8 @@ class Control:
 
     @classmethod
     def parameters(cls, module: Optional[str] = None) -> dict:
-        """Get all parameters with `module` argument from `ctr_data_parameter` in target database
-        and convert to python dictionary type.
+        """Get all parameters with `module` argument from `ctr_data_parameter`
+        in target database and convert to python dictionary type.
         """
         verbose_log(
             VerboseDummy,
@@ -211,7 +261,9 @@ class Control:
                 else getattr(builtins, value['param_type'])(value['param_value'])
                 for value in query_select(
                     params.ps_stm.pull_ctr_params,
-                    parameters=reduce_value_pairs({"module_type": (module or '*')}),
+                    parameters=reduce_value_pairs(
+                        {"module_type": (module or '*')}
+                    ),
                 )
             }
             verbose_log(
@@ -222,7 +274,9 @@ class Control:
 
             # Calculate special parameters that logic was provided by vendor.
             proportion_value: int = _results.get('proportion_value', 3)
-            proportion_inc_curr_m: str = _results.get('proportion_inc_current_month_flag', 'N')
+            proportion_inc_curr_m: str = _results.get(
+                'proportion_inc_current_month_flag', 'N'
+            )
             window_end: int = 1 if proportion_inc_curr_m == 'N' else 0
             window_start: int = (
                 proportion_value
@@ -239,8 +293,8 @@ class Control:
 
     @classmethod
     def tables(cls, condition: Optional[str] = None) -> List[dict]:
-        """Get all tables with `condition` argument from `ctr_data_pipeline` in target database
-        and convert to python list of dictionary type.
+        """Get all tables with `condition` argument from `ctr_data_pipeline` in
+        target database and convert to python list of dictionary type.
         """
         verbose_log(
             VerboseDummy,
@@ -265,8 +319,8 @@ class Control:
     def catalogs(cls) -> List[dict]:
         """Get all catalogs from all configuration file at `./conf/catalog` path
         """
-        _result: list = list(get_catalog_all(
-                folder_config='catalog',
+        _result: list = list(get_catalogs(
+                config_form='catalog',
                 priority_sorted=True
         ).keys())
         return [
@@ -325,19 +379,24 @@ class Control:
         """Pull data from the Control Framework table in database"""
         if len(self.ctr_pk) > 1 and isinstance(pm_filter, list):
             raise TableNotImplement(
-                f"Pull control does not support `pm_filter` with `list` type when {self.name} "
-                f"have primary keys more than 1"
+                f"Pull control does not support `pm_filter` with `list` type "
+                f"when {self.name} have primary keys more than 1"
             )
         elif isinstance(pm_filter, dict):
             if any(col not in self.ctr_pk for col in pm_filter):
                 raise TableArgumentError(
-                    f"Pull control does not support value in `pm_filter` with keys, "
-                    f"{str(pm_filter.keys())}"
+                    f"Pull control does not support value in `pm_filter` "
+                    f"with keys, {str(pm_filter.keys())}"
                 )
             _pm_filter: dict = reduce_value_pairs(pm_filter)
         else:
-            _pm_filter: dict = {self.ctr_pk[0]: ', '.join(reduce_value(value) for value in pm_filter)}
-        _pm_filter_stm: str = ' and '.join([f"{pk} in ({_pm_filter[pk]})" for pk in self.ctr_pk])
+            _pm_filter: dict = {
+                self.ctr_pk[0]: ', '.join(map(reduce_value, pm_filter))
+            }
+        _pm_filter_stm: str = ' and '.join([
+            f"{pk} in ({_pm_filter[pk]})"
+            for pk in self.ctr_pk
+        ])
         _query: callable = query_select if all_flag else query_select_one
         return _query(
             params.ps_stm.pull_ctr,
@@ -353,7 +412,10 @@ class Control:
                     f"and active_flg in ('{(active_flag or 'Y')}')"
                     if "active_flg" in self.ctr_cols else ""
                 ),
-                'condition': f"""and ({condition.replace('"', "'")})""" if condition else "",
+                'condition': (
+                    f"""and ({condition.replace('"', "'")})"""
+                    if condition else ""
+                ),
             },
         )
 
@@ -366,7 +428,9 @@ class Control:
             - `ctr_data_logging`
             - `ctr_task_process`
         """
-        _ctr_columns = filter(lambda _col: _col not in {'primary_id'}, self.ctr_cols)
+        _ctr_columns = filter(
+            lambda _col: _col not in {'primary_id'}, self.ctr_cols
+        )
         _add_column: dict = merge_dicts(self.col_default, {
             'tracking': 'SUCCESS',
             'active_flg': 'Y',
@@ -382,9 +446,14 @@ class Control:
         if 'status' in list(_ctr_columns):
             _status_filter: str = "where excluded.status = '2'"
         if 'row_record' in list(_ctr_columns):
-            _row_record_filter: str = f"{'' if _status_filter else 'where'} {'or' if _status_filter else ''} " \
-                                          f"{self.name_short}.row_record <= excluded.row_record"
-        _set_value_pairs: str = ", ".join([f"{_} = excluded.{_}" for _ in self.ctr_cols_exc_pk])
+            _row_record_filter: str = (
+                f"{'' if _status_filter else 'where'} "
+                f"{'or' if _status_filter else ''} "
+                f"{self.name_short}.row_record <= excluded.row_record"
+            )
+        _set_value_pairs: str = ", ".join([
+            f"{_} = excluded.{_}" for _ in self.ctr_cols_exc_pk
+        ])
         return query_select_row(
             reduce_stm(params.ps_stm.push_ctr, add_row_number=False),
             parameters={
@@ -412,12 +481,14 @@ class Control:
             - `ctr_data_parameter`
             - `ctr_task_schedule`
         """
-        _add_column: dict = merge_dicts(self.col_default, {'tacking': 'PROCESSING'})
+        _add_column: dict = merge_dicts(
+            self.col_default, {'tacking': 'PROCESSING'}
+        )
         for col, default in _add_column.items():
             if col in self.ctr_cols and col not in update_values:
                 update_values[col] = default
         _update_values: dict = {
-            k: reduce_value(v)
+            k: reduce_value(str(v))
             for k, v in update_values.items()
             if k not in self.ctr_pk
         }
@@ -430,20 +501,21 @@ class Control:
             parameters={
                 'table_name': self.name,
                 'table_name_sht': self.name_short,
-                'update_values_pairs': ", ".join(
-                    [
-                        f"{k} = {v}" for k, v in _update_values.items()
-                    ]
-                ),
+                'update_values_pairs': ", ".join([
+                    f"{k} = {v}" for k, v in _update_values.items()
+                ]),
                 'filter': " and ".join(_filter),
-                'condition': f"""and ({condition.replace('"', "'")})""" if condition else "",
+                'condition': (
+                    f"""and ({condition.replace('"', "'")})"""
+                    if condition else ""
+                ),
             },
         )
 
 
 class TblProcess(TblCatalog):
-    """Table process object for sync configuration from base config to target database
-    and log to Control data logging.
+    """Table process object for sync configuration from base config to target
+    database and log to Control data logging.
     """
 
     __slots__ = (
@@ -501,16 +573,22 @@ class TblProcess(TblCatalog):
         self.tbl_col_delete: bool = False
 
         if not self.check_tbl_exists:
-            logger.warning(f"Table {self.tbl_name} not found in AI Database ...")
+            logger.warning(
+                f"Table {self.tbl_name} not found in AI Database ..."
+            )
             if self.tbl_auto_create:
-                self.tbl_just_init: int = self.push_tbl_create(force_drop=self.tbl_auto_drop)
+                self.tbl_just_init: int = self.push_tbl_create(
+                    force_drop=self.tbl_auto_drop
+                )
                 self.tbl_just_create = True
                 logger.info(
-                    f"Auto create {self.tbl_name!r} in database because `tbl_auto_create` was set be True"
+                    f"Auto create {self.tbl_name!r} in database because "
+                    f"`tbl_auto_create` was set be True"
                 )
             else:
                 raise TableNotFound(
-                    "Please set `tbl_auto_create` be True or setup this table with API."
+                    "Please set `tbl_auto_create` be True or setup "
+                    "this table with API."
                 )
 
         # Pull data from control table.
@@ -519,14 +597,20 @@ class TblProcess(TblCatalog):
         if not self.tbl_ctr_data:
             if not self.tbl_auto_create:
                 raise ControlTableNotExists(
-                    f"Table name: {self.tbl_name} does not exists in Control data pipeline"
+                    f"Table name: {self.tbl_name} does not exists "
+                    f"in Control data pipeline"
                 )
-            logger.info(f"Auto insert configuration data to `ctr_data_pipeline` for {self.tbl_name!r}")
+            logger.info(
+                f"Auto insert configuration data to `ctr_data_pipeline` "
+                f"for {self.tbl_name!r}"
+            )
             self.push_tbl_to_ctr_pipeline()
             self.tbl_ctr_data: dict = self.pull_tbl_from_ctr_pipeline()
 
         # Generate process date from control data.
-        self.tbl_ps_date: dt.date = get_process_date(self.tbl_run_date, self.tbl_ctr_run_type, date_type='date')
+        self.tbl_ps_date: dt.date = get_process_date(
+            self.tbl_run_date, self.tbl_ctr_run_type, date_type='date'
+        )
 
     @property
     def tbl_parameters(self) -> dict:
@@ -567,24 +651,38 @@ class TblProcess(TblCatalog):
     def tbl_ctr_rtt_column(self) -> Union[str, list]:
         try:
             _col: str = self.tbl_ctr_data['rtt_column']
-            return ast.literal_eval(_col) if (_col.startswith('[') and _col.endswith(']')) else _col
+            return (
+                ast.literal_eval(_col)
+                if (_col.startswith('[') and _col.endswith(']'))
+                else _col
+            )
         except AttributeError:
-            # This error will raise when tbl_ctr_data does not define before call this property.
+            # This error will raise when tbl_ctr_data does not define
+            # before call this property.
             return 'undefined'
 
     @property
     def check_tbl_exists(self) -> bool:
         """Check table exists"""
-        return query_select_check(params.ps_stm.exists.tbl, parameters={"table_name": self.tbl_name})
+        return query_select_check(
+            params.ps_stm.exists.tbl,
+            parameters={"table_name": self.tbl_name},
+        )
 
     def pull_tbl_count(self, condition: Optional[Union[str, list]] = None):
         if condition:
             _condition: list = [condition] if isinstance(condition, str) else condition
             return query_select_row(
                 params.ps_stm.pull_count_condition,
-                parameters={"table_name": self.tbl_name, "condition": ' and '.join(_condition)}
+                parameters={
+                    "table_name": self.tbl_name,
+                    "condition": ' and '.join(_condition),
+                },
             )
-        return query_select_row(params.ps_stm.pull_count, parameters={"table_name": self.tbl_name})
+        return query_select_row(
+            params.ps_stm.pull_count,
+            parameters={"table_name": self.tbl_name}
+        )
 
     def pull_tbl_max_data_date(self, default: bool = True) -> Optional[dt.date]:
         """Pull max data date that use the retention column for sorting"""
@@ -605,9 +703,15 @@ class TblProcess(TblCatalog):
             ).get('max_date', _default_value)
         )
 
-    def pull_tbl_retention_date(self, rtt_mode: str, rtt_date_type: Optional[str] = None) -> dt.date:
+    def pull_tbl_retention_date(
+            self, rtt_mode: str,
+            rtt_date_type: Optional[str] = None,
+    ) -> dt.date:
         """Pull min retention date with mode, like `data_date` or `run_date`"""
-        _input_date: dt.date = self.pull_tbl_max_data_date() if rtt_mode == 'data_date' else self.tbl_run_date
+        _input_date: dt.date = (
+            self.pull_tbl_max_data_date()
+            if rtt_mode == 'data_date' else self.tbl_run_date
+        )
         _run_type: str = (rtt_date_type or 'monthly')
         return get_process_date(run_date=get_cal_date(
             data_date=_input_date,
@@ -617,14 +721,20 @@ class TblProcess(TblCatalog):
             date_type='date'
         ), run_type=_run_type, date_type='date')
 
-    def pull_tbl_columns_datatype(self):
+    def pull_tbl_columns_datatype(self) -> dict:
         """Pull name and data type of all columns of table in database
         """
-        return {rows['column_name']: {
-            'order': int(rows['ordinal_position']),
-            'datatype': rows['data_type'],
-            'nullable': eval(rows['nullable'])
-        } for rows in query_select(params.ps_stm.pull_columns_datatype, parameters={"table_name": self.tbl_name})}
+        return {
+            rows['column_name']: {
+                'order': int(rows['ordinal_position']),
+                'datatype': rows['data_type'],
+                'nullable': eval(rows['nullable'])
+            }
+            for rows in query_select(
+                params.ps_stm.pull_columns_datatype,
+                parameters={"table_name": self.tbl_name}
+            )
+        }
 
     def pull_tbl_from_ctr_pipeline(self):
         """Pull configuration data from the Control Data Pipeline"""
@@ -677,7 +787,10 @@ class TblProcess(TblCatalog):
                 if row_num > 0 else ''
             )
             _stm_all.insert(0, self.get_tbl_stm_drop(cascade=cascade))
-            logger.info(f"Drop table {self.tbl_name!r} {_del_log}before create successful")
+            logger.info(
+                f"Drop table {self.tbl_name!r} {_del_log}"
+                f"before create successful"
+            )
             self.update_tbl_to_ctr_pipeline(
                 update_values={
                     'data_date': (
@@ -708,7 +821,10 @@ class TblProcess(TblCatalog):
                     'data_date': self.pull_tbl_max_data_date().strftime('%Y-%m-%d')
                 }
             )
-            logger.info(f"Success initial value after create with {row_num} row{get_plural(row_num)}")
+            logger.info(
+                f"Success initial value after create with {row_num} row"
+                f"{get_plural(row_num)}"
+            )
         return row_num
 
     def push_tbl_create_bk(self):
@@ -732,60 +848,92 @@ class TblProcess(TblCatalog):
         """
         _map_columns_type: dict = {
             col: attrs['datatype']
-            for col, attrs in self.get_tbl_columns(pk_included=True, datatype_included=True).items()
+            for col, attrs in self.get_tbl_columns(
+                pk_included=True,
+                datatype_included=True,
+            ).items()
         }
         string_columns_pairs: str = ", ".join(
             [
-                f"{col} = {self.tbl_name_sht}_ud.{col}::{_map_columns_type[col]}"
+                f"{col} = {self.tbl_name_sht}_ud.{col}"
+                f"::{_map_columns_type[col]}"
                 for col in columns
                 if col not in self.tbl_primary_key
             ]
         )
-        return query_execute_row(self.get_tbl_stm_update(), parameters={
-            'string_columns': ', '.join(columns),
-            'string_columns_pairs': string_columns_pairs,
-            'string_values': value
-        })
+        return query_execute_row(
+            self.get_tbl_stm_update(),
+            parameters={
+                'string_columns': ', '.join(columns),
+                'string_columns_pairs': string_columns_pairs,
+                'string_values': value
+            }
+        )
 
-    def push_tbl_ingestion(self, payloads: list, mode: str, action: str, update_date: dt.datetime) -> Tuple[int, int]:
+    def push_tbl_ingestion(
+            self,
+            payloads: list,
+            mode: str,
+            action: str,
+            update_date: dt.datetime,
+    ) -> Tuple[int, int]:
         ps_row_success: int = 0
         ps_row_failed: int = 0
         _start_time: dt.datetime = get_time_checkpoint()
         self.push_tbl_to_ctr_logging(push_values={
             'data_date': update_date.strftime('%Y-%m-%d'),
             'update_date': update_date.strftime('%Y-%m-%d %H:%M:%S'),
-            'action_type': 'ingestion'
+            'action_type': 'ingestion',
         })
-        for index, data in enumerate(split_iterable(payloads, 2), start=1):
+
+        # Note: Chuck size for merge mode will be split from the first level
+        # of payloads.
+        for index, data in enumerate(
+                split_iterable(payloads, settings.APP_INGEST_CHUCK),
+                start=1,
+        ):
             try:
                 cols, values = Value(
-                    data,
-                    update_date.strftime('%Y-%m-%d %H:%M:%S'),
+                    values=data,
+                    update_date=update_date.strftime('%Y-%m-%d %H:%M:%S'),
                     mode=mode,
                     action=action,
-                    expected_cols=self.get_tbl_columns(pk_included=True, datatype_included=True),
+                    expected_cols=self.get_tbl_columns(
+                        pk_included=True,
+                        datatype_included=True
+                    ),
                     expected_pk=self.tbl_primary_key
                 ).generate()
-                row_ingest: int = self.push_tbl_update(cols, values) if action == 'update' \
+                row_ingest: int = (
+                    self.push_tbl_update(cols, values)
+                    if action == 'update'
                     else self.push_tbl_insert(cols, values)
+                )
                 _failed: int = 0
                 if row_ingest != (_row_generate := (values.count('), (') + 1)):
                     _failed: int = (_row_generate - row_ingest)
                     ps_row_failed += _failed
                 ps_row_success += row_ingest
-                logger.info(f"Ingest chunk {index:02d}: (success: {row_ingest} row{get_plural(row_ingest)},"
-                            f"false: {_failed} row{get_plural(_failed)})")
+                logger.info(
+                    f"Ingest chunk {index:02d}: "
+                    f"(success: {row_ingest} row{get_plural(row_ingest)},"
+                    f"false: {_failed} row{get_plural(_failed)})"
+                )
                 self.update_tbl_to_ctr_logging(update_values={
                     'action_type': 'ingestion',
                     'row_record': {1: ps_row_success, 2: ps_row_failed},
-                    'process_time': round((get_time_checkpoint() - _start_time).total_seconds()),
+                    'process_time': round(
+                        (get_time_checkpoint() - _start_time).total_seconds()
+                    ),
                     'status': 0
                 })
             except ObjectBaseError as err:
                 self.update_tbl_to_ctr_logging(update_values={
                     'action_type': 'ingestion',
                     'row_record': {1: ps_row_success, 2: ps_row_failed},
-                    'process_time': round((get_time_checkpoint() - _start_time).total_seconds()),
+                    'process_time': round(
+                        (get_time_checkpoint() - _start_time).total_seconds()
+                    ),
                     'status': 1
                 })
                 logger.error(f"Error: {err.__class__.__name__}: {str(err)}")
@@ -793,9 +941,12 @@ class TblProcess(TblCatalog):
         return ps_row_success, ps_row_failed
 
     def push_tbl_diff(self):
-        # Get mapping of different columns between config table and target table.
+        # Get mapping of different columns between config table
+        # and target table.
         get_cols, pull_cols, compare = self._generate_tbl_columns_diff()
-        merge_cols: dict = self._generate_tbl_column_diff_map(get_cols, pull_cols)
+        merge_cols: dict = self._generate_tbl_column_diff_map(
+            get_cols, pull_cols
+        )
         try:
             if self.tbl_col_update:
                 self.push_tbl_diff_update(get_cols, compare['left'])
@@ -804,9 +955,15 @@ class TblProcess(TblCatalog):
             elif self.tbl_col_diff:
                 self.push_tbl_diff_merge(merge_cols)
             else:
-                logger.info(f"Dose not any change from configuration data in table {self.tbl_name!r}")
+                logger.info(
+                    f"Dose not any change from configuration data "
+                    f"in table {self.tbl_name!r}"
+                )
         except DatabaseProcessError as err:
-            logger.error(f"Push different columns process of {self.tbl_name!r} failed with {err}")
+            logger.error(
+                f"Push different columns process of {self.tbl_name!r} "
+                f"failed with {err}"
+            )
 
     def push_tbl_diff_update(self, get_cols: dict, not_exists_cols: set):
         """Update column properties of target table in database
@@ -852,7 +1009,8 @@ class TblProcess(TblCatalog):
                     if not _nullable[0] and _nullable[1]:
                         # stm_select: str = f"coalesce({col_name}, {default})"
                         raise TableNotImplement(
-                            f"Table column different merge process does not support for change `null` to `not null` "
+                            f"Table column different merge process does not "
+                            f"support for change `null` to `not null` "
                             f"with column: {col_name!r} in {self.tbl_name!r}"
                         )
 
@@ -958,10 +1116,12 @@ class TblProcess(TblCatalog):
             return value
         elif isinstance(value, pd.DataFrame):
             raise TableNotImplement(
-                f"Output of process function in {self.tbl_name!r} does not support for DataFrame type yet."
+                f"Output of process function in {self.tbl_name!r} "
+                f"does not support for DataFrame type yet."
             )
         raise TableArgumentError(
-            f"Output of process function in {self.tbl_name!r} does not support for {type(value)!r} type."
+            f"Output of process function in {self.tbl_name!r} "
+            f"does not support for {type(value)!r} type."
         )
 
     def push_tbl_processes(
@@ -1030,12 +1190,15 @@ class TblProcess(TblCatalog):
         _start_time: dt.datetime = get_time_checkpoint()
         self.push_tbl_to_ctr_logging(push_values={'action_type': 'backup'})
         _stm_all: list = [
-            self.get_tbl_stm_create_bk(tbl_name_bk=backup_name), reduce_stm(params.ps_stm.push_backup)
+            self.get_tbl_stm_create_bk(tbl_name_bk=backup_name),
+            reduce_stm(params.ps_stm.push_backup),
         ]
         _schema_name_bk: str = env.get('AI_SCHEMA', 'ai')
         if backup_schema and ((backup_schema or '') != _schema_name_bk):
             if check_schema_exists(schema_name=_schema_name_bk):
-                logger.info(f"Create new backup schema: {_schema_name_bk!r} to database")
+                logger.info(
+                    f"Create new backup schema: {_schema_name_bk!r} to database"
+                )
                 _stm_all.insert(0, reduce_stm(params.bs_stm.create.schema))
             _schema_name_bk: str = backup_schema
         logger.info(f"Create backup table: '{_schema_name_bk}.{backup_name}'")
@@ -1047,8 +1210,8 @@ class TblProcess(TblCatalog):
                 'table_name_backup': backup_name
             })
             logger.info(
-                f"Backup {self.tbl_name} to '{_schema_name_bk}.{backup_name}' successful "
-                f"with {_backup_row} row{get_plural(_backup_row)}"
+                f"Backup {self.tbl_name} to '{_schema_name_bk}.{backup_name}' "
+                f"successful with {_backup_row} row{get_plural(_backup_row)}"
             )
             self.update_tbl_to_ctr_logging(update_values={
                 'action_type': 'backup',
@@ -1152,11 +1315,16 @@ class TblProcess(TblCatalog):
         try:
             return Control('ctr_data_pipeline').update(update_values=_update_values)
         except DatabaseProcessError as err:
-            logger.warning(f'Does not update control data pipeline table because of, {err}')
+            logger.warning(
+                f'Does not update control data pipeline table because of, {err}'
+            )
             return 0
 
-    def _generate_params(self, parameters: list, additional: Optional[dict] = None) -> dict:
-        """Generate parameters which filter `tbl_parameters` with list of config parameters
+    def _generate_params(
+            self, parameters: list, additional: Optional[dict] = None
+    ) -> dict:
+        """Generate parameters which filter `tbl_parameters` with list of
+        config parameters
         """
         _full_parameters: dict = merge_dicts(self.tbl_parameters, (additional or {}))
         return {param: _full_parameters[param] for param in parameters}
@@ -1164,13 +1332,19 @@ class TblProcess(TblCatalog):
     def _generate_run_type(self) -> str:
         run_types: dict = params.map_tbl_run_type.copy()
         return next(
-            (run_types[col] for col in self.get_tbl_columns(pk_included=True) if col in run_types),
+            (
+                run_types[col]
+                for col in self.get_tbl_columns(pk_included=True)
+                if col in run_types
+            ),
             'daily'
         )
 
     def _generate_tbl_columns_diff(self) -> Tuple[dict, ...]:
         _pull_cols: dict = self.pull_tbl_columns_datatype()
-        _get_cols: dict = self.get_tbl_columns(pk_included=True, datatype_included=True)
+        _get_cols: dict = self.get_tbl_columns(
+            pk_included=True, datatype_included=True
+        )
 
         compare_diff: dict = {'left': set(), 'right': set(), 'all': set()}
         compare_diff['left'].update(set(_get_cols.keys()).difference(set(_pull_cols.keys())))
@@ -1192,7 +1366,11 @@ class TblProcess(TblCatalog):
         results: dict = {}
 
         if self.tbl_col_not_equal:
-            _get_cols: dict = {k: _get_cols[k] for k in _get_cols if k in _pull_cols}
+            _get_cols: dict = {
+                k: _get_cols[k]
+                for k in _get_cols
+                if k in _pull_cols
+            }
 
         for col_name, col_attrs in _get_cols.items():
             result: dict = {'match': {}, 'not_match': {}}
@@ -1200,23 +1378,32 @@ class TblProcess(TblCatalog):
                 if _pull_cols[col_name][_check] != col_attrs[_check]:
                     self.tbl_col_diff: bool = True
                     if _check == 'order':
-                        # Cannot use update or delete because order of column does not align with config data
+                        # Cannot use update or delete because order of column
+                        # does not align with config data
                         self.tbl_col_update: bool = False
                         self.tbl_col_delete: bool = False
-                    result['not_match'][_check] = (col_attrs[_check], _pull_cols[col_name][_check])
+                    result['not_match'][_check] = (
+                        col_attrs[_check], _pull_cols[col_name][_check]
+                    )
                 else:
-                    result['match'][_check] = (col_attrs[_check], _pull_cols[col_name][_check])
+                    result['match'][_check] = (
+                        col_attrs[_check], _pull_cols[col_name][_check]
+                    )
                 results[col_name]: dict = result
         return results
 
 
 class FuncProcess(FuncCatalog):
-    """Function process object for sync configuration from base config to target database
+    """Function process object for sync configuration from base config to target
+    database
     """
 
     __slots__ = (
-        'func_run_date', 'fwk_parameters', 'func_auto_create', 'func_just_create',
-        'func_auto_drop'
+        'func_run_date',
+        'func_auto_create',
+        'func_just_create',
+        'func_auto_drop',
+        'fwk_parameters',
     )
 
     def __init__(
@@ -1243,9 +1430,13 @@ class FuncProcess(FuncCatalog):
                 _ = self.check_func_exists
             except DatabaseProcessError as err:
                 raise FuncRaiseError(
-                    f"{self.func_name!r} was raised the statement error from query explain checking"
+                    f"{self.func_name!r} was raised the statement error "
+                    f"from query explain checking"
                 ) from err
-        elif not self.check_func_exists and self.func_type in {'func', 'view', 'mview', }:
+        elif (
+                not self.check_func_exists
+                and self.func_type in {'func', 'view', 'mview', }
+        ):
             if self.func_auto_create:
                 self.push_func_create(force_drop=self.func_auto_drop)
                 self.func_just_create: bool = True
@@ -1354,7 +1545,9 @@ class Action(FuncProcess):
         self.act_func_type, self.act_func_name = filter_ps_type(name)
         self.act_func_ps_id: str = process_id or get_process_id("undefined")
         self.act_func_run_mode: str = check_run_mode('action', run_mode)
-        self.act_func_params: dict = fwk_parameters or merge_dicts(Control.parameters(), (external_parameters or {}))
+        self.act_func_params: dict = fwk_parameters or merge_dicts(
+            Control.parameters(), (external_parameters or {})
+        )
         super(Action, self).__init__(
             func_name=self.act_func_name,
             func_type=self.act_func_type,
@@ -1411,17 +1604,25 @@ class Node(TblProcess):
     ):
         self.node_tbl_type, self.node_tbl_name = filter_ps_type(name)
         self.node_tbl_ps_id: str = process_id or get_process_id("undefined")
-        _node_tbl_ps_included, self.node_tbl_ps_excluded = split_choose((choose or []))
+        _node_tbl_ps_included, self.node_tbl_ps_excluded = split_choose(
+            (choose or [])
+        )
         self.node_tbl_run_mode: str = check_run_mode('node', run_mode)
         self.verbose = verbose
-        verbose_log(self, f"[Start] initialize the node object name {self.node_tbl_name} ...")
         verbose_log(
             self,
-            "Mapping parameter from the control table and external parameter argument together ...",
+            f"[Start] initialize the node object name {self.node_tbl_name} ..."
         )
-        self.node_tbl_params: dict = (
-                fwk_parameters or merge_dicts(Control.parameters(), (external_parameters or {}))
+        verbose_log(
+            self,
+            (
+                "Mapping parameter from the control table and external "
+                "parameter argument together ..."
+            ),
         )
+        self.node_tbl_params: dict = (fwk_parameters or merge_dicts(
+            Control.parameters(), (external_parameters or {})
+        ))
         super(Node, self).__init__(
             tbl_name=self.node_tbl_name,
             tbl_type=self.node_tbl_type,
@@ -1440,12 +1641,20 @@ class Node(TblProcess):
             self.tbl_ctr_run_count_now < self.tbl_ctr_run_count_max
             or self.tbl_ctr_run_count_max == 0
         )
-        if self.tbl_run_date < self.tbl_ctr_run_date and self.node_tbl_run_mode == 'common':
+        if (
+                self.tbl_run_date < self.tbl_ctr_run_date
+                and self.node_tbl_run_mode == 'common'
+        ):
             raise ControlTableValueError(
                 f"Please check value of `run_date`, "
-                f"which less than the current running date: {self.tbl_ctr_run_date:'%Y-%m-%d'}"
+                f"which less than the current running date: "
+                f"{self.tbl_ctr_run_date:'%Y-%m-%d'}"
             )
-        verbose_log(self, f"[Success] initialize the node object name {self.node_tbl_name}", end='=')
+        verbose_log(
+            self,
+            f"[Success] initialize the node object name {self.node_tbl_name}",
+            end='=',
+        )
 
     @property
     def name(self) -> str:
@@ -1476,21 +1685,33 @@ class Node(TblProcess):
 
     @property
     def quota(self) -> bool:
-        return (not self.node_tbl_run_check) and (self.tbl_run_date == self.tbl_ctr_run_date)
+        return (
+                not self.node_tbl_run_check
+                and (self.tbl_run_date == self.tbl_ctr_run_date)
+        )
 
     @property
     def process_time(self) -> int:
-        return round((get_time_checkpoint() - self.node_start_datetime).total_seconds())
+        return round(
+            (get_time_checkpoint() - self.node_start_datetime).total_seconds()
+        )
 
     @property
     def process_count(self) -> int:
         _excluded: list = self.node_tbl_ps_excluded
         if _included := self.node_tbl_ps_included:
-            return len(_included) - len(set(_included).intersection(set(_excluded)))
+            return (
+                    len(_included)
+                    - len(set(_included).intersection(set(_excluded)))
+            )
         return self.tbl_process_count - len(_excluded)
 
     def _prepare_before_rerun(self, sla: int) -> Tuple[dt.date, dt.date]:
-        _run_date: dt.date = self.tbl_run_date if self.node_tbl_run_mode == 'common' else self.tbl_ps_date
+        _run_date: dt.date = (
+            self.tbl_run_date
+            if self.node_tbl_run_mode == 'common'
+            else self.tbl_ps_date
+        )
         _data_date: dt.date = self.tbl_ctr_data_date
         if self.node_tbl_run_mode == 'common':
             return _run_date, _data_date
@@ -1505,8 +1726,10 @@ class Node(TblProcess):
                 date_type='date'
             )
         if (
-                self.node_tbl_params.get('data_normal_rerun_reset_data', 'N') == 'Y' and
-                self.tbl_ctr_tbl_type == 'transaction'
+                self.node_tbl_params.get(
+                    'data_normal_rerun_reset_data', 'N'
+                ) == 'Y'
+                and self.tbl_ctr_tbl_type == 'transaction'
         ):
             del_record: int = self.push_tbl_del_with_date(
                 delete_date=_run_date.strftime('%Y-%m-%d'),
@@ -1514,7 +1737,9 @@ class Node(TblProcess):
             )
             logger.info(f'Delete current data transaction: {del_record} rows')
         logger.info(
-            f'Reset (data_date, run_date) from ({self.tbl_ctr_data_date:%Y-%m-%d}, {self.tbl_run_date:%Y-%m-%d}) to '
+            f'Reset (data_date, run_date) from '
+            f'({self.tbl_ctr_data_date:%Y-%m-%d}, '
+            f'{self.tbl_run_date:%Y-%m-%d}) to '
             f'({_data_date:%Y-%m-%d}, {_run_date:%Y-%m-%d})'
         )
         return _run_date, _data_date
@@ -1530,11 +1755,16 @@ class Node(TblProcess):
         if self.node_tbl_params.get('data_normal_rerun_reset_sla', 'N') == 'Y':
             _ps_sla: int = 0
             for key, value in _additional.items():
-                if key in params.map_tbl_ps_sla.values() and isinstance(value, int):
+                if (
+                        key in params.map_tbl_ps_sla.values()
+                        and isinstance(value, int)
+                ):
                     _additional[key] = 0
                 logger.warning(f'Reset `{key}` parameter values to 0')
         else:
-            _ps_sla: int = _additional.get(params.map_tbl_ps_sla[self.tbl_ctr_run_type], 1)
+            _ps_sla: int = _additional.get(
+                params.map_tbl_ps_sla[self.tbl_ctr_run_type], 1
+            )
         _run_date, _data_date = self._prepare_before_rerun(sla=_ps_sla)
         _row_record: dict = self.push_tbl_processes(
             ps_included=self.node_tbl_ps_included,
@@ -1570,10 +1800,15 @@ class Node(TblProcess):
     def retention_start(self) -> int:
         _rtt_row: int = 0
         if self.tbl_ctr_rtt_value == 0:
-            logger.info("Skip retention process because `ctr_rtt_value` equal 0 or "
-                        "does not set in Control Framework table")
+            logger.info(
+                "Skip retention process because `ctr_rtt_value` equal 0 or "
+                "does not set in Control Framework table"
+            )
             return _rtt_row
-        logger.info(f'Process Retention value: {self.tbl_ctr_rtt_value} month with mode: {self.retention_mode}')
+        logger.info(
+            f'Process Retention value: {self.tbl_ctr_rtt_value} month '
+            f'with mode: {self.retention_mode}'
+        )
         _rtt_row: int = self.push_tbl_retention(rtt_date=self.retention_date)
         return _rtt_row
 
@@ -1581,7 +1816,10 @@ class Node(TblProcess):
     def backup_name(self) -> Optional[str]:
         _bk_name: Optional[str] = self.node_tbl_params.get('backup_table')
         try:
-            return f"{self.tbl_name}_bk" if must_bool(_bk_name, force_raise=True) else None
+            return (
+                f"{self.tbl_name}_bk"
+                if must_bool(_bk_name, force_raise=True) else None
+            )
         except ValueError:
             return _bk_name
 
@@ -1589,14 +1827,18 @@ class Node(TblProcess):
     def backup_schema(self) -> Optional[str]:
         _bk_name: Optional[str] = self.node_tbl_params.get('backup_schema')
         try:
-            return f"{env.AI_SCHEMA}_bk" if must_bool(_bk_name, force_raise=True) else None
+            return (
+                f"{env.AI_SCHEMA}_bk"
+                if must_bool(_bk_name, force_raise=True) else None
+            )
         except ValueError:
             return _bk_name
 
     def backup_start(self) -> int:
         if any(self.backup_name == x['table_name'] for x in Control.tables()):
             raise TableNotImplement(
-                f"default backup table name {self.backup_name!r} was duplicated with any table in catalog"
+                f"default backup table name {self.backup_name!r} was "
+                f"duplicated with any table in catalog"
             )
         return self.push_tbl_backup(
             backup_name=self.backup_name,
@@ -1618,19 +1860,25 @@ class Node(TblProcess):
 
     def ingest_start(self) -> Tuple[int, int]:
         if (
-                (self.ingest_mode != 'common' or self.ingest_action not in {'insert', 'update'}) and
-                (self.ingest_mode != 'merge' or self.ingest_action != 'insert')
+                self.ingest_mode not in {'common', 'merge'}
+                or self.ingest_action not in {'insert', 'update'}
         ):
             raise TableArgumentError(
-                f"Pair of ingest mode {self.ingest_mode!r} and action mode {self.ingest_action!r} does not support yet."
+                f"Pair of ingest mode {self.ingest_mode!r} "
+                f"and action mode {self.ingest_action!r} "
+                f"does not support yet."
             )
 
-        _update_date: dt.datetime = dt.datetime.fromisoformat(_update) if (
-            _update := self.node_tbl_params.get('update_date')) else get_run_date('datetime')
+        _update_date: dt.datetime = (
+            dt.datetime.fromisoformat(_update)
+            if (_update := self.node_tbl_params.get('update_date'))
+            else get_run_date('datetime')
+        )
         if self.tbl_ctr_data_date > _update_date.date():
             raise ControlTableValueError(
-                f"Please check value of `update_date`, which less than the current control "
-                f"data date: '{self.tbl_ctr_data_date:'%Y-%m-%d'}'"
+                f"Please check value of `update_date`, which less than "
+                f"the current control data date: "
+                f"'{self.tbl_ctr_data_date:'%Y-%m-%d'}'"
             )
         _row_record: Tuple[int, int] = self.push_tbl_ingestion(
             payloads=self.ingest_payloads,
@@ -1651,7 +1899,9 @@ class Node(TblProcess):
             truncate: bool = False,
             compress: Optional[str] = None
     ):
-        filepath: str = path_join(AI_APP_PATH, f'{registers.path.data}/{filename}')
+        filepath: str = path_join(
+            AI_APP_PATH, f'{registers.path.data}/{filename}'
+        )
         file_props: dict = {
             'filepath': filepath,
             'table': self.name,
@@ -1662,19 +1912,30 @@ class Node(TblProcess):
             }
         }
         for chunk, rows in query_insert_from_csv(
-                file_props, chunk_size=chunk_size, truncate=truncate, compress=compress
+                file_props,
+                chunk_size=chunk_size,
+                truncate=truncate,
+                compress=compress
         ):
-            logger.info(f'Success with first chuck size {chunk} with {rows} row{get_plural(rows)}')
+            logger.info(
+                f'Success with first chuck size {chunk} '
+                f'with {rows} row{get_plural(rows)}'
+            )
 
 
 class PipeProcess(PipeCatalog):
-    """Pipeline process object for sync configuration from base config to target database
-    and log to Control task schedule
+    """Pipeline process object for sync configuration from base config to target
+    database and log to Control task schedule
     """
 
     __slots__ = (
-        'pipe_run_date', 'pipe_node_auto_create', 'pipe_params', 'pipe_ctr_schedule', 'pipe_node_auto_drop',
-        'pipe_node_auto_init', 'pipe_node_generator'
+        'pipe_run_date',
+        'pipe_node_auto_create',
+        'pipe_params',
+        'pipe_ctr_schedule',
+        'pipe_node_auto_drop',
+        'pipe_node_auto_init',
+        'pipe_node_generator'
     )
 
     def __init__(
@@ -1687,12 +1948,16 @@ class PipeProcess(PipeCatalog):
             node_auto_init: Union[bool, str] = True,
             verbose: bool = False
     ):
-        """Main Pipeline process object initialization. If argument of pipeline name match the name
-        like `retention_search` or `control_search`, the engine will auto generate all of table name
-        that active in `ctr_data_pipeline`.
+        """Main Pipeline process object initialization. If argument of pipeline
+        name match the name like `retention_search` or `control_search`, the
+        engine will auto generate all table name that active in
+        `ctr_data_pipeline`.
         """
-        self.pipe_run_date: dt.date = dt.date.fromisoformat(pipe_run_date) if pipe_run_date \
+        self.pipe_run_date: dt.date = (
+            dt.date.fromisoformat(pipe_run_date)
+            if pipe_run_date
             else get_run_date(date_type='date')
+        )
         self.pipe_node_auto_create: bool = schema_auto_create
         self.pipe_node_auto_drop: bool = node_auto_drop
         self.pipe_node_auto_init: bool = node_auto_init
@@ -1735,19 +2000,28 @@ class PipeProcess(PipeCatalog):
                 f"Please set `pipe_schema_auto_create` in {self.pipe_name}"
             )
         elif self.pipe_node_auto_create:
-            verbose_log(self, f"Push auto create schema name: {env.AI_SCHEMA} in target database ...")
+            verbose_log(
+                self,
+                f"Push auto create schema name: {env.AI_SCHEMA} in target database ..."
+            )
             push_schema_create(schema_name=env.AI_SCHEMA)
         verbose_log(
             self,
             "Mapping parameter from the control table and external parameter argument together ...",
         )
 
-        self.pipe_params: dict = merge_dicts(Control.parameters(), (external_parameters or {}))
+        self.pipe_params: dict = merge_dicts(
+            Control.parameters(), (external_parameters or {})
+        )
         self.pipe_ctr_schedule: dict = self.pull_pipe_from_ctr_schedule()
-        if not self.pipe_ctr_schedule and self.pipe_name not in {'retention_search', 'control_search'}:
+        if (
+                not self.pipe_ctr_schedule
+                and self.pipe_name not in {'retention_search', 'control_search'}
+        ):
             if not self.pipe_node_auto_create:
                 raise ControlPipelineNotExists(
-                    f"Pipeline ID: {self.pipe_id} does not exists in Control task schedule"
+                    f"Pipeline ID: {self.pipe_id} does not exists in Control "
+                    f"task schedule"
                 )
             self.push_pipe_to_ctr_schedule()
             self.pipe_ctr_schedule: dict = self.pull_pipe_from_ctr_schedule()
@@ -1755,7 +2029,11 @@ class PipeProcess(PipeCatalog):
                 f"Auto create {self.pipe_name!r} in control schedule table "
                 f"because `pipe_node_auto_create` was set be True"
             )
-        verbose_log(self, f"[Success] initialize the pipeline process object name {self.pipe_name!r}", end='=')
+        verbose_log(
+            self,
+            f"[Success] initialize the pipeline process object name {self.pipe_name!r}",
+            end='=',
+        )
 
     @property
     def pipe_ctr_type(self) -> str:
@@ -1774,54 +2052,88 @@ class PipeProcess(PipeCatalog):
             node_props: Optional[dict] = None,
             auto_update: bool = True
     ) -> Iterator[Tuple[int, Node]]:
-        """Pull all nodes that the pipeline contains in configuration file and passing node's properties.
+        """Pull all nodes that the pipeline contains in configuration file and
+        passing node's properties.
         """
         for order, nodes in self.pipe_nodes.items():
             yield order, Node(**(node_props or {}), **nodes)
         if auto_update and not self.pipe_node_generator:
-            self.update_pipe_to_ctr_schedule(update_values={'pipeline_id': self.pipe_alert_inc})
+            self.update_pipe_to_ctr_schedule(
+                update_values={'pipeline_id': self.pipe_alert_inc}
+            )
 
+    @ignore_unhash
     @functools.lru_cache
-    def _check_trigger_function(self, trigger: Union[str, list, set], ctr_schedules: dict):
+    def __check_trigger_function(
+            self,
+            trigger: Union[str, list, set],
+            ctr_schedules: dict,
+    ):
         if isinstance(trigger, str):
             if not (pln_trigger := ctr_schedules.get(trigger, {})):
                 logger.warning(
-                    f"Pipeline ID: {trigger!r} does not exists in `ctr_task_schedule` or active_flg equal 'N' "
+                    f"Pipeline ID: {trigger!r} does not exists in "
+                    f"`ctr_task_schedule` or active_flg equal 'N' "
                     f"from `trigger` in '{self.pipe_name}'"
                 )
                 raise ControlPipelineNotExists(
-                    f"Pipeline ID: {trigger!r} does not exists in `ctr_task_schedule` or active_flg equal 'N' "
+                    f"Pipeline ID: {trigger!r} does not exists in "
+                    f"`ctr_task_schedule` or active_flg equal 'N' "
                     f"from `trigger` in '{self.pipe_name}'"
                 )
             return (
-                           (pln_trigger["update_date"] > self.pipe_ctr_update_date) and
-                           pln_trigger["tracking"] == self.pipe_ctr_track == 'SUCCESS'
+                           (
+                                   pln_trigger["update_date"]
+                                   > self.pipe_ctr_update_date
+                           )
+                           and (
+                                   pln_trigger["tracking"]
+                                   == self.pipe_ctr_track
+                                   == 'SUCCESS'
+                           )
                    ) or (
-                           (pln_trigger["update_date"] <= self.pipe_ctr_update_date) and
-                           pln_trigger["tracking"] == 'SUCCESS' and self.pipe_ctr_track == 'FAILED'
+                           (
+                                   pln_trigger["update_date"]
+                                   <= self.pipe_ctr_update_date
+                           )
+                           and (
+                                   pln_trigger["tracking"] == 'SUCCESS'
+                                   and self.pipe_ctr_track == 'FAILED'
+                           )
                    )
         if run_flags := [
-            self._check_trigger_function(_trigger, ctr_schedules)
+            self.__check_trigger_function(_trigger, ctr_schedules)
             for _trigger in trigger
         ]:
-            return any(run_flags) if isinstance(trigger, set) else all(run_flags)
+            return (
+                any(run_flags)
+                if isinstance(trigger, set)
+                else all(run_flags)
+            )
         return False
 
     def check_pipe_trigger(self) -> bool:
+        """Return True if pipeline ..."""
         _triggers: Union[set, list] = self.pipe_trigger.copy()
         _all_pipe_schedules: dict = {
             _ctr_value['pipeline_id']: {
                 'tracking': _ctr_value['tracking'],
-                'update_date': dt.datetime.fromisoformat(_ctr_value['update_date'])
+                'update_date': dt.datetime.fromisoformat(
+                    _ctr_value['update_date']
+                )
             }
             for _ctr_value in self.pull_pipe_from_ctr_schedule(
                 included_cols=['pipeline_id', 'tracking', 'update_date'],
                 all_flag=True
             )
         }
-        return self._check_trigger_function(_triggers, _all_pipe_schedules)
+        return self.__check_trigger_function(
+            _triggers, _all_pipe_schedules
+        )
 
-    def check_pipe_schedule(self, group: str, waiting_process: int = 300) -> bool:
+    def check_pipe_schedule(
+            self, group: str, waiting_process: int = 300
+    ) -> bool:
         if not self.pipe_schedule:
             return False
 
@@ -1831,7 +2143,8 @@ class PipeProcess(PipeCatalog):
         if self.pipe_ctr_track == 'FAILED':
             logger.warning(
                 f'Pipeline ID: {self.pipe_id!r} was `FAILED` status, '
-                f'please check `ctr_task_process` with pipeline_name = {self.pipe_name!r}.'
+                f'please check `ctr_task_process` with pipeline_name = '
+                f'{self.pipe_name!r}.'
             )
             return False
         while self.pipe_ctr_track == 'PROCESSING':
@@ -1875,7 +2188,9 @@ class PipeProcess(PipeCatalog):
 
 
 class Pipeline(PipeProcess):
-    """Pipeline object for orchestrate nodes of table process and log to Control task process"""
+    """Pipeline object for orchestrate nodes of table process and log to Control
+    task process
+    """
 
     __slots__ = (
         'pipe_start_datetime', 'pipe_run_mode', 'pipe_ps_id'
@@ -1905,11 +2220,16 @@ class Pipeline(PipeProcess):
             verbose=verbose
         )
         self.pipe_start_datetime: dt.datetime = get_time_checkpoint()
-        verbose_log(self, f"[Success] initialize the pipeline object name {self.pipe_name}", end='=')
+        verbose_log(
+            self,
+            f"[Success] initialize the pipeline object name {self.pipe_name}",
+            end='='
+        )
 
     @property
     def name(self):
-        """The pipeline name which change attribute name from pipe_name to name"""
+        """The pipeline name which change attribute name from pipe_name to name
+        """
         return self.pipe_name
 
     @property
@@ -1922,10 +2242,13 @@ class Pipeline(PipeProcess):
 
     @property
     def process_time(self) -> int:
-        return round((get_time_checkpoint() - self.pipe_start_datetime).total_seconds())
+        return round(
+            (get_time_checkpoint() - self.pipe_start_datetime).total_seconds()
+        )
 
     def nodes(self, auto_update: bool = True):
-        """Node method for passing pipeline parameters to all node in the pipeline
+        """Node method for passing pipeline parameters to all node in the
+        pipeline
         """
         return self.pull_pipe_nodes(node_props={
             'process_id': self.pipe_ps_id,
@@ -1945,22 +2268,31 @@ class Pipeline(PipeProcess):
         return self.update_pipe_to_ctr_schedule(update_values=_update_values)
 
 
+# [x] Migrate to modern style by `Task` Service Model
 class Process:
     """Process Object for control task functions.
     This object will connect data from the control task process.
     """
 
+    # [x] Migrate to modern style by `Task` Service Model
     @classmethod
     def load(cls, process_id: str):
         if _ctr_process := (
                 Control('ctr_task_process')
                     .pull(pm_filter=[process_id])
         ):
-            return cls(module='undefined', parameters=_ctr_process, process_id=process_id, load=True)
+            return cls(
+                module='undefined',
+                parameters=_ctr_process,
+                process_id=process_id,
+                load=True
+            )
         raise ControlProcessNotExists(
-            f"Process ID: {process_id} does not exists in Control Task Process table"
+            f"Process ID: {process_id} does not exists in Control Task Process "
+            f"table"
         )
 
+    # [x] Migrate to modern style by `Task` Model
     @classmethod
     def make(cls, module: str):
         return cls(module=module, bypass=True)
@@ -1991,42 +2323,58 @@ class Process:
             self.ps_type: str = 'pipeline'
             self.ps_obj = Pipeline
         elif load:
-            self.ps_task, self.ps_type = self.parameters.get('process_type', 'foreground|undefined') \
-                .split('|', maxsplit=1)
-            self.ps_component, self.ps_module = self.parameters.get('process_module', 'undefined|undefined') \
-                .split('|', maxsplit=1)
+            self.ps_task, self.ps_type = (
+                self.parameters
+                    .get('process_type', 'foreground|undefined')
+                    .split('|', maxsplit=1)
+            )
+            self.ps_component, self.ps_module = (
+                self.parameters
+                    .get('process_module', 'undefined|undefined')
+                    .split('|', maxsplit=1)
+            )
             self.ps_name: str = self.ps_module
         elif bypass:
             self.ps_name: str = module
             self.ps_type: str = 'undefined'
         else:
             raise ProcessValueError(
-                "Process does not support when `table_name` or `pipeline_name` did not set from request form"
+                "Process does not support when `table_name` or `pipeline_name` "
+                "did not set from request form"
             )
 
         # Main attributes of process object
-        self.ps_id: str = process_id or get_process_id(self.ps_module + self.ps_type + self.ps_name)
+        self.ps_id: str = (
+                process_id or
+                get_process_id(self.ps_module + self.ps_type + self.ps_name)
+        )
         self.ps_dates: list = (
             must_list(self.parameters.get('run_date_put', [get_run_date()]))
             if load else self.ps_params.get('run_dates', [get_run_date()])
         )
-        self.ps_date: str = self.parameters.get('run_date_get') if load else self.ps_dates[0]
-        self.ps_date_num: int = 0
-        self.ps_messages: str = self.parameters.get('process_message', "") if load else ""
-        self.ps_status: int = int(self.parameters.get('status', '0')) if load else 2
-        self.ps_order: int = 0
+        self.ps_date: str = (
+            self.parameters.get('run_date_get') if load else self.ps_dates[0]
+        )
+        self.ps_date_num: int = 1
+        self.ps_messages: str = (
+            self.parameters.get('process_message', "") if load else ""
+        )
+        self.ps_status: int = (
+            int(self.parameters.get('status', '0')) if load else 2
+        )
         self.ps_start_time: dt.datetime = get_run_date(date_type='date_time')
 
         # Optional attributes of framework object
-        self.ps_drop_tbl: bool = convert_str_bool(self.ps_params.get("drop_table", 'N'))
-        self.ps_drop_schema: bool = convert_str_bool(self.ps_params.get("drop_schema", 'N'))
-        self.ps_cascade: bool = convert_str_bool(self.ps_params.get('cascade', 'N'))
+        self.ps_drop_tbl: bool = convert_str_bool(
+            self.ps_params.get("drop_table", 'N')
+        )
+        self.ps_drop_schema: bool = convert_str_bool(
+            self.ps_params.get("drop_schema", 'N')
+        )
+        self.ps_cascade: bool = convert_str_bool(
+            self.ps_params.get('cascade', 'N')
+        )
         self.ps_run_mode: str = self.ps_params.get('run_mode', 'common')
-
-    @property
-    def next(self):
-        self.ps_order += 1
-        return self
 
     @property
     def mode(self) -> str:
@@ -2037,30 +2385,37 @@ class Process:
     def is_tbl(self) -> bool:
         return self.ps_type == 'table'
 
+    # [x] Migrate to modern style by `Parameter` Model
     @property
     def drop_schema(self) -> bool:
         return self.ps_drop_schema
 
+    # [x] Migrate to modern style by `Parameter` Model
     @property
     def drop_table(self) -> bool:
         return self.ps_drop_tbl
 
+    # [x] Migrate to modern style by `Parameter` Model
     @property
     def cascade(self) -> bool:
         return self.ps_cascade
 
+    # [x] Migrate to modern style by `Parameter` Model
     @property
     def name(self) -> str:
         return self.ps_name
 
+    # [x] Migrate to modern style by `Task` Model
     @property
     def module(self):
         return self.ps_module
 
+    # [x] Migrate to modern style by `Task` Model
     @property
     def type(self) -> str:
         return self.ps_type
 
+    # [x] Migrate to modern style by `Task` Model
     @property
     def component(self) -> str:
         return self.ps_component
@@ -2069,61 +2424,77 @@ class Process:
     def obj(self) -> Type[Union[Node, Pipeline]]:
         if self.ps_type == 'undefined':
             raise ProcessValueError(
-                f"Process does not support attribute `obj` for process type is {self.ps_type!r}"
+                f"Process does not support attribute `obj` "
+                f"for process type is {self.ps_type!r}"
             )
         return self.ps_obj
 
+    # [x] Migrate to modern style by `Task` Model
     @property
     def id(self) -> str:
         return self.ps_id
 
-    @property
-    def order(self) -> int:
-        return self.ps_order
-
+    # [x] Migrate to modern style by `Task` Model
     @property
     def run_date(self) -> str:
         return self.ps_date
 
+    # [x] Migrate to modern style by `Task` Model
     @property
     def run_dates(self):
-        for date in self.ps_dates:
-            self.ps_messages += (f"\n[ run_date: {date} ]" if self.ps_messages else f"[ run_date: {date} ]")
-            self.ps_date_num += 1
+        for idx, date in enumerate(self.ps_dates):
+            self.ps_messages += (
+                f"\n[ run_date: {date} ]"
+                if self.ps_messages else f"[ run_date: {date} ]"
+            )
+            self.ps_date_num += idx
             yield date
 
+    # [x] Migrate to modern style by `Task` Model
     @property
     def parameters(self):
         return self.ps_params
 
+    # [x] Migrate to modern style by `Task` Model
     @property
     def start_time(self) -> dt.datetime:
         return self.ps_start_time
 
+    # [x] Migrate to modern style by `Task` Model
     @property
     def duration(self) -> int:
-        return round((get_run_date(date_type='date_time') - self.start_time).total_seconds())
+        return round(
+            (
+                    get_run_date(date_type='date_time') - self.start_time
+            ).total_seconds()
+        )
 
+    # [x] Migrate to modern style by `Task` Model
     @property
     def messages(self) -> str:
         return self.ps_messages
 
+    # [x] Migrate to modern style by `Task` Model
     @messages.setter
     def messages(self, msg: str):
-        self.ps_messages += (f'\n{msg}' if self.ps_messages else f'{msg}')
+        self.ps_messages += (f'\n{msg}' if self.ps_messages else msg)
 
+    # [x] Migrate to modern style by `Task` Model
     @property
     def status(self) -> int:
         return self.ps_status
 
+    # [x] Migrate to modern style by `Task` Model
     @status.setter
     def status(self, sts: int):
         self.ps_status = sts
 
+    # [x] Migrate to modern style by `Task` Model
     def receive(self, results: Status):
         self.status = results.id
         self.messages = results.message
 
+    # [x] Migrate to modern style by `Task` Service Model
     def push_task(self, push_values: Optional[dict] = None):
         """Push data information to the Control Data Logging"""
         _push_values: dict = merge_dicts({
@@ -2131,8 +2502,11 @@ class Process:
             'process_name_put': self.ps_name,
             'process_name_get': 'null',
             'run_date_put': reduce_text(str(self.ps_dates)),
-            'run_date_get': self.ps_dates[(self.ps_date_num - 1) if self.ps_date_num > 0 else 0],
-            'process_message': f'Start {self.ps_task} process {self.ps_type} `{self.ps_name}` ...',
+            'run_date_get': self.ps_dates[self.ps_date_num - 1],
+            'process_message': (
+                f'Start {self.ps_task} process {self.ps_type} '
+                f'`{self.ps_name}` ...'
+            ),
             'process_number_put': 1,
             'process_number_get': 1,
             'process_module': f'{self.ps_component}|{self.ps_module}',
@@ -2140,6 +2514,7 @@ class Process:
         }, (push_values or {}))
         return Control('ctr_task_process').push(push_values=_push_values)
 
+    # [x] Migrate to modern style by `Task` Service Model
     def update_task(self, update_values: Optional[dict] = None):
         """Update data information to the Control Data Pipeline"""
         _update_values: dict = merge_dicts({
@@ -2150,12 +2525,14 @@ class Process:
         }, (update_values or {}))
         return Control('ctr_task_process').update(update_values=_update_values)
 
+    # [x] Migrate to modern style by `Task` Service Model
     def start_task(self, index: int, count: Optional[int] = None):
         if index == 1:
             count: int = count or 1
             return self.push_task(push_values={'process_number_put': count})
         return 0
 
+    # [x] Migrate to modern style by `Task` Service Model
     def end_task(self):
         _update: dict = {}
         if self.ps_status == 0:
@@ -2169,6 +2546,7 @@ class Process:
 ObjectType: Type = Optional[Union[Node, Pipeline, Action]]
 
 
+# [x] Migrate to modern style by `Schema` Service Model
 class Schema:
     """Schema Object for action with schema in target database.
     """
@@ -2185,143 +2563,15 @@ class Schema:
         self.name: str = schema_name or env.AI_SCHEMA
         self.cascade: bool = cascade
 
+    # [x] Migrate to modern style by `Schema` Model in services
     @property
     def exists(self) -> bool:
         return check_schema_exists(schema_name=self.name)
 
+    # [x] Migrate to modern style by `Schema` Model in services
     def create(self) -> None:
         push_schema_create(schema_name=self.name)
 
+    # [x] Migrate to modern style by `Schema` Model in services
     def drop(self) -> None:
         push_schema_drop(schema_name=self.name, cascade=self.cascade)
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-def test_adm():
-    adm = TblProcess(tbl_name='ai_date_master', tbl_type='sql')
-    # adm = TblProcess(tbl_name='ai_article_mapping_fc', tbl_type='sql')
-    # print(adm.check_tbl_exists)
-    # print(adm.tbl_ctr_data)
-    # print(list(adm.pull_tbl_from_ctr_logging(action_type='common', all_flag=True)))
-    # print(adm.pull_tbl_max_data_date())
-    # print(adm.pull_tbl_count())
-    # print(adm._generate_run_type())
-    print(adm.tbl_process)
-
-
-def test_adm_diff():
-    adm = TblProcess(tbl_name='ai_date_master', tbl_type='sql')
-    # a = adm._generate_tbl_column_diff()
-    # for k, v in a.items():
-    #     print(k, ':', v)
-    adm.push_tbl_diff()
-
-
-def test_cie():
-    cie = FuncProcess(func_name='func_count_if_exists', func_type='func')
-    print(cie)
-    print(cie.check_func_exists)
-
-
-def test_node_func_init():
-    node_ipccm = Node(
-        name='func:imp_min_max_service_level',
-        run_date='2022-04-02',
-        # auto_drop=True,
-    )
-    print(node_ipccm.pull_tbl_max_data_date())
-    print(node_ipccm.process_count)
-    # -----------------------------------------------------------------
-    # for name, process in node_ipccm.tbl_process.items():
-    #     print(f"Start process: {name} ---------")
-    #     print(node_ipccm.push_tbl_process(process))
-    #     print(f"------------------------------------------")
-
-    # -----------------------------------------------------------------
-    # node_ipccm.push_tbl_create(force_drop=True)
-    # node_ipccm.push_tbl_vacuum()
-    # print(node_ipccm.update_tbl_to_ctr_pipeline(update_values={
-    #     'run_date': '2018-11-01',
-    #     'data_date': '2018-10-31',
-    #     'update_date': '2018-10-31 00:00:00.000',
-    #     'run_count_now': 0
-    # }))
-
-
-def test_action():
-    act_sd = Action(
-        name='query:query_shutdown',
-        external_parameters={
-            'status': 1,
-            'process_message': "Error: RuntimeError: Server shutdown while process was running in background"
-        }
-    )
-    # act_sd = Action(
-    #     name='query:query_demo',
-    # )
-    print(act_sd.get_func_stm_create())
-    # print(act_sd.push_query())
-
-
-def test_node():
-    node_adm = Node(
-        name='sql:ai_date_master',
-        run_date='2022-04-02'
-    )
-    # print(node_adm.tbl_ctr_data)
-    # print(node_adm.pull_tbl_max_data_date())
-    # print(node_adm.node_tbl_run_check)
-    # print(node_adm.pull_tbl_count())
-    # node_adm.push_tbl_create()
-    # print(node_adm._generate_tbl_column_diff())
-    print(node_adm.get_tbl_columns(pk_included=True, datatype_included=True))
-
-
-def test_node_load():
-    node_imp = Node(name='sql:imp_lead_time_inventory_cap_dc')
-    node_imp.load_file('initial/ilticd/ilticd_20220821.csv', truncate=True)
-
-
-def test_pipeline():
-    pipe_adm = Pipeline(name='after_sync_article_master')
-    # print(pipe_adm.pipe_catalog)
-    # for order, node in pipe_adm.pull_pipe_nodes():
-    #     print(order, node.tbl_name)
-    # print(pipe_adm.pull_pipe_from_ctr_schedule())
-    # -----------------------------------------------------------------
-    # for _ in pipe_adm.nodes(auto_update=False):
-    #     print(_)
-    # -----------------------------------------------------------------
-    print(pipe_adm.check_pipe_trigger())
-    # for _ in pipe_adm.pull_pipe_from_ctr_schedule(trigger=True):
-    #     print(_)
-
-
-def test_pipeline_retention():
-    pipe_rtt = Pipeline(name='retention_search')
-    for order, node in pipe_rtt.pull_pipe_nodes():
-        print(order, node.tbl_name)
-
-
-def test_pipeline_control():
-    pipe_cnt = Pipeline(name='control_search', verbose=False)
-    print(pipe_cnt.pipe_name)
-    # print(pipe_cnt.pipe_catalog)
-    for order, node in pipe_cnt.pull_pipe_nodes():
-        node.push_tbl_diff()
-
-
-if __name__ == '__main__':
-    # test_adm()
-    # test_adm_diff()
-    # test_cie()
-    # test_action()
-    # test_node()
-    # test_node_func_init()
-    # test_node_load()
-    # test_pipeline()
-    # test_pipeline_retention()
-    # print(query_explain('select * from {ai_schema_name}.ctr_data_parameter', parameters=True))
-    # os.environ['DEBUG'] = 'False'
-    # test_pipeline_control()
-    print(Control.catalogs())

@@ -1,5 +1,4 @@
 import concurrent.futures
-import contextlib
 import inspect
 import threading
 import asyncio
@@ -10,8 +9,18 @@ import ctypes
 from typing import Any
 
 threadList: list = []
-maxThreads = os.getenv('THREAD_MAX', 5)
-# TODO: research: https://stackoverflow.com/questions/62469183/multithreading-inside-multiprocessing-in-python
+MAX_THREADS: int = int(os.getenv('THREAD_MAX', '5'))
+# TODO: research from
+#  https://stackoverflow.com/questions/62469183/multithreading-inside-multiprocessing-in-python
+
+
+def worker(_id, sleep: int):
+    """Worker function for test background task"""
+    print(f"The background process was started with id {_id!r} ...")
+    for _ in range(sleep):
+        print(f"Sleep with step {_}")
+        time.sleep(1)
+    return f"process id: {_id!r} run successful with sleep {sleep}"
 
 
 def _async_raise(tid, exc_type):
@@ -20,7 +29,10 @@ def _async_raise(tid, exc_type):
     """
     if not inspect.isclass(exc_type):
         raise TypeError("Only types can be raised (not instances)")
-    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), ctypes.py_object(exc_type))
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+        ctypes.c_long(tid),
+        ctypes.py_object(exc_type),
+    )
     if res == 0:
         raise ValueError("invalid thread id")
     elif res != 1:
@@ -34,13 +46,12 @@ def _async_raise(tid, exc_type):
 
 
 class ThreadWithControl(threading.Thread):
-    """
-    We want to create threading class that can control maximum background
+    """We want to create threading class that can control maximum background
     agent and result after complete
     - Get return output from threading function
     - A thread class that supports raising an exception in the thread from
     another thread.
-    usage:
+    :usage:
         >> _thread = ThreadWithControl(target=lambda a: a * 2, args=(2, ))
         >> _thread.daemon = True
         >> _thread.start()
@@ -48,31 +59,45 @@ class ThreadWithControl(threading.Thread):
         4
     """
     # TODO: `threadLimiter` per data pipeline use case flow
-    threadLimiter = threading.BoundedSemaphore(maxThreads)
+    LIMITER = threading.BoundedSemaphore(MAX_THREADS)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(
+            self,
+            group=None,
+            target=None,
+            name=None,
+            args=(),
+            kwargs=None, *,
+            daemon=None
+    ):
         # inherit variables from `super()` or `threading.Thread`
         self._return = None
         self._target = None
         self._args = None
         self._kwargs = None
-
-        # same as `threading.Thread.join(self, *args, **kwargs)`
-        super().__init__(*args, **kwargs)
+        super().__init__(
+            group=group,
+            target=target,
+            name=name,
+            args=args,
+            kwargs=kwargs,
+            daemon=daemon
+        )
         self._stop_event = threading.Event()
         self.check_count = 0
 
     def run(self):
-        self.threadLimiter.acquire()
+        self.LIMITER.acquire()
         try:
             if self._target:
                 self._return = self._target(*self._args, **self._kwargs)
         finally:
             del self._target, self._args, self._kwargs
-            self.threadLimiter.release()
+            self.LIMITER.release()
 
     def join(self, *args) -> Any:
-        super().join(*args)  # same as `threading.Thread.join(self, *args)`
+        # same as `threading.Thread.join(self, *args)`
+        super().join(*args)
         return self._return
 
     def stop(self):
@@ -97,7 +122,7 @@ class ThreadWithControl(threading.Thread):
             return self._thread_id
 
         # no, look for it in the _active dict
-        for thread_id, thread_obj in threading._active.items():
+        for thread_id, thread_obj in getattr(threading, '_active').items():
             if thread_obj is self:
                 self._thread_id = thread_id
                 return thread_id
@@ -138,20 +163,18 @@ class ThreadWithControl(threading.Thread):
         self.raise_exc(SystemExit)
 
 
-def worker(_id, sleep: int):
-    print(f"The background process was started with id {_id!r} ...")
-    for _ in range(sleep):
-        print(f"Sleep with step {_}")
-        time.sleep(1)
-    return f"process id: {_id!r} run successful with sleep {sleep}"
-
-
 class _WorkItem(object):
-    """
-    concurrent\futures\thread.py
-    """
+    """concurrent.futures.thread.py"""
 
-    def __init__(self, future, fn, args, kwargs, *, debug=None):
+    def __init__(
+            self,
+            future,
+            fn,
+            args,
+            kwargs,
+            *,
+            debug=None
+    ):
         self._debug = debug
         self.future = future
         self.fn = fn
@@ -163,7 +186,6 @@ class _WorkItem(object):
             print("ExitThread._WorkItem run")
         if not self.future.set_running_or_notify_cancel():
             return
-
         try:
             coroutine = None
             if asyncio.iscoroutinefunction(self.fn):
@@ -186,7 +208,8 @@ class _WorkItem(object):
 
 class ExitThread:
     """ Like a stoppable thread
-    Using coroutine for target then exit before running may cause RuntimeWarning.
+    Using coroutine for target then exit before running may cause
+    RuntimeWarning.
     """
     def __init__(
             self,
@@ -207,18 +230,25 @@ class ExitThread:
         )
         self._child_daemon_thread = None
         self.result_future = concurrent.futures.Future()
-        self._workItem = _WorkItem(self.result_future, target, args, kwargs, debug=debug)
+        self._workItem = _WorkItem(
+            self.result_future, target, args, kwargs, debug=debug
+        )
         self._parent_thread_exit_lock = threading.Lock()
         self._parent_thread_exit_lock.acquire()
-        self._parent_thread_exit_lock_released = False  # When done it will be True
+        # This value will be True if it's done
+        self._parent_thread_exit_lock_released = False
         self._started = False
         self._exited = False
-        self.result_future.add_done_callback(self._release_parent_thread_exit_lock)
+        self.result_future.add_done_callback(
+            self._release_parent_thread_exit_lock
+        )
 
     def _parent_thread_run(self):
-        self._child_daemon_thread = threading.Thread(target=self._child_daemon_thread_run,
-                                                     name="ExitThread_child_daemon_thread",
-                                                     daemon=True)
+        self._child_daemon_thread = threading.Thread(
+            target=self._child_daemon_thread_run,
+            name="ExitThread_child_daemon_thread",
+            daemon=True
+        )
         self._child_daemon_thread.start()
         # Block manager thread
         self._parent_thread_exit_lock.acquire()
@@ -228,7 +258,10 @@ class ExitThread:
 
     def _release_parent_thread_exit_lock(self, _future):
         if self._debug:
-            print(f"ExitThread._release_parent_thread_exit_lock {self._parent_thread_exit_lock_released} {_future}")
+            print(
+                f"ExitThread._release_parent_thread_exit_lock "
+                f"{self._parent_thread_exit_lock_released} {_future}"
+            )
         if not self._parent_thread_exit_lock_released:
             self._parent_thread_exit_lock_released = True
             self._parent_thread_exit_lock.release()
@@ -245,22 +278,43 @@ class ExitThread:
 
     def exit(self):
         if self._debug:
-            print(f"ExitThread.exit exited: {self._exited} lock_released: {self._parent_thread_exit_lock_released}")
+            print(
+                f"ExitThread.exit exited: {self._exited} "
+                f"lock_released: {self._parent_thread_exit_lock_released}"
+            )
         if self._parent_thread_exit_lock_released:
             return
         if not self._exited:
             self._exited = True
             if not self.result_future.cancel() and self.result_future.running():
-                self.result_future.set_exception(concurrent.futures.CancelledError())
+                self.result_future.set_exception(
+                    concurrent.futures.CancelledError()
+                )
 
 
-def main():
-    start_time = time.perf_counter()
-    t1 = ExitThread(time.sleep, (10,), debug=True)
-    t1.start()
-    time.sleep(1)
-    t1.exit()
-    with contextlib.suppress(concurrent.futures.CancelledError):
-        print(t1.result_future.result())
-    end_time = time.perf_counter()
-    print(f"time cost {end_time - start_time:0.2f}")
+class BackgroundTasks(threading.Thread):
+    """Class that runs background tasks for a flask application.
+    Args:
+        threading.Thread: Creates a new thread.
+    """
+
+    def __init__(
+            self,
+            app,
+    ):
+        """Create a background tasks object that runs periodical tasks in the
+        background of a flask application.
+        Args:
+            app: Flask application object.
+        """
+        super(BackgroundTasks, self).__init__()
+        self.app = app
+
+
+    def run(self) -> None:
+        # Use the current application context and start the timeloop service.
+        with self.app.app_context():
+            self.synchronize_applications()
+
+    def synchronize_applications(self) -> None:
+        ...

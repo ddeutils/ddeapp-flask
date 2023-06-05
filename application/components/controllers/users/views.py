@@ -7,6 +7,7 @@
 import os
 import secrets
 from PIL import Image
+from markupsafe import Markup
 from flask import (
     Blueprint,
     render_template,
@@ -16,7 +17,6 @@ from flask import (
     request,
     current_app,
     make_response,
-    Markup,
 )
 from flask_login import (
     login_user,

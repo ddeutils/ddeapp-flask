@@ -34,11 +34,25 @@ user_role = Table(
     'ctr_web_user_role',
     db.metadata,
     db.Column('map_id', db.Integer, primary_key=True),
-    db.Column('user_id', db.Integer, db.ForeignKey('ctr_web_user.user_id', ondelete="CASCADE"), nullable=False),
-    db.Column('role_id', db.Integer, db.ForeignKey('ctr_web_role.role_id', ondelete="CASCADE"), nullable=False),
-    db.Column('update_date', db.DateTime(timezone=True), default=datetime.now()),
-    autoload=True,
+    db.Column(
+        'user_id',
+        db.Integer,
+        db.ForeignKey('ctr_web_user.user_id', ondelete="CASCADE"),
+        nullable=False,
+    ),
+    db.Column(
+        'role_id',
+        db.Integer,
+        db.ForeignKey('ctr_web_role.role_id', ondelete="CASCADE"),
+        nullable=False,
+    ),
+    db.Column(
+        'update_date',
+        db.DateTime(timezone=True),
+        default=datetime.now(),
+    ),
     extend_existing=True,
+    # autoload=True,
     autoload_with=db.engine,
 )
 
@@ -63,21 +77,25 @@ class User(db.Model):
     }
 
     user_id = db.Column('user_id', db.BigInteger, primary_key=True)
-    user_public_id = db.Column('public_id',
-                               # db.BigInteger,  # We want to convert timestamp value to base32
-                               db.String(128),
-                               unique=True,
-                               nullable=False,
-                               default=lambda: np.base_repr(int(datetime.now().timestamp() * 1000000), base=32)
-                               )
+    user_public_id = db.Column(
+        'public_id',
+        # db.BigInteger,  # We want to convert timestamp value to base32
+        db.String(128),
+        unique=True,
+        nullable=False,
+        default=lambda: np.base_repr(
+            int(datetime.now().timestamp() * 1000000), base=32
+        )
+    )
     username = db.Column('user_name', db.String(128), nullable=False)
     email = db.Column('user_email', db.String(256), nullable=False)
     password = db.Column('user_pass', db.String(256), nullable=False)
-    image_file = db.Column('image_file',
-                           db.String(256),
-                           nullable=False,
-                           default='default.jpg'
-                           )
+    image_file = db.Column(
+        'image_file',
+        db.String(256),
+        nullable=False,
+        default='default.jpg'
+    )
     active = db.Column('active_flag', db.Boolean, nullable=False, default=True)
     register_date = db.Column('register_date',
                               db.DateTime(timezone=True),
@@ -209,7 +227,7 @@ role_policy = Table(
     db.Column('role_id', db.Integer, db.ForeignKey('ctr_web_role.role_id'), nullable=False),
     db.Column('policy_id', db.Integer, db.ForeignKey('ctr_web_policy.policy_id'), nullable=False),
     db.Column('update_date', db.DateTime(timezone=True), default=datetime.now()),
-    autoload=True,
+    # autoload=True,
     extend_existing=True,
     autoload_with=db.engine,
 )
@@ -320,7 +338,7 @@ user_group = db.Table(
     db.Column('user_id', db.BigInteger, db.ForeignKey('ctr_web_user.user_id')),
     db.Column('group_id', db.BigInteger, db.ForeignKey('ctr_web_group.group_id')),
     db.Column('update_date', db.DateTime(timezone=True), default=datetime.now(), onupdate=datetime.now),
-    autoload=True,
+    # autoload=True,
     extend_existing=True,
     autoload_with=db.engine,
 )
@@ -332,7 +350,7 @@ group_role = db.Table(
     db.Column('group_id', db.BigInteger, db.ForeignKey('ctr_web_group.group_id')),
     db.Column('role_id', db.BigInteger, db.ForeignKey('ctr_web_role.role_id')),
     db.Column('update_date', db.DateTime(timezone=True), default=datetime.now(), onupdate=datetime.now),
-    autoload=True,
+    # autoload=True,
     extend_existing=True,
     autoload_with=db.engine,
 )
@@ -344,7 +362,7 @@ group_to_group = db.Table(
     db.Column('parent_id', db.BigInteger, db.ForeignKey('ctr_web_group.group_id')),
     db.Column('child_id', db.BigInteger, db.ForeignKey('ctr_web_group.group_id')),
     db.Column('update_date', db.DateTime(timezone=True), default=datetime.now(), onupdate=datetime.now),
-    autoload=True,
+    # autoload=True,
     extend_existing=True,
     autoload_with=db.engine,
 )

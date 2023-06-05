@@ -12,7 +12,10 @@ from ..utils.reusables import (
     merge_dicts,
 )
 
-AI_APP_PATH: str = os.getenv('AI_APP_PATH', os.path.abspath(path_join(os.path.dirname(__file__), '../..')))
+AI_APP_PATH: str = os.getenv(
+    'AI_APP_PATH',
+    os.path.abspath(path_join(os.path.dirname(__file__), '../../..'))
+)
 
 CONF_PATH: str = os.path.join(AI_APP_PATH, 'conf')
 
@@ -20,10 +23,16 @@ CONF_PATH: str = os.path.join(AI_APP_PATH, 'conf')
 class Params:
     """Parameter variables object keeping from parameters.yaml file"""
 
-    def __init__(self, parameters: Optional[dict] = None, param_name: Optional[str] = None):
+    def __init__(
+            self,
+            parameters: Optional[dict] = None,
+            param_name: Optional[str] = None
+    ):
         __param_name: str = param_name or 'parameters.yaml'
         if not parameters:
-            with open(os.path.join(CONF_PATH, __param_name), encoding='utf8') as f:
+            with open(
+                    os.path.join(CONF_PATH, __param_name), encoding='utf8'
+            ) as f:
                 parameters = yaml.load(f, Loader=yaml.Loader)
 
         if parameters:
@@ -66,7 +75,9 @@ class Environs:
         __env_name: str = env_name or '.env'
         if reload:
             result: dict = {}
-            with open(os.path.join(AI_APP_PATH, __env_name), encoding='utf8') as file:
+            with open(
+                    os.path.join(AI_APP_PATH, __env_name), encoding='utf8'
+            ) as file:
                 # TODO: fix reading logic of .env file
                 for line in file:
                     if line.startswith('#'):

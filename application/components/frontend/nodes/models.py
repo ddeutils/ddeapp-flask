@@ -1,11 +1,10 @@
 import pickle
+from typing import Optional
 from pathlib import Path
 from dataclasses import dataclass
-from ....extensions import db
-from ....core.legacy.base import (
-    PipeCatalog
-)
-from ....errors import CatalogNotFound
+from application.extensions import db
+from application.core.validators import Pipeline as PipelineCatalog
+from application.core.errors import CatalogNotFound
 from sqlalchemy.orm import reconstructor
 from sqlalchemy import or_
 
@@ -15,7 +14,6 @@ class Node(db.Model):
 
     __tablename__ = 'ctr_data_pipeline'
     __table_args__ = {
-        'autoload': True,
         'extend_existing': True,
         'autoload_with': db.engine
     }
@@ -78,7 +76,7 @@ class Pipeline(db.Model):
 
     __tablename__ = 'ctr_task_schedule'
     __table_args__ = {
-        'autoload': True,
+        # 'autoload': True,
         'extend_existing': True,
         'autoload_with': db.engine
     }
@@ -118,14 +116,14 @@ class Pipeline(db.Model):
         )
 
     @property
-    def catalog(self):
+    def catalog(self) -> Optional[PipelineCatalog]:
         """Return the Pipeline catalog data from the .yaml file"""
         try:
             if self.cache_flag:
                 with open(self.cache_filename, mode='rb') as f:
                     _catalog = pickle.load(f)
             else:
-                _catalog = PipeCatalog(pipe_name=self.name)
+                _catalog = PipelineCatalog.parse_name(self.name)
                 with open(self.cache_filename, mode='wb') as f:
                     pickle.dump(_catalog, f)
             return _catalog
@@ -133,11 +131,11 @@ class Pipeline(db.Model):
             return None
 
     @property
-    def nodes(self):
+    def nodes(self) -> list:
         """Return any Node that this pipeline contain"""
         return [
             v['name'].split(':')[-1]
-            for v in self.catalog.pipe_nodes.values()
+            for v in self.catalog.nodes.values()
         ] if self.catalog else []
 
     @property
@@ -165,7 +163,7 @@ class NodeLog(db.Model):
     """Node Model represent table, `ctr_data_logging`"""
     __tablename__ = 'ctr_data_logging'
     __table_args__ = {
-        'autoload': True,
+        # 'autoload': True,
         'extend_existing': True,
         'autoload_with': db.engine
     }

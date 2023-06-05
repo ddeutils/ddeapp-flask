@@ -1,31 +1,55 @@
-User log in
----
-tags:
-  - Authentication
+# User Log-In endpoint return JSON data
+# ---
 parameters:
-  - name: body
-    description: The body should contain the user login credentials
-    in: body
+  - name: palette
+    in: path
+    type: string
+    enum: ['all', 'rgb', 'cmyk']
     required: true
-    schema:
-      type: object
-      required:
-        - "email"
-        - "password"
-      properties:
-        email:
-          type: "email"
-          example: "user@gmail.com"
-        password:
-          type: "string"
-          format: password
-          example: "********"
+    default: all
+definitions:
+  Palette:
+    type: object
+    properties:
+      palette_name:
+        type: array
+        items:
+          $ref: '#/definitions/Color'
+  Color:
+    type: string
 responses:
   200:
-    description: When a user successfully videos in
+    description: A list of colors (may be filtered by palette)
+    schema:
+      $ref: '#/definitions/Palette'
+    examples:
+      rgb: ['red', 'green', 'blue']
 
-  400:
-    description: Fails to login due to bad request data
-
-  401:
-    description: A user supplies incorrect credentials
+#tags:
+#  - Authentication
+#parameters:
+#  - name: body
+#    description: The body should contain the user login credentials
+#    in: body
+#    required: true
+#    schema:
+#      type: object
+#      required:
+#        - "email"
+#        - "password"
+#      properties:
+#        email:
+#          type: "email"
+#          example: "user@gmail.com"
+#        password:
+#          type: "string"
+#          format: password
+#          example: "********"
+##definitions: []
+#responses:
+#  200:
+#    description: When a user successfully videos in
+#  400:
+#    description: Fails to login due to bad request data
+#  401:
+#    description: A user supplies incorrect credentials

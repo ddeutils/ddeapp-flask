@@ -1,41 +1,41 @@
 version: "1"
 services:
-  app:
-    container_name: app
-    build: .
-    restart: always
-    ports:
-      - 5000:5000
+    app:
+        container_name: app
+        build: .
+        restart: always
+        ports:
+            - 5000:5000
 #    command: python manage.py run
 #    env_file:
 #      - ./.env.dev
-    environment:
-      - APIKEY=testpass
-      - DB_HOST=postgres
-      - DB_NAME=dummy
-      - DB_USER=dummy
-      - DB_PASS=p@ssW0rd
-      - DB_PORT=5432
-      - AI_SCHEMA=ai_dev
-      - MAIN_SCHEMA=public
-    depends_on:
-      - postgres
+        environment:
+            - APIKEY=testpass
+            - DB_HOST=postgres
+            - DB_NAME=dummy
+            - DB_USER=dummy
+            - DB_PASS=p@ssW0rd
+            - DB_PORT=5432
+            - AI_SCHEMA=ai_dev
+            - MAIN_SCHEMA=public
+        depends_on:
+            - postgres
 
-  postgres:
-    container_name: postgres
-    restart: always
-    image: postgres:13-alpine
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
-    environment:
-      - POSTGRES_USER=dummy
-      - POSTGRES_PASSWORD=p@ssW0rd
-      - POSTGRES_DB=dummy
+    postgres:
+        container_name: postgres
+        restart: always
+        image: postgres:13-alpine
+        volumes:
+            - postgres_data:/var/lib/postgresql/data/
+        environment:
+            - POSTGRES_USER=dummy
+            - POSTGRES_PASSWORD=p@ssW0rd
+            - POSTGRES_DB=dummy
 #      - POSTGRES_USER=${POSTGRES_USER}
 #      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 #      - POSTGRES_DB=${POSTGRES_DB}
-    ports:
-      - 5432:5432
+        ports:
+            - 5432:5432
 
 #  redis:
 #    image: redis
@@ -44,7 +44,7 @@ services:
 #      - "6379:6379"
 
 volumes:
-  postgres_data: {}
+    postgres_data: {}
 
 #volumes: ""
 #secrete:
