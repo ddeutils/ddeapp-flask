@@ -1,17 +1,14 @@
 # Data Framework Application: *Flask and Postgres*
 
-**Type**: `DFA` |
-**Tag**: `Data Framework` `Web Application` `Python` `Flask` `Docker`
-
 **Table of Contents**:
 
-- [Overviews](#overviews)
-  - [Get Started](#get-started)
-  - [Components](#components)
-- [Build Application](#build-application)
-- [API Document](#api-document)
-- [CI/CD Flow](#application-cicd-flow)
-- [Service Reference](#service-reference)
+* [Overviews](#overviews)
+  * [Get Started](#get-started)
+  * [Components](#components)
+* [Build Application](#build-application)
+* [API Document](#api-document)
+* [CI/CD Flow](#application-cicd-flow)
+* [Service Reference](#service-reference)
 
 This is the Full-Stack **Data Framework Application** (DFA) that was built by 
 [Flask Micro-Web Application Framework](https://flask.palletsprojects.com/en/2.0.x/)
@@ -87,6 +84,7 @@ python .\manage.py run api=True --debug=True
 
 #### Web Service
 
+>>>>>>> main
 The Web Application framework serve static templates to client. This session will
 show UI for control any framework components.
 
