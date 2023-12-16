@@ -84,6 +84,7 @@ python .\manage.py run api=True --debug=True
 
 #### Web Service
 
+>>>>>>> main
 The Web Application framework serve static templates to client. This session will
 show UI for control any framework components.
 
