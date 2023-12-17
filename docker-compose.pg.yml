@@ -13,10 +13,10 @@ services:
         restart: always
         environment:
             - PGUSER=postgres
-            - PGPASSWORD=postgres
+            - PGPASSWORD=P@ssW0rd
             - PGDATABASE=postgres
             - POSTGRES_USER=postgres
-            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_PASSWORD=P@ssW0rd
             - POSTGRES_DB=postgres
         ports:
             - "5432:5432"

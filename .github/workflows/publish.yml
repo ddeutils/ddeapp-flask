@@ -1,13 +1,16 @@
 name: publish
+
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*.*.*'
 
 jobs:
-  publish-image:
+  publish:
     runs-on: ubuntu-latest
     permissions:
       packages: write
+
     steps:
       - uses: actions/checkout@v4
 
