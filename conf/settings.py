@@ -117,6 +117,7 @@ class BaseConfig(object):
     EXECUTOR_MAX_WORKERS: int = 4
     EXECUTOR_PROPAGATE_EXCEPTIONS: bool = True
 
+
 class DevConfig(BaseConfig):
     """Development environment configuration"""
     # SQLALCHEMY_ENGINE_OPTIONS: dict = {}

@@ -110,7 +110,7 @@ class Pipeline(db.Model):
                     cls.id,
                     cls.type,
                     cls.name,
-                    cls.tracking
+                    cls.tracking,
                 ]
             ])
         )

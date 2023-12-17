@@ -150,4 +150,4 @@ def catalog_count() -> int:
     return len(__all_catalogs_list)
 
 
-load_catalogs(cache=True)
+load_catalogs(cache=False)
