@@ -1,9 +1,8 @@
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Copyright (c) 2022 Korawich Anuttra. All rights reserved.
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
-# --------------------------------------------------------------------------
-
+# ------------------------------------------------------------------------------
 import re
 import importlib
 from typing import (
@@ -22,6 +21,8 @@ from datetime import (
     datetime,
     date,
 )
+from functools import singledispatch, partial
+
 from pydantic import (
     BaseModel,
     Field,
@@ -29,21 +30,21 @@ from pydantic import (
     validator,
     ValidationError
 )
-from functools import singledispatch, partial
-from application.core.legacy.convertor import (
+
+from .legacy.convertor import (
     reduce_stm,
     Statement,
 )
-from application.core.utils.config import Params
-from application.core.utils.reusables import (
+from .utils.config import Params
+from .utils.reusables import (
     only_one,
     must_bool,
     must_list,
     merge_dicts,
 )
-from application.core.connections.io import load_json_to_values
-from application.core.utils.logging_ import get_logger
-from application.core.models import (
+from .connections.io import load_json_to_values
+from .utils.logging_ import get_logger
+from .models import (
     Status,
     ParameterType,
     ParameterMode,
@@ -51,14 +52,16 @@ from application.core.models import (
     TaskComponent,
     Result,
 )
-from application.core.base import (
+from .base import (
     LoadCatalog,
     get_process_id,
     get_run_date,
 )
 
+
 params = Params(param_name='parameters.yaml')
 logger = get_logger(__name__)
+
 
 __all__ = (
     'Column',
@@ -1597,6 +1600,7 @@ class TableFrontend(Table):
                 by_alias=False,
             )
         }
+
 
 class FunctionFrontend(Function):
     """Function Catalog for Frontend component"""

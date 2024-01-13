@@ -3,26 +3,27 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
 import re
 from datetime import (
     date,
     datetime,
 )
-from flask import request
 from typing import (
     Optional,
     Union,
 )
-from application.core.utils.reusables import (
+
+from flask import request
+
+from ...core.utils.reusables import (
     convert_str_list,
     merge_dicts,
 )
-from application.core.validators import (
+from ...core.validators import (
     Table,
     Pipeline,
 )
-from application.core.errors import (
+from ...core.errors import (
     CatalogNotFound,
     ValidateFormsError,
 )

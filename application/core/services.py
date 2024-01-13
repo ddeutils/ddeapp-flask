@@ -3,45 +3,41 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # --------------------------------------------------------------------------
+from typing import Optional
 
-from typing import (
-    Optional,
-    Union,
-)
 from pydantic import Field
-from application.core.connections import (
+
+from .connections import (
     query_execute,
     query_select_check
 )
-from application.core.validators import (
+from .validators import (
     ReleaseDate,
     Task as BaseTask,
     Pipeline as PipelineCatalog,
 )
-from application.core.statements import (
+from .statements import (
     TableStatement,
     FunctionStatement,
     SchemaStatement,
 )
-from application.core.models import (
+from .models import (
     Status,
     TaskMode,
     TaskComponent,
     ParameterType,
     ParameterMode,
 )
-from application.core.legacy.convertor import reduce_text
-from application.core.legacy.objects import Control as LegacyControl
-from application.core.utils.config import (
+from .legacy.convertor import reduce_text
+from .legacy.objects import Control as LegacyControl
+from .utils.config import (
     Environs,
 )
-from application.core.utils.reusables import (
+from .utils.reusables import (
     merge_dicts,
     must_list,
 )
-from application.core.errors import (
-    ControlProcessNotExists,
-)
+from .errors import ControlProcessNotExists
 
 
 env = Environs(env_name='.env')
@@ -53,6 +49,7 @@ __all__ = (
     'Pipeline',
     'Task',
 )
+
 
 def null_or_str(value: str) -> Optional[str]:
     return None if value == 'None' else value

@@ -3,10 +3,10 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
-import atexit
 import json
 from typing import Optional
+
+import atexit
 from flask import (
     Flask,
     request,
@@ -21,8 +21,9 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from flasgger import LazyJSONEncoder
 from flask.logging import default_handler
 from celery import Celery, Task
+
 from conf import settings
-from application.core.utils.logging_ import logging
+from .core.utils.logging_ import logging
 
 
 logger = logging.getLogger(__name__)

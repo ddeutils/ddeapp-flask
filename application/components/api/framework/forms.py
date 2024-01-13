@@ -1,17 +1,17 @@
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Copyright (c) 2022 Korawich Anuttra. All rights reserved.
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
-# --------------------------------------------------------------------------
-
+# ------------------------------------------------------------------------------
 import os
 from typing import (
     Optional,
     Union,
 )
-from application.core.errors import ValidateFormsError
-from application.core.base import get_run_date
-from application.components.api.validations import (
+
+from ....core.errors import ValidateFormsError
+from ....core.base import get_run_date
+from ..validations import (
     FormValidate,
     validate_parameter,
     validate_table,
@@ -88,7 +88,9 @@ class FormSetup(FormValidate):
     def co_validate_table_name_and_pipeline_name(cls, table_name, pipeline_name):
         if table_name is None and pipeline_name is None:
             raise ValidateFormsError(
-                'table_name', table_name, "it does not set simultaneously with `pipeline_name`"
+                'table_name',
+                table_name,
+                "it does not set simultaneously with `pipeline_name`",
             )
 
 

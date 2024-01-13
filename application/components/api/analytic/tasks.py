@@ -3,11 +3,11 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
 import datetime as dt
-from application.core.validators import Table
-from application.core.utils.logging_ import logging
-from application.core.models import (
+
+from ....core.validators import Table
+from ....core.utils.logging_ import logging
+from ....core.models import (
     Result,
     DependencyResult,
     AnalyticResult,
@@ -15,8 +15,8 @@ from application.core.models import (
     TaskComponent,
     UNDEFINED,
 )
-from application.core.services import Task
-from application.core.errors import ControlProcessNotExists
+from ....core.services import Task
+from ....core.errors import ControlProcessNotExists
 
 
 logger = logging.getLogger(__name__)
