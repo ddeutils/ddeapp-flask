@@ -1,0 +1,70 @@
+name: test
+
+on:
+  push:
+    branches: [
+      "main",
+      "*.*.*"
+    ]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '*.rst'
+  pull_request:
+    branches: [ "main" ]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '*.rst'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+        python-version:
+          - "3.8"
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: cache
+
+      - uses: actions/cache@v3
+        id: cache
+        with:
+          path: ${{ env.pythonLocation }}
+          key: ${{ runner.os }}-python-${{ env.pythonLocation }}-${{ hashFiles('requirements.txt') }}-test-v03
+
+      - name: Install Dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install "pytest>=7.4.3,<8.0.0"
+
+      - name: Check git is working
+        run: |
+          git config --global user.email "korawica@github.actions"
+          git config --global user.name "Testing Git on Travis CI"
+          git --version
+          git config --list
+
+      - name: Test with pytest
+        run: |
+          pytest -v

@@ -1,3 +1,4 @@
+-r requirements.pre.txt
 # Core ========================
 # ------------------------------------------------
 # - WSGI Server that build from pure python code.

@@ -318,7 +318,7 @@ class TableValidatorTestCase(unittest.TestCase):
         }
 
     # docs: https://stackoverflow.com/questions/4481954/trying-to-mock-datetime-date-today-but-not-working
-    @mock.patch("application.core.validators.datetime", warps=datetime.datetime)
+    @mock.patch("app.core.validators.datetime", warps=datetime.datetime)
     def test_parsing_01_from_object_sql(
             self,
             mock_datetime: mock.MagicMock
@@ -385,7 +385,7 @@ class TableValidatorTestCase(unittest.TestCase):
     def test_parsing_03_from_object_py(self):
         ...
 
-    @mock.patch("application.core.validators.datetime", warps=datetime.datetime)
+    @mock.patch("app.core.validators.datetime", warps=datetime.datetime)
     def test_parsing_from_name_sql(
             self,
             mock_datetime: mock.MagicMock
@@ -488,7 +488,7 @@ class TableValidatorTestCase(unittest.TestCase):
         }
         self.assertDictEqual(respec, result.dict(by_alias=False))
 
-    @mock.patch("application.core.validators.datetime", warps=datetime.datetime)
+    @mock.patch("app.core.validators.datetime", warps=datetime.datetime)
     def test_parsing_from_shortname_sql(
             self,
             mock_datetime: mock.MagicMock
@@ -623,7 +623,7 @@ class TableFrontendValidatorTestCase(unittest.TestCase):
             }
         }
 
-    @mock.patch("application.core.validators.datetime", warps=datetime.datetime)
+    @mock.patch("app.core.validators.datetime", warps=datetime.datetime)
     def test_parsing_01_from_object_sql(
             self,
             mock_datetime: mock.MagicMock
@@ -794,7 +794,7 @@ class TaskValidatorTestCase(unittest.TestCase):
             "component": TaskComponent.INGESTION
         }
 
-    @mock.patch("application.core.base.datetime", warps=datetime.datetime)
+    @mock.patch("app.core.base.datetime", warps=datetime.datetime)
     def test_parsing_01_from_object(
             self,
             mock_datetime: mock.MagicMock
@@ -824,7 +824,7 @@ class TaskValidatorTestCase(unittest.TestCase):
         print(result.dict(by_alias=False))
         self.assertDictEqual(respec, result.dict(by_alias=False))
 
-    @mock.patch("application.core.base.datetime", warps=datetime.datetime)
+    @mock.patch("app.core.base.datetime", warps=datetime.datetime)
     def test_parsing_02_from_object(
             self,
             mock_datetime: mock.MagicMock
@@ -857,7 +857,7 @@ class TaskValidatorTestCase(unittest.TestCase):
         print(result.dict(by_alias=False))
         self.assertDictEqual(respec, result.dict(by_alias=False))
 
-    @mock.patch("application.core.base.datetime", warps=datetime.datetime)
+    @mock.patch("app.core.base.datetime", warps=datetime.datetime)
     def test_parsing_03_from_object(
             self,
             mock_datetime: mock.MagicMock
@@ -902,7 +902,7 @@ class TaskValidatorTestCase(unittest.TestCase):
         print(result.dict(by_alias=False))
         self.assertDictEqual(respec, result.dict(by_alias=False))
 
-    @mock.patch("application.core.base.datetime", warps=datetime.datetime)
+    @mock.patch("app.core.base.datetime", warps=datetime.datetime)
     def test_runner_02(
             self,
             mock_datetime: mock.MagicMock
@@ -915,7 +915,7 @@ class TaskValidatorTestCase(unittest.TestCase):
             print(result.release)
         print(result.release)
 
-    @mock.patch("application.core.base.datetime", warps=datetime.datetime)
+    @mock.patch("app.core.base.datetime", warps=datetime.datetime)
     def test_parsing_from_make(
             self,
             mock_datetime: mock.MagicMock
