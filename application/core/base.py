@@ -1,22 +1,18 @@
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Copyright (c) 2022 Korawich Anuttra. All rights reserved.
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
-# --------------------------------------------------------------------------
-
+# ------------------------------------------------------------------------------
 import os
 import re
 import operator
 import fnmatch
-import yaml
 import importlib
-from dateutil import tz
 from datetime import (
     date,
     datetime,
     timedelta,
 )
-from dateutil.relativedelta import relativedelta
 from typing import (
     Tuple,
     Optional,
@@ -24,17 +20,21 @@ from typing import (
     Dict,
 )
 
-from application.core.utils.reusables import (
+import yaml
+from dateutil.relativedelta import relativedelta
+from dateutil import tz
+
+from .utils.reusables import (
     merge_dicts,
     must_list,
     hash_string,
 )
-from application.core.utils.config import (
+from .utils.config import (
     Params,
     AI_APP_PATH,
 )
-from application.core.utils.logging_ import logging
-from application.core.errors import (
+from .utils.logging_ import logging
+from .errors import (
     CatalogNotFound,
 )
 

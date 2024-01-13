@@ -3,25 +3,25 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
 import queue
 from typing import Callable, Dict
-from application.core.errors import ObjectBaseError
-from application.core.utils.config import Params
-from application.core.utils.logging_ import logging
-from application.core.base import get_plural
-from application.core.models import (
+
+from ....core.errors import ObjectBaseError
+from ....core.utils.config import Params
+from ....core.utils.logging_ import logging
+from ....core.base import get_plural
+from ....core.models import (
     Result,
     CommonResult,
     Status,
     TaskMode,
     TaskComponent,
 )
-from application.core.legacy.objects import (
+from ....core.legacy.objects import (
     Node,
     ObjectType,
 )
-from application.core.services import Task
+from ....core.services import Task
 
 
 logger = logging.getLogger(__name__)

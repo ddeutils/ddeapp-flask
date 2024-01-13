@@ -3,24 +3,25 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
 import math
+
 from markupsafe import escape
 from flask import (
     Blueprint,
     jsonify,
 )
-from application.core.models import (
+
+from ....core.models import (
     Status,
     Result,
 )
-from application.core.constants import (
+from ....core.constants import (
     HTTP_200_OK,
-    HTTP_401_UNAUTHORIZED
+    HTTP_401_UNAUTHORIZED,
 )
-from application.core.utils.logging_ import logging
-from application.components.api.validations import validate_table_short
+from ....core.utils.logging_ import logging
 from ....securities import apikey_required
+from ..validations import validate_table_short
 from ..analytic.tasks import (
     get_operation_process,
     get_dependency_data,

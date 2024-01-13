@@ -40,8 +40,12 @@ class FormIngest(ContentValidate):
     def validate_tbl_name_short(cls, tbl_name_short):
         if validate_table_short(tbl_name_short, optional=False):
             raise ValidateFormsError(
-                'tbl_name_short', tbl_name_short, f"{tbl_name_short!r} in '/api/ai/put/{tbl_name_short}' "
-                                                  f"does not exists in catalog"
+                'tbl_name_short',
+                tbl_name_short,
+                (
+                    f"{tbl_name_short!r} in '/api/ai/put/{tbl_name_short}' "
+                    f"does not exists in catalog"
+                ),
             )
 
     @classmethod

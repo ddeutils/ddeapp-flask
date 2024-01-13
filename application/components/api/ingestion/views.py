@@ -3,28 +3,29 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
 import logging
 import queue
 from typing import Optional
+
 from flask import (
     Blueprint,
     jsonify,
     request,
 )
-from application.core.models import Status
-from application.core.constants import (
+
+from ....core.models import Status
+from ....core.constants import (
     HTTP_200_OK,
     HTTP_401_UNAUTHORIZED,
 )
-from application.core.utils.threads import ThreadWithControl
+from ....core.utils.threads import ThreadWithControl
 from ....securities import apikey_required
 from ..ingestion.forms import FormIngest
 from ..ingestion.tasks import (
     ingestion_background,
     ingestion_foreground,
 )
-from application.core.errors import ValidateFormsError
+from ....core.errors import ValidateFormsError
 
 
 ingestion = Blueprint('ingestion', __name__)

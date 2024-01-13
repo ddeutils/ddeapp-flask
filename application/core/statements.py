@@ -1,17 +1,18 @@
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Copyright (c) 2022 Korawich Anuttra. All rights reserved.
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
-# --------------------------------------------------------------------------
-
+# ------------------------------------------------------------------------------
 import re
 from typing import (
     List,
     Union,
     Optional,
 )
+
 from pydantic import Field
-from application.core.validators import (
+
+from .validators import (
     Column,
     Partition,
     Profile,
@@ -19,9 +20,7 @@ from application.core.validators import (
     Function,
     Schema,
 )
-from application.core.legacy.convertor import (
-    reduce_stm,
-)
+from .legacy.convertor import reduce_stm
 
 
 def filter_not_null(datatype: str) -> bool:
@@ -194,7 +193,8 @@ class TableStatement(Table):
             FOR VALUE FROM ( START ) TO ( END )
 
         docs:
-            - https://www.enterprisedb.com/postgres-tutorials/how-use-table-partitioning-scale-postgresql
+            - https://www.enterprisedb.com/postgres-tutorials/
+                how-use-table-partitioning-scale-postgresql
             - https://www.postgresql.fastware.com/postgresql-insider-prt-ove
         """
         if (

@@ -1,9 +1,8 @@
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Copyright (c) 2022 Korawich Anuttra. All rights reserved.
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
-# --------------------------------------------------------------------------
-
+# ------------------------------------------------------------------------------
 from typing import Union, Optional
 from dataclasses import (
     dataclass,
@@ -17,10 +16,10 @@ from functools import (
 from strenum import StrEnum
 from enum import (
     IntEnum,
-    Enum,
 )
-from application.core.base import get_run_date
-from application.core.legacy.convertor import reduce_text
+
+from .base import get_run_date
+from .legacy.convertor import reduce_text
 
 
 UNDEFINED: str = 'undefined'

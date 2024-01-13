@@ -3,16 +3,16 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
 import queue
-from application.core.utils.config import Params
-from application.core.utils.logging_ import logging
-from application.core.legacy.objects import (
+
+from ....core.utils.config import Params
+from ....core.utils.logging_ import logging
+from ....core.legacy.objects import (
     Node,
     Pipeline,
     ObjectType,
 )
-from application.core.models import (
+from ....core.models import (
     Status,
     Result,
     CommonResult,
@@ -20,11 +20,11 @@ from application.core.models import (
     TaskComponent,
     ParameterType,
 )
-from application.core.services import (
+from ....core.services import (
     Task,
     Schema,
 )
-from application.core.errors import (
+from ....core.errors import (
     ObjectBaseError,
     ProcessStatusError,
 )
@@ -231,7 +231,7 @@ def foreground_tasks(
         "module": module,
         "parameters": external_parameters,
         "mode": TaskMode.FOREGROUND,
-        "component": TaskComponent.FRAMEWORK
+        "component": TaskComponent.FRAMEWORK,
     })
     logger.info(
         f'Start run foreground task: {task.id!r} '
