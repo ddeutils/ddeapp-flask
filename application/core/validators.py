@@ -1525,7 +1525,7 @@ class Task(BaseUpdatableModel):
         """Prepare parameter value"""
         logger.info("Task: Start validate always parameters")
         if value.type == ParameterType.UNDEFINED:
-            value: Parameter = value.copy(update={'name': values['module']})
+            value = value.copy(update={'name': values['module']})
         return value
 
     @validator('id', always=True)

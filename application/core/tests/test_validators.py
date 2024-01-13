@@ -2,12 +2,13 @@ import unittest
 from unittest import mock
 import datetime
 from pydantic import ValidationError
-from application.core.models import (
+
+from ..models import (
     Status,
     TaskMode,
     TaskComponent
 )
-from application.core.validators import (
+from ..validators import (
     Column,
     Profile,
     Table,
@@ -800,14 +801,23 @@ class TaskValidatorTestCase(unittest.TestCase):
     ):
         mock_datetime.now.return_value = datetime.datetime(2023, 3, 13, 0, 0)
         respec = {
-            'id': '20230313000000000035403006',
+            'id': '20230313000000000022752001',
+            'message': '',
             'module': 'data',
             'parameters': {
-                'type': 'table',
+                'cascade': False,
+                'dates': ['2023-03-13'],
+                'drop_schema': False,
+                'drop_table': False,
+                'mode': 'common',
                 'name': 'table_01',
+                'others': {},
+                'type': 'table',
             },
             "mode": TaskMode.BACKGROUND.value,
             "component": TaskComponent.FRAMEWORK.value,
+            'release': {'date': None, 'index': None, 'pushed': False},
+            "start_time": datetime.datetime(2023, 3, 13, 0, 0),
             "status": Status.WAITING.value,
         }
         result: Task = Task.parse_obj(self.input_01)
@@ -822,7 +832,7 @@ class TaskValidatorTestCase(unittest.TestCase):
         mock_datetime.now.return_value = datetime.datetime(2023, 3, 13, 0, 0)
         respec = {
             'id': '20230313000000000009954672',
-            'module': 'payload',
+            'module': 'demo',
             'parameters': {
                 'type': 'undefined',
                 'name': 'demo',
@@ -840,6 +850,7 @@ class TaskValidatorTestCase(unittest.TestCase):
             "component": TaskComponent.FRAMEWORK.value,
             "status": Status.WAITING.value,
             "message": "",
+            'release': {'date': None, 'index': None, 'pushed': False},
             "start_time": datetime.datetime(2023, 3, 13, 0, 0)
         }
         result: Task = Task.parse_obj(self.input_02)
