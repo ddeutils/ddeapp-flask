@@ -48,11 +48,11 @@ class ColumnStatementTestCase(unittest.TestCase):
 
         respec_constraints: list = [
             "ALTER COLUMN column_name DROP NOT NULL",
-            "ADD CONSTRAINT column_name_check check(column_name <> 'DEMO')",
+            "ADD CONSTRAINT column_name_ck check(column_name <> 'DEMO')",
             "ADD CONSTRAINT column_name_unq UNIQUE(column_name)",
             "ADD CONSTRAINT PRIMARY KEY"
         ]
-        self.assertEqual(respec_constraints, result.constraints())
+        self.assertListEqual(respec_constraints, result.constraints())
 
 
 class ProfileStatementTestCase(unittest.TestCase):

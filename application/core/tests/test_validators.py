@@ -916,7 +916,7 @@ class TaskValidatorTestCase(unittest.TestCase):
             'parameters': {
                 'type': 'undefined',
                 'name': 'test',
-                "dates": [],
+                "dates": ['2023-03-13'],
                 "mode": "common",
                 "drop_table": False,
                 "drop_schema": False,
