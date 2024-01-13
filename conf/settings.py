@@ -3,7 +3,7 @@ from dateutil import tz
 from datetime import timedelta
 from pathlib import Path
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from application.core.connections.postgresql import generate_engine
+from app.core.connections.postgresql import generate_engine
 from functools import lru_cache
 
 
@@ -54,14 +54,15 @@ class BaseConfig(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Flask ApSchedule Configuration
-    # docs: https://github.com/viniciuschiele/flask-apscheduler/tree/master/examples
+    # docs: https://github.com/viniciuschiele/flask-apscheduler/
+    #   tree/master/examples
     JOBS = [
         {
             "id": "default_job",
-            "func": "application.schedules:default_job",
+            "func": "app.schedules:default_job",
             "args": (1, 2),
             "trigger": "interval",
-            "seconds": 10,
+            "seconds": 30,
             "replace_existing": True,
             "jobstore": "sqlite",
         }
