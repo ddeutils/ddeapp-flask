@@ -16,6 +16,8 @@ from flask import (
     redirect,
     url_for,
 )
+from werkzeug.debug import DebuggedApplication
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flasgger import LazyJSONEncoder
 from flask.logging import default_handler
 from celery import Celery, Task
@@ -280,6 +282,8 @@ def create_app(
             push_func_setup()
             push_ctr_setup()
 
+    middleware(app)
+
     return app
 
 
@@ -478,6 +482,23 @@ def extensions(app: Flask) -> None:
         SWAGGER_UI_BLUEPRINT,
         url_prefix=SWAGGER_URL
     )
+
+
+def middleware(app: Flask):
+    """
+    Register 0 or more middleware (mutates the app passed in).
+
+    :param app: Flask application instance
+    :return: None
+    """
+    # Enable the Flask interactive debugger in the browser for development.
+    if app.debug:
+        app.wsgi_app = DebuggedApplication(app.wsgi_app, evalex=True)
+
+    # Set the real IP address into request.remote_addr when behind a proxy.
+    app.wsgi_app = ProxyFix(app.wsgi_app)
+
+    return None
 
 
 def load_data(
