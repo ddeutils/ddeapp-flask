@@ -6,6 +6,7 @@ __pycache__
 *.pickle
 cache/
 gen/
+.pytest_cache
 
 # Test files
 *.test.*
