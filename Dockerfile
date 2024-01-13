@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir -r requirements.pre.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # copy the content of the local directory to the working directory
-COPY application ./application
+COPY app ./app
 COPY conf ./conf
 COPY tests ./tests
 COPY ./manage.py ./manage.py

@@ -46,7 +46,7 @@ def load(filename: str, target: str, truncate: bool, compress: str):
     :usage:
         >> $ python manage.py load -f "<filename>.csv" -t "<table-name>"
     """
-    from application.app import load_data
+    from app.app import load_data
     if target.startswith("'"):
         target: str = target.strip("'")
     if filename.startswith("'"):
@@ -84,7 +84,7 @@ def migrate(condition: str, debug: bool):
     """
     os.environ['DEBUG'] = str(debug).capitalize()
 
-    from application.app import migrate_table
+    from app.app import migrate_table
     migrate_table()
 
 
@@ -135,8 +135,8 @@ def runserver(
     os.environ['DEBUG'] = str(debug).capitalize()
 
     from flask import Flask
-    from application.core.utils.logging_ import get_logger
-    from application.app import create_app
+    from app.core.utils.logging_ import get_logger
+    from app.app import create_app
     logger = get_logger(__name__)
 
     click.echo("Start Deploy the application with input argument")

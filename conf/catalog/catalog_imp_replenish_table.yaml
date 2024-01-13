@@ -17,7 +17,7 @@ imp_prod_cls_criteria_master:
     values: "0.5, 0.8, 1.0, '{run_date} 00:00:00'"
   function:
     validate_criteria_value:
-      function: "application.vendor.replenishment.run_prod_cls_criteria"
+      function: "app.vendor.replenishment.run_prod_cls_criteria"
       load:
         statement: "
           select  class_a
@@ -329,7 +329,7 @@ imp_min_max_service_level:
           'service_level_type',
           'service_level_round'
       ]
-      function: "application.vendor.replenishment.run_min_max_service_level"
+      function: "app.vendor.replenishment.run_min_max_service_level"
       load:
         statement: "
           select  class_a

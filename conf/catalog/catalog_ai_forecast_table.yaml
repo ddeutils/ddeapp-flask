@@ -21,7 +21,7 @@ ai_forecast_mch3:
           'model',
           'date_range_sla_month_forecast'
       ]
-      function: "application.vendor.forecast.run_tbl_forecast"
+      function: "app.vendor.forecast.run_tbl_forecast"
       load:
         parameter: [
             "run_date",
