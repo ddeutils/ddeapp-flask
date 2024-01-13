@@ -67,8 +67,12 @@ After setup environment variables and dependencies, we can run by this command:
 
 ```shell
 python .\manage.py run --help
+```
 
-python .\manage.py run api=True --debug=True
+For the first time, you should create all tables to database:
+
+```shell
+python .\manage.py run --api --debug --recreated
 ```
 
 > **Warning**: \

@@ -94,40 +94,35 @@ def migrate(condition: str, debug: bool):
 )
 @click.option(
     '--debug',
-    type=bool,
-    default=False,
+    is_flag=True,
     help='run application with debug mode'
 )
 @click.option(
     '-t', '--thread',
-    type=bool,
-    default=True,
+    is_flag=True,
     help='run application with thread mode'
 )
 @click.option(
     '--api',
-    type=bool,
-    default=False,
+    is_flag=True,
     help='run application only the API component'
 )
 @click.option(
     '--recreated',
-    type=bool,
-    default=False,
+    is_flag=True,
     help='re-create control tables to target database'
 )
 @click.option(
     '--server',
-    type=bool,
-    default=False,
+    is_flag=True,
     help='run application with WSGI server',
 )
 def runserver(
-        debug: bool,
-        thread: bool,
-        api: bool,
-        recreated: bool,
-        server: bool,
+        debug: bool = False,
+        thread: bool = False,
+        api: bool = False,
+        recreated: bool = False,
+        server: bool = False,
 ):
     """Run WSGI Application or Server which implement by waitress
     :usage:
