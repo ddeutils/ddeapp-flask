@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 
 import flask_sqlalchemy
-from flasgger import Swagger
+from flasgger import NO_SANITIZER, Swagger
 from flask_apscheduler import APScheduler
 from flask_assets import Environment
 from flask_bcrypt import Bcrypt
@@ -33,7 +33,6 @@ from .executors import (
     executor_callback,
 )
 from .swagger import (
-    NO_SANITIZER,
     swagger_config,
     swagger_template,
 )

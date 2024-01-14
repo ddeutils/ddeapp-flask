@@ -13,7 +13,7 @@ from typing import (
 from psycopg2 import OperationalError as PsycopgOperationalError
 from sqlalchemy.exc import OperationalError
 
-from app.components.api.framework.tasks import foreground_tasks
+from app.blueprints.api.framework.tasks import foreground_tasks
 from app.core.base import get_catalogs
 from app.core.errors import (
     CatalogBaseError,

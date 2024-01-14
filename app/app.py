@@ -118,7 +118,7 @@ def create_app(
         filters(app)
 
         # Initialize Blueprints for Core Engine
-        from .components.api import analytics, frameworks, ingestion
+        from .blueprints.api import analytics, frameworks, ingestion
         from .securities import apikey_required
         app.register_blueprint(frameworks, url_prefix='/api/ai/run')
         app.register_blueprint(analytics, url_prefix='/api/ai/get')
@@ -136,7 +136,7 @@ def create_app(
 
         if frontend:
             # Initialize Blueprints for Controller Static
-            from .components.controllers import (
+            from .blueprints.controllers import (
                 admin,
                 auth,
                 errors,
@@ -152,7 +152,7 @@ def create_app(
             csrf.exempt(auth)
 
             # Initialize Blueprints for Backend Static
-            from .components.frontend import catalogs, logs, nodes
+            from .blueprints.frontend import catalogs, logs, nodes
             app.register_blueprint(nodes)
             app.register_blueprint(logs)
             app.register_blueprint(catalogs)

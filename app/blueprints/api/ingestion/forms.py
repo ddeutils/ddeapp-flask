@@ -8,7 +8,7 @@ from typing import Union
 
 from flask import request
 
-from app.components.api.validations import (
+from app.blueprints.api.validations import (
     ContentValidate,
     validate_parameter,
     validate_run_date,
