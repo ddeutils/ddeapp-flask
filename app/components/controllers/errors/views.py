@@ -4,20 +4,17 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from flask import (
-    Blueprint,
-    render_template,
-    request,
-    jsonify
-)
+from flask import Blueprint, jsonify, render_template, request
+
+from app.core.utils.logging_ import logging
+
 from ....core.constants import (
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
     HTTP_405_METHOD_NOT_ALLOWED,
     HTTP_429_TOO_MANY_REQUESTS,
-    HTTP_500_INTERNAL_SERVER_ERROR
+    HTTP_500_INTERNAL_SERVER_ERROR,
 )
-from app.core.utils.logging_ import logging
 
 logger = logging.getLogger(__name__)
 errors = Blueprint('errors', __name__, template_folder='templates')

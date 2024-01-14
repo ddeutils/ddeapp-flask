@@ -1,12 +1,20 @@
-from typing import Optional, List
+from typing import List, Optional
+
+import more_itertools
 from flask import (
     Request,
     request,
 )
-import more_itertools
+
 from ....infrastructures import create as request_dict_create
-from .services import all_categories, all_catalogs, category_by_name, catalog_by_id, search_catalogs
-from .models import Category, Catalog
+from .models import Catalog, Category
+from .services import (
+    all_catalogs,
+    all_categories,
+    catalog_by_id,
+    category_by_name,
+    search_catalogs,
+)
 
 
 class ViewModelBase:

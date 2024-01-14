@@ -4,8 +4,9 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import click
 import os
+
+import click
 
 os.environ['AI_APP_PATH'] = os.path.abspath(os.path.dirname(__file__))
 
@@ -135,8 +136,9 @@ def runserver(
     os.environ['DEBUG'] = str(debug).capitalize()
 
     from flask import Flask
-    from app.core.utils.logging_ import get_logger
+
     from app.app import create_app
+    from app.core.utils.logging_ import get_logger
     logger = get_logger(__name__)
 
     click.echo("Start Deploy the application with input argument")

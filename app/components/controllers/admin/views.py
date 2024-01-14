@@ -6,13 +6,14 @@
 
 from flask import (
     Blueprint,
+    abort,
     render_template,
     request,
-    abort,
 )
+
 from ....extensions import db
-from .models import MODEL_VIEWS
 from .decorators import admin_required
+from .models import MODEL_VIEWS
 
 admin = Blueprint('admin', __name__, template_folder='templates')
 

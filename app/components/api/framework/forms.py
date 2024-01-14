@@ -9,13 +9,13 @@ from typing import (
     Union,
 )
 
-from ....core.errors import ValidateFormsError
 from ....core.base import get_run_date
+from ....core.errors import ValidateFormsError
 from ..validations import (
     FormValidate,
     validate_parameter,
-    validate_table,
     validate_pipeline,
+    validate_table,
 )
 
 

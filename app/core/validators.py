@@ -3,61 +3,60 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
-import re
 import importlib
+import re
+from datetime import (
+    date,
+    datetime,
+)
+from functools import partial, singledispatch
 from typing import (
-    Optional,
-    Dict,
-    Union,
-    List,
-    Tuple,
+    AbstractSet,
     Any,
     Callable,
+    Dict,
+    Generator,
     Iterator,
-    AbstractSet,
-    Generator
+    List,
+    Optional,
+    Tuple,
+    Union,
 )
-from datetime import (
-    datetime,
-    date,
-)
-from functools import singledispatch, partial
 
 from pydantic import (
     BaseModel,
     Field,
+    ValidationError,
     root_validator,
     validator,
-    ValidationError
 )
 
-from .legacy.convertor import (
-    reduce_stm,
-    Statement,
-)
-from .utils.config import Params
-from .utils.reusables import (
-    only_one,
-    must_bool,
-    must_list,
-    merge_dicts,
-)
-from .connections.io import load_json_to_values
-from .utils.logging_ import get_logger
-from .models import (
-    Status,
-    ParameterType,
-    ParameterMode,
-    TaskMode,
-    TaskComponent,
-    Result,
-)
 from .base import (
     LoadCatalog,
     get_process_id,
     get_run_date,
 )
-
+from .connections.io import load_json_to_values
+from .legacy.convertor import (
+    Statement,
+    reduce_stm,
+)
+from .models import (
+    ParameterMode,
+    ParameterType,
+    Result,
+    Status,
+    TaskComponent,
+    TaskMode,
+)
+from .utils.config import Params
+from .utils.logging_ import get_logger
+from .utils.reusables import (
+    merge_dicts,
+    must_bool,
+    must_list,
+    only_one,
+)
 
 params = Params(param_name='parameters.yaml')
 logger = get_logger(__name__)
@@ -81,7 +80,7 @@ __all__ = (
 
 def sorted_set(values):
     """Return Sorted List after parsing Set"""
-    return sorted(list(set(values)))
+    return sorted(set(values))
 
 
 def split_datatype(datatype_full: str) -> Tuple[str, str]:
@@ -806,7 +805,7 @@ class Table(BaseUpdatableModel):
         # Make new mapping to model
         return {
             'name': name,
-            'shortname': "".join(map(lambda w: w[0], name.split("_"))),
+            'shortname': "".join(w[0] for w in name.split("_")),
             'prefix': prefix,
             'type': values.get('type', params.list_tbl_types[0]),
             'profile': values.pop(profile_key),
@@ -979,7 +978,7 @@ class Table(BaseUpdatableModel):
             filter(lambda c: c in self.profile.columns(), columns)
         )
         if len(_filter) != len(columns) and raise_error:
-            _filter_out: set = set(list(columns)).difference(set(_filter))
+            _filter_out: set = set(columns).difference(set(_filter))
             raise ValueError(
                 f"Column validate does not exists in {self.name} "
                 f"from {list(_filter_out)}"
@@ -1060,7 +1059,7 @@ class Function(BaseUpdatableModel):
             )
         return {
             'name': name,
-            'shortname': "".join(map(lambda w: w[0], name.split("_"))),
+            'shortname': "".join(w[0] for w in name.split("_")),
             'prefix': prefix,
             'type': values.get('type', params.list_func_types[0]),
             'profile': values.pop(profile_key),
@@ -1159,7 +1158,7 @@ class Pipeline(BaseUpdatableModel):
         # Make new mapping to Model
         return {
             'name': name,
-            'shortname': "".join(map(lambda w: w[0], name.split("_"))),
+            'shortname': "".join(w[0] for w in name.split("_")),
             'id': values.pop(pipe_id),
             'priority': values.pop('priority', None),
             'schedule': must_list(
@@ -1198,15 +1197,12 @@ class Pipeline(BaseUpdatableModel):
                 ):
                     _trigger = _trigger.replace(_, _.strip('()'))
             _trigger: str = _trigger.replace('(', '( ').replace(')', ' )')
-            return list(map(
-                lambda x: x.strip(),
-                (
+            return [x.strip() for x in (
                     _trigger
                     .replace(config.pipe_cond_and, f' {config.pipe_cond_and} ')
                     .replace(config.pipe_cond_or, f' {config.pipe_cond_or} ')
                     .split()
-                )
-            ))
+                )]
 
         if isinstance(value, list):
             return value
@@ -1370,7 +1366,7 @@ class Pipeline(BaseUpdatableModel):
     def validate_nodes(cls, value, values):
         """Validate nodes value"""
         name = values['name']
-        for priority, v in value.items():
+        for _priority, v in value.items():
             try:
                 Table.parse_name(fullname=v['name'])
             except ValidationError as e:
@@ -1533,11 +1529,9 @@ class Task(BaseUpdatableModel):
         """Generate Task ID"""
         logger.info("Task: Start validate always id")
         return (value or get_process_id(
-            (
                     values['module']
                     + values['parameters'].type
                     + values['parameters'].name
-            )
         ))
 
     def duration(self) -> int:

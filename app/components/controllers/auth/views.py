@@ -4,38 +4,36 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import pytz
 from datetime import datetime
+
+import pytz
+from email_validator import validate_email
+from flasgger import swag_from
 from flask import (
     Blueprint,
-    request,
     jsonify,
+    request,
 )
 from flask_jwt_extended import (
-    jwt_required,
     create_access_token,
     create_refresh_token,
-    get_jwt_identity,
-    get_jwt,
-    get_jti,
     current_user,
+    get_jti,
+    get_jwt,
+    get_jwt_identity,
+    jwt_required,
 )
-from flasgger import swag_from
-from email_validator import validate_email
+
 from ....core.constants import (
     HTTP_200_OK,
     HTTP_201_CREATED,
-    HTTP_401_UNAUTHORIZED,
     HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
     HTTP_409_CONFLICT,
 )
-from ....extensions import (
-    bcrypt,
-    db
-)
+from ....extensions import bcrypt, db
 from ..users.models import User
 from .models import TokenBlockList
-
 
 auth = Blueprint("auth", __name__)
 

@@ -3,18 +3,20 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # -------------------------------------------------------------------------
-from flask_apscheduler import APScheduler
 from apscheduler.events import (
-    EVENT_JOB_EXECUTED,
     EVENT_JOB_ERROR,
+    EVENT_JOB_EXECUTED,
 )
+from flask_apscheduler import APScheduler
+
 from app.core.utils.logging_ import logging
+
 from .controls import (
     pull_ctr_check_process,
-    push_trigger_schedule,
+    push_close_ssh,
     push_cron_schedule,
     push_retention,
-    push_close_ssh,
+    push_trigger_schedule,
 )
 
 logger = logging.getLogger(__name__)

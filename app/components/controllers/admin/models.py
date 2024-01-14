@@ -4,21 +4,24 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from sqlalchemy.orm import synonym
 from typing import Dict
-from ..users.models import (
-    User,
-    Role,
-    UserRole,
-    UserGroup,
-    Group,
-    GroupToGroup,
-    GroupRole,
-    Policy,
-    RolePolicy,
-)
-from ...frontend.nodes.models import Node
+
+from sqlalchemy.orm import synonym
+
 from app.core.utils.reusables import to_snake_case
+
+from ...frontend.nodes.models import Node
+from ..users.models import (
+    Group,
+    GroupRole,
+    GroupToGroup,
+    Policy,
+    Role,
+    RolePolicy,
+    User,
+    UserGroup,
+    UserRole,
+)
 
 
 class MetaView(type):
@@ -32,7 +35,7 @@ class MetaView(type):
         cls.__view_cols_create__ = {}
 
 
-class BaseView(object):
+class BaseView:
     __view_title__ = 'BaseView'
     __view_cols__ = []
     __view_cols_update__ = {}

@@ -1,9 +1,10 @@
 from flask import current_app, url_for
 from flask_mail import Message
-from ....app import make_celery
-from ....extensions import mail
+
 from conf import settings
 
+from ....app import make_celery
+from ....extensions import mail
 
 celery = make_celery(current_app)
 

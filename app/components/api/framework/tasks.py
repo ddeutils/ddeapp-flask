@@ -5,30 +5,29 @@
 # --------------------------------------------------------------------------
 import queue
 
-from ....core.utils.config import Params
-from ....core.utils.logging_ import logging
-from ....core.legacy.objects import (
-    Node,
-    Pipeline,
-    ObjectType,
-)
-from ....core.models import (
-    Status,
-    Result,
-    CommonResult,
-    TaskMode,
-    TaskComponent,
-    ParameterType,
-)
-from ....core.services import (
-    Task,
-    Schema,
-)
 from ....core.errors import (
     ObjectBaseError,
     ProcessStatusError,
 )
-
+from ....core.legacy.objects import (
+    Node,
+    ObjectType,
+    Pipeline,
+)
+from ....core.models import (
+    CommonResult,
+    ParameterType,
+    Result,
+    Status,
+    TaskComponent,
+    TaskMode,
+)
+from ....core.services import (
+    Schema,
+    Task,
+)
+from ....core.utils.config import Params
+from ....core.utils.logging_ import logging
 
 logger = logging.getLogger(__name__)
 registers = Params(param_name='registers.yaml')
@@ -260,7 +259,7 @@ def foreground_tasks(
             task.status
         )
 
-    for idx, run_date in task.runner():
+    for _, run_date in task.runner():
         logger.info(f"[ run_date: {run_date} ]{'=' * 48}")
         ps_obj: ObjectType = ObjectMap[task.parameters.type](
             name=task.parameters.name,
@@ -330,7 +329,7 @@ def background_tasks(
             task.status
         )
 
-    for idx, run_date in task.runner():
+    for _, run_date in task.runner():
         logger.info(f"[ run_date: {run_date} ]{'=' * 48}")
         ps_obj: ObjectType = ObjectMap[task.parameters.type](
             name=task.parameters.name,

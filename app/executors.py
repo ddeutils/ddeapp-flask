@@ -1,18 +1,19 @@
 import threading
 import uuid
 from functools import wraps
-from werkzeug.exceptions import (
-    HTTPException,
-    InternalServerError,
-)
+
 from flask import (
     current_app,
     request,
 )
 from flask_mail import Message
+from werkzeug.exceptions import (
+    HTTPException,
+    InternalServerError,
+)
+
 from app.core.errors import AllExceptions
 from app.core.utils.logging_ import get_logger
-
 
 logger = get_logger(__name__)
 TASKS: dict = {}
@@ -64,7 +65,7 @@ def flask_async(f):
                 # use the `_get_current_object()` method.
                 # docs: https://flask.palletsprojects.com/en/2.2.x/reqcontext/
                 args=(
-                    getattr(current_app, "_get_current_object")(),
+                    current_app._get_current_object(),
                     request.environ
                 )
             )

@@ -113,7 +113,7 @@ class ValidateFormsError(ObjectBaseError):
             )
         _name: str = (
             f'`{name}`' if isinstance(name, str)
-            else ', '.join(map(lambda x: f"`{x}`", name))
+            else ', '.join(f"`{x}`" for x in name)
         )
         _message = f"Please check form key {_name} because "
         super().__init__(_message + message)

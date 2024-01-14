@@ -1,13 +1,15 @@
 import os
-from dateutil import tz
 from datetime import timedelta
-from pathlib import Path
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from app.core.connections.postgresql import generate_engine
 from functools import lru_cache
+from pathlib import Path
+
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from dateutil import tz
+
+from app.core.connections.postgresql import generate_engine
 
 
-class BaseConfig(object):
+class BaseConfig:
     """Base configuration"""
 
     # Main configuration
@@ -136,7 +138,7 @@ class TestingConfig(BaseConfig):
     """Test environment configuration"""
 
 
-@lru_cache()
+@lru_cache
 def get_settings():
     """Return settings object that match with application environment."""
     config_cls_dict: dict = {

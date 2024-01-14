@@ -5,8 +5,9 @@
 # --------------------------------------------------------------------------
 
 import os
-from typing import Protocol
 from dataclasses import dataclass, field
+from typing import Protocol
+
 from app.core.legacy.convertor import reduce_text
 from app.core.utils.reusables import must_bool
 

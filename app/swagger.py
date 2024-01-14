@@ -4,12 +4,8 @@
 # license information.
 # --------------------------------------------------------------------------
 
+from flasgger import LazyString, Swagger
 from flask import request
-from flasgger import (
-    Swagger,
-    LazyString,
-    NO_SANITIZER
-)
 from flask_swagger_ui import get_swaggerui_blueprint
 
 """
@@ -58,9 +54,9 @@ swagger_config: dict = {
 # The LazyString values will be evaluated only when jsonify encodes the value
 # at runtime, so you have access to Flask request, session, g, etc..
 # and also may want to access a database
-swagger_template: dict = dict(
-    swagger="3.0",
-    info={
+swagger_template: dict = {
+    "swagger": "3.0",
+    "info": {
         "title": "AI API",
         "description": "API for AI",
         "contact": {
@@ -73,27 +69,25 @@ swagger_template: dict = dict(
         "version": "0.0.1"
     },
     # "host": 'localhost:5000',  #LazyString(lambda: request.host),
-    host=LazyString(lambda: str(request.host)),
+    "host": LazyString(lambda: str(request.host)),
     # the base path for blueprint registration.
-    basePath="/apikey",  # "/api/ai"
-    schemes=[
+    "basePath": "/apikey",  # "/api/ai"
+    "schemes": [
         'http',
         # LazyString(lambda: 'https' if request.is_secure else 'http'),
     ],
-    securityDefinitions={
+    "securityDefinitions": {
         "Bearer": {
             "type": "apiKey",
             "name": "Authorization",
             "in": "header",
             "description": (
-                (
                     "JWT Authorization header using the Bearer scheme. "
                     "Example: \"Authorization: Bearer {token}\""
-                )
             )
         }
     },
-)
+}
 
 
 SWAGGER_URL = '/api/ai/docs'

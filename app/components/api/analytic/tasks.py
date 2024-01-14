@@ -5,19 +5,18 @@
 # --------------------------------------------------------------------------
 import datetime as dt
 
-from ....core.validators import Table
-from ....core.utils.logging_ import logging
+from ....core.errors import ControlProcessNotExists
 from ....core.models import (
-    Result,
-    DependencyResult,
+    UNDEFINED,
     AnalyticResult,
+    DependencyResult,
+    Result,
     Status,
     TaskComponent,
-    UNDEFINED,
 )
 from ....core.services import Task
-from ....core.errors import ControlProcessNotExists
-
+from ....core.utils.logging_ import logging
+from ....core.validators import Table
 
 logger = logging.getLogger(__name__)
 
@@ -91,12 +90,9 @@ def _extracted_get_operation_framework(
     ):
         return result
 
-    run_date_put: list = list(
-        map(
-            lambda x: dt.date.fromisoformat(x),
-            process.parameters.dates
-        )
-    )
+    run_date_put: list = [
+        dt.date.fromisoformat(i) for i in process.parameters.dates
+    ]
     run_date_num_put: int = len(run_date_put)
 
     if (_get := process.release.date) is not None:

@@ -4,20 +4,21 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import os
 import csv
 import json
+import os
 from typing import (
     Optional,
     Union,
 )
+
+from app.core.errors import WriteCSVError
+from app.core.utils.config import Params
+from app.core.utils.logging_ import logging
 from app.core.utils.reusables import (
     path_join,
     rows,
 )
-from app.core.utils.config import Params
-from app.core.utils.logging_ import logging
-from app.core.errors import WriteCSVError
 
 AI_APP_PATH: str = os.getenv(
     'AI_APP_PATH', path_join(os.path.dirname(__file__), '../../..')
@@ -45,7 +46,6 @@ def load_json_to_values(
     for _path in _filepath:
         with open(
                 path_join(AI_APP_PATH, f'{registers.path.data}/{_path}'),
-                mode='r',
                 encoding='utf-8'
         ) as read_file:
             data: Union[dict, list] = json.load(read_file)
@@ -70,7 +70,7 @@ def zip_(folder: str, filename: str, filter_: callable):
     # create a ZipFile object
     with ZipFile(filename, 'w') as zipObj:
         # Iterate over all the files in directory
-        for folder_, sub_folder_, filenames in os.walk(folder):
+        for folder_, _sub_folder, filenames in os.walk(folder):
             for filename in filenames:
                 if filter_(filename):
                     # create complete filepath of file in directory
@@ -111,7 +111,6 @@ def prepare_csv(
     with \
             open(
                 path_join(AI_APP_PATH, f'{registers.path.data_landing}/{filename}'),
-                mode="r",
                 encoding="utf-8-sig"
             ) as read_file,\
             open(

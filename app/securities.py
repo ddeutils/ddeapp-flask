@@ -4,21 +4,23 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import os
 import functools
+import os
 from datetime import timedelta
+
 from flask import (
-    request,
+    current_app,
     jsonify,
     make_response,
-    current_app,
+    request,
 )
-from conf import settings
+
 from app.core.constants import (
     HTTP_400_BAD_REQUEST,
     HTTP_401_UNAUTHORIZED,
     HTTP_403_FORBIDDEN,
 )
+from conf import settings
 
 
 def is_valid(api_key: str):

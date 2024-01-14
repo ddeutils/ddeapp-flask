@@ -1,26 +1,21 @@
-from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileAllowed
 from flask_login import current_user
-from wtforms import (
-    StringField,
-    BooleanField,
-    PasswordField,
-    SubmitField
-)
+from flask_wtf import FlaskForm
+from flask_wtf.file import FileAllowed, FileField
+from wtforms import BooleanField, PasswordField, StringField, SubmitField
 from wtforms.fields import EmailField
 from wtforms.validators import (
     DataRequired,
-    Length,
     Email,
     EqualTo,
-    ValidationError
+    Length,
 )
+
 from .models import User
 from .validations import (
-    Unique,
     NotExists,
-    SameCurrentUsername,
     SameCurrentEmail,
+    SameCurrentUsername,
+    Unique,
 )
 
 

@@ -5,28 +5,27 @@
 # --------------------------------------------------------------------------
 import math
 
-from markupsafe import escape
 from flask import (
     Blueprint,
     jsonify,
 )
+from markupsafe import escape
 
-from ....core.models import (
-    Status,
-    Result,
-)
 from ....core.constants import (
     HTTP_200_OK,
     HTTP_401_UNAUTHORIZED,
 )
+from ....core.models import (
+    Result,
+    Status,
+)
 from ....core.utils.logging_ import logging
 from ....securities import apikey_required
-from ..validations import validate_table_short
 from ..analytic.tasks import (
-    get_operation_process,
     get_dependency_data,
+    get_operation_process,
 )
-
+from ..validations import validate_table_short
 
 analytics = Blueprint('analytics', __name__)
 logger = logging.getLogger(__name__)

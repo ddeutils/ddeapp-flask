@@ -1,9 +1,8 @@
-import time
-import contextlib
 import concurrent.futures
-from app.core.utils.threads import (
-    ExitThread
-)
+import contextlib
+import time
+
+from app.core.utils.threads import ExitThread
 
 
 def main():

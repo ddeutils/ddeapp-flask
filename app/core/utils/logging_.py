@@ -4,17 +4,19 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import os
 import datetime
-import re
-import time
-import pytz
-import requests
 import json
 import logging
 import logging.handlers
+import os
+import re
+import time
 from logging.config import dictConfig
 from typing import Optional
+
+import pytz
+import requests
+
 from ..utils.reusables import must_bool
 
 if not os.getenv('DEBUG'):
@@ -104,7 +106,7 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
     def __init__(self, *args, **kwargs):
         self.baseFilename = None
         self.backupCount = None
-        super(MyTimedRotatingFileHandler, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.suffix = "%Y%m%d"
         self.extMatch = re.compile(r"^\d{4}\d{2}\d{2}$")
 
@@ -182,7 +184,7 @@ class RefmtTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
         - fileName.20211101_110013.log
     """
     def __init__(self, maxBytes=0, *args, **kwargs):
-        super(RefmtTimedRotatingFileHandler, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.suffix = "%Y%m%d_%H%M%S"
         self.extMatch = re.compile(r"^\d{4}\d{2}\d{2}_\d{2}\d{2}\d{2}$")
         self.maxBytes = maxBytes
@@ -307,7 +309,7 @@ class DailyRotatingFileHandler(logging.handlers.RotatingFileHandler):
         return 0
 
 
-class PickableLoggerAdapter(object):
+class PickableLoggerAdapter:
     """
     pickle module
     """

@@ -3,28 +3,28 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # --------------------------------------------------------------------------
+import atexit
 import json
 from typing import Optional
 
-import atexit
+from celery import Celery, Task
+from flasgger import LazyJSONEncoder
 from flask import (
     Flask,
-    request,
     jsonify,
     make_response,
-    render_template,
     redirect,
+    render_template,
+    request,
     url_for,
 )
+from flask.logging import default_handler
 from werkzeug.debug import DebuggedApplication
 from werkzeug.middleware.proxy_fix import ProxyFix
-from flasgger import LazyJSONEncoder
-from flask.logging import default_handler
-from celery import Celery, Task
 
 from conf import settings
-from .core.utils.logging_ import logging
 
+from .core.utils.logging_ import logging
 
 logger = logging.getLogger(__name__)
 
@@ -118,12 +118,8 @@ def create_app(
         filters(app)
 
         # Initialize Blueprints for Core Engine
+        from .components.api import analytics, frameworks, ingestion
         from .securities import apikey_required
-        from .components.api import (
-            analytics,
-            frameworks,
-            ingestion
-        )
         app.register_blueprint(frameworks, url_prefix='/api/ai/run')
         app.register_blueprint(analytics, url_prefix='/api/ai/get')
         app.register_blueprint(ingestion, url_prefix='/api/ai')
@@ -141,10 +137,10 @@ def create_app(
         if frontend:
             # Initialize Blueprints for Controller Static
             from .components.controllers import (
-                errors,
-                users,
                 admin,
                 auth,
+                errors,
+                users,
             )
             app.register_blueprint(errors)
             app.register_blueprint(users)
@@ -156,20 +152,17 @@ def create_app(
             csrf.exempt(auth)
 
             # Initialize Blueprints for Backend Static
-            from .components.frontend import (
-                nodes,
-                logs,
-                catalogs
-            )
+            from .components.frontend import catalogs, logs, nodes
             app.register_blueprint(nodes)
             app.register_blueprint(logs)
             app.register_blueprint(catalogs)
 
         from flask_login import current_user
+
         from .core.constants import HTTP_200_OK
         from .extensions import (
-            limiter,
             cache,
+            limiter,
         )
 
         @app.before_request
@@ -277,8 +270,8 @@ def create_app(
         # Init function and control framework table to database
         if recreated:
             from .controls import (
-                push_func_setup,
                 push_ctr_setup,
+                push_func_setup,
             )
             push_func_setup()
             push_ctr_setup()
@@ -306,9 +299,9 @@ def events(app: Flask):
         db.engine.dispose()
 
     # Initial test target database connection
+    from psycopg2 import OperationalError as PsycopgOperationalError
     from sqlalchemy import text
     from sqlalchemy.exc import OperationalError
-    from psycopg2 import OperationalError as PsycopgOperationalError
     try:
         from app.core.connections.postgresql import generate_engine
         engine = generate_engine()
@@ -316,8 +309,8 @@ def events(app: Flask):
         # Pre-connect to target database before start application
         with engine.connect() as conn:
             conn.execute(text("select 1"))
-    except (OperationalError, PsycopgOperationalError):
-        raise RuntimeError("Dose not connect to target database")
+    except (OperationalError, PsycopgOperationalError) as err:
+        raise RuntimeError("Dose not connect to target database") from err
 
     # TODO: Catch error `psycopg2.OperationalError`
     # With after_request we can handle the CORS response headers
@@ -367,9 +360,11 @@ def filters(app: Flask):
     """
     import re
     from datetime import datetime
-    from markupsafe import Markup
-    from flask import render_template
     from functools import partial
+
+    from flask import render_template
+    from markupsafe import Markup
+
     from app.core.utils.reusables import to_pascal_case
 
     warp_app: Flask = app
@@ -434,18 +429,17 @@ def extensions(app: Flask) -> None:
     atexit.register(push_ctr_stop_running)
 
     from .extensions import (
-        limiter,
-        cache,
-        db,
-        login_manager,
+        assets,
         bcrypt,
-        jwt_manager,
-        swagger,
+        cache,
         cors,
         csrf,
-        assets,
-        scheduler,
+        db,
+        jwt_manager,
+        limiter,
+        login_manager,
         mail,
+        scheduler,
     )
     limiter.init_app(app)
     cache.init_app(app)

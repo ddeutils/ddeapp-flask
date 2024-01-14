@@ -6,21 +6,21 @@
 import re
 from typing import (
     List,
-    Union,
     Optional,
+    Union,
 )
 
 from pydantic import Field
 
+from .legacy.convertor import reduce_stm
 from .validators import (
     Column,
+    Function,
     Partition,
     Profile,
-    Table,
-    Function,
     Schema,
+    Table,
 )
-from .legacy.convertor import reduce_stm
 
 
 def filter_not_null(datatype: str) -> bool:
@@ -138,13 +138,13 @@ class TableStatement(Table):
     )
 
     def statement_check(self) -> str:
-        return reduce_stm((
+        return reduce_stm(
             f"SELECT CASE WHEN EXISTS("
             f"SELECT FROM {{database_name}}.information_schema.tables "
             f"WHERE table_schema = {{ai_schema_name}} "
             f"AND table_name = {self.name}"
             f") THEN 'True' ELSE 'False' END AS check_exists"
-        ))
+        )
 
     def statement_create(
             self,
@@ -163,13 +163,13 @@ class TableStatement(Table):
                 CONSTRAINTS
             )
         """
-        create_stm: str = reduce_stm((
+        create_stm: str = reduce_stm(
             f"CREATE TABLE IF NOT EXISTS "
             f"{{database_name}}.{{ai_schema_name}}.{self.name}"
             f"( {self.profile.statement_features()} "
             f"{self.profile.statement_pk()} )"
             f"{self.profile.partition.statement()}"
-        ))
+        )
         return (
             re.sub(
                 r"{database_name}\.{ai_schema_name}\.\w+",
@@ -202,13 +202,13 @@ class TableStatement(Table):
                 and self.profile.partition.type == 'range'
         ):
             if end:
-                return reduce_stm((
+                return reduce_stm(
                     f"CREATE TABLE IF NOT EXISTS "
                     f"{{database_name}}.{{ai_schema_name}}."
                     f"{self.name}_{start}_{end} "
                     f"PARTITION OF {{table_name}} FOR VALUES FROM "
                     f"('{start}') TO ('{end}')"
-                ))
+                )
             raise ValueError("Partition type range should contain end value")
         raise ValueError(
             f"Does not support for partition type "
@@ -241,13 +241,13 @@ class TableStatement(Table):
             sep='and',
             cast_type=True,
         )
-        return reduce_stm((
+        return reduce_stm(
             f"UPDATE {{database_name}}.{{ai_schema_name}}.{self.name} "
             f"AS {self.shortname} "
             f"SET {{string_columns_pairs}} FROM ( VALUES {{string_values}} ) "
             f"AS {self.shortname}_{suffix}( {{string_columns}} ) "
             + (f"WHERE {primary_key_columns}" if primary_key_columns else "")
-        ))
+        )
 
     def statement_insert(self) -> str:
         """Generate insert statement for receive data from values string
@@ -266,14 +266,14 @@ class TableStatement(Table):
             WHERE   TN.UPDATE <= EXCLUDED.UPDATE
         """
         conflict: str = (
-                f" ON CONFLICT ( {pk} ) DO UPDATE SET {self.conflict_set()}" 
+                f" ON CONFLICT ( {pk} ) DO UPDATE SET {self.conflict_set()}"
                 f"WHERE {self.shortname}.update_date <= excluded.update_date"
             ) if (pk := self.profile.statement_pk()) else ""
-        return reduce_stm((
+        return reduce_stm(
             f"INSERT INTO {{database_name}}.{{ai_schema_name}}.{self.name} "
             f"AS {self.shortname} "
             f"( {{string_columns}} ) VALUES  {{string_values}}{conflict}"
-        ))
+        )
 
     def statement_drop(self, cascade: bool = False) -> str:
         """Generate drop statement
@@ -284,11 +284,11 @@ class TableStatement(Table):
 
         """
         _cascade: str = ('CASCADE' if cascade else '')
-        return reduce_stm((
+        return reduce_stm(
             f"DROP TABLE IF EXISTS "
             f"{{database_name}}.{{ai_schema_name}}.{self.name} "
             f"{_cascade}"
-        ))
+        )
 
     def conflict_set(
             self,
@@ -353,10 +353,10 @@ class FunctionStatement(Function):
 
         """
         _cascade: str = 'CASCADE' if cascade else ''
-        return reduce_stm((
+        return reduce_stm(
             f"DROP FUNCTION IF EXISTS "
             f"{{database_name}}.{{ai_schema_name}}.{self.name} {_cascade}"
-        ))
+        )
 
 
 class SchemaStatement(Schema):
@@ -366,22 +366,22 @@ class SchemaStatement(Schema):
 
     def statement_check(self) -> str:
         """"""
-        return reduce_stm((
+        return reduce_stm(
             f"SELECT CASE WHEN EXISTS("
             f"SELECT FROM {{database_name}}.information_schema.schemata"
             f"WHERE schema_name = '{self.name}'"
             f") THEN 'True' ELSE 'False' END AS check_exists"
-        ))
+        )
 
     def statement_create(self) -> str:
         """Generate create schema statement"""
-        return reduce_stm((
+        return reduce_stm(
             f"CREATE SCHEMA IF NOT EXISTS {self.name}"
-        ))
+        )
 
     def statement_drop(self, cascade: bool = False) -> str:
         """Generate drop schema statement"""
         _cascade: str = 'CASCADE' if cascade else ''
-        return reduce_stm((
+        return reduce_stm(
             f"DROP SCHEMA IF EXISTS {self.name} {_cascade}"
-        ))
+        )
