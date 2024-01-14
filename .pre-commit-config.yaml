@@ -1,0 +1,20 @@
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+default_language_version:
+    python: python3.8
+
+repos:
+-   repo: https://github.com/asottile/pyupgrade
+    rev:  v3.15.0
+    hooks:
+    -   id: pyupgrade
+        args: ["--py38-plus", "--keep-runtime-typing"]
+        stages: [ commit ]
+
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev:  v0.1.11
+    hooks:
+    -   id: ruff
+        args:
+        - --fix
+        - --unsafe-fixes
+        stages: [ commit ]

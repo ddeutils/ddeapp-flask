@@ -5,13 +5,12 @@
 # --------------------------------------------------------------------------
 
 import ast
-import os
-import math
 import hashlib
-import re
-import pandas as pd
-import string
+import math
+import os
 import random
+import re
+import string
 from collections import defaultdict
 from typing import (
     AnyStr,
@@ -20,6 +19,8 @@ from typing import (
     Optional,
     Union,
 )
+
+import pandas as pd
 
 __all__ = (
     'split_iterable',
@@ -323,7 +324,7 @@ def only_one(check_list: list, match_list: list, default: bool = True) -> Option
         >> only_one(list_c, list_b):
 
     """
-    if len((exist := set(check_list).intersection(set(match_list)))) == 1:
+    if len(exist := set(check_list).intersection(set(match_list))) == 1:
         return list(exist)[0]
     return next((_ for _ in match_list if _ in check_list), (match_list[0] if default else None))
 

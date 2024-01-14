@@ -5,15 +5,16 @@
 # --------------------------------------------------------------------------
 
 from functools import wraps
+from urllib.parse import (
+    unquote,
+    urljoin,
+    urlparse,
+)
+
 import flask
 import werkzeug
 import werkzeug.wrappers
 from werkzeug.datastructures import MultiDict
-from urllib.parse import (
-    urljoin,
-    urlparse,
-    unquote,
-)
 
 
 def response(*, mimetype: str = None, template_file: str = None):
@@ -27,7 +28,7 @@ def response(*, mimetype: str = None, template_file: str = None):
             if isinstance(response_val, flask.Response):
                 return response_val
 
-            model = dict(response_val) if isinstance(response_val, dict) else dict()
+            model = dict(response_val) if isinstance(response_val, dict) else {}
             if template_file and not isinstance(response_val, dict):
                 raise ValueError(
                     f"Invalid return type {type(response_val)}, "

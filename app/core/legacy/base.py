@@ -16,45 +16,47 @@ Note:
   definition, `[x] Migrate to modern style`.
 """
 
+import datetime as dt
+import fnmatch
+import importlib
+import operator
 import os
 import re
-import operator
-import fnmatch
-import yaml
-import importlib
-from dateutil import tz
-import datetime as dt
-from dateutil.relativedelta import relativedelta
 from typing import (
-    Tuple,
-    Optional,
     Dict,
-    Union,
     Iterator,
+    Optional,
+    Tuple,
+    Union,
+)
+
+import yaml
+from dateutil import tz
+from dateutil.relativedelta import relativedelta
+
+from app.core.connections.io import load_json_to_values
+from app.core.errors import (
+    CatalogArgumentError,
+    CatalogNotFound,
+    TableNotImplement,
+    TableValidatorError,
 )
 from app.core.legacy.convertor import (
-    reduce_stm,
     Statement,
+    reduce_stm,
 )
-from app.core.utils.reusables import (
-    only_one,
-    merge_dicts,
-    must_list,
-    must_bool,
-    hash_string,
-)
-from app.core.utils.config import (
-    Params,
-    AI_APP_PATH,
-)
-from app.core.connections.io import load_json_to_values
-from app.core.utils.logging_ import logging
 from app.core.legacy.models import VerboseObject
-from app.core.errors import (
-    TableNotImplement,
-    CatalogNotFound,
-    CatalogArgumentError,
-    TableValidatorError,
+from app.core.utils.config import (
+    AI_APP_PATH,
+    Params,
+)
+from app.core.utils.logging_ import logging
+from app.core.utils.reusables import (
+    hash_string,
+    merge_dicts,
+    must_bool,
+    must_list,
+    only_one,
 )
 
 params = Params(param_name='parameters.yaml')
@@ -288,7 +290,7 @@ def get_config_sht(
 
                 for _tbl in _tbl_data:
                     if "".join(
-                            map(lambda x: x[0], _tbl.split("_"))
+                            x[0] for x in _tbl.split("_")
                     ) == config_name_sht:
                         _result = _tbl_data[_tbl]
                         _result['config_name'] = _tbl
@@ -357,12 +359,9 @@ def get_catalog_all(
     """
     _key_exists: list = must_list(key_exists)
     _folder_config: list = must_list(
-        (folder_config or ['catalog', 'pipeline', 'function'])
+        folder_config or ['catalog', 'pipeline', 'function']
     )
-    conf_paths = map(
-        lambda x: (os.path.join(AI_APP_PATH, registers.path.conf, x), x),
-        _folder_config,
-    )
+    conf_paths = ((os.path.join(AI_APP_PATH, registers.path.conf, x), x) for x in _folder_config)
     _files: dict = {}
     for conf_path, fol_conf in conf_paths:
         for file in sorted(os.listdir(conf_path), reverse=False):
@@ -533,7 +532,7 @@ class TblCatalog:
     def validate_tbl_columns(self, columns: Union[list, dict], raise_error: bool = False) -> Optional[list]:
         _filter: list = [_col for _col in columns if _col in self.tbl_features]
         if len(_filter) != len(columns) and raise_error:
-            _filter_out: set = set(list(columns)).difference(set(_filter))
+            _filter_out: set = set(columns).difference(set(_filter))
             raise TableValidatorError(
                 f"Column validate does not exists in {self.tbl_name} from {list(_filter_out)}"
             )
@@ -669,7 +668,7 @@ class TblCatalog:
         """
         conflict: str = ""
         if primary := ", ".join(self.tbl_primary_key):
-            conflict: str = """ on conflict ( {primary_key} ) do update set {set_column_pairs} 
+            conflict: str = """ on conflict ( {primary_key} ) do update set {set_column_pairs}
                 where {table_name_short}.update_date <= excluded.update_date""".format(
                 primary_key=primary,
                 set_column_pairs=self.get_tbl_conflict_set(),
@@ -707,7 +706,7 @@ class TblCatalog:
             sep='and',
             cast_type=True,
         )
-        _stm: str = """update {{database_name}}.{{ai_schema_name}}.{table_name} 
+        _stm: str = """update {{database_name}}.{{ai_schema_name}}.{table_name}
             as {table_name_short}
             set {{string_columns_pairs}} from ( values {{string_values}} )
             as {table_name_short}_ud( {{string_columns}} )
@@ -1378,14 +1377,11 @@ class PipeCatalog:
                 if self.pipe_ta not in _ and self.pipe_tr not in _:
                     _trigger = _trigger.replace(_, _.strip('()'))
             _trigger: str = _trigger.replace('(', '( ').replace(')', ' )')
-            return list(map(
-                lambda x: x.strip(),
-                (
+            return [x.strip() for x in (
                     _trigger.replace(self.pipe_ta, f' {self.pipe_ta} ')
                         .replace(self.pipe_tr, f' {self.pipe_tr} ')
                         .split()
-                )
-            ))
+                )]
 
         if isinstance(triggers, list):
             return triggers

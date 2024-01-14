@@ -1,5 +1,6 @@
 import functools
 
+
 def ignore_unhash(func):
     uncached = func.__wrapped__
     attributes = functools.WRAPPER_ASSIGNMENTS + ('cache_info', 'cache_clear')

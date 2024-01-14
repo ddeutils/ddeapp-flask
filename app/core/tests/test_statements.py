@@ -1,12 +1,9 @@
 import unittest
-from pydantic import ValidationError
-from app.core.validators import (
-    Column
-)
+
 from app.core.statements import (
     ColumnStatement,
-    ProfileStatement,
 )
+from app.core.validators import Column
 
 
 class ColumnStatementTestCase(unittest.TestCase):

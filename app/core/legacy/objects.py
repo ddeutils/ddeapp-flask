@@ -4,97 +4,94 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import functools
-import itertools
-import builtins
 import ast
-import inspect
-import time
+import builtins
 import datetime as dt
-import pandas as pd
+import functools
+import inspect
+import itertools
+import time
 from typing import (
-    Tuple,
+    Any,
+    Iterator,
     List,
     Optional,
-    Union,
+    Tuple,
     Type,
-    Iterator,
-    Any,
+    Union,
 )
 
+import pandas as pd
 from sqlalchemy.exc import ProgrammingError
 
-from conf.settings import settings
-from app.core.legacy.convertor import (
-    reduce_stm,
-    reduce_value_pairs,
-    reduce_value,
-    reduce_text,
-    reduce_in_value,
-    Value,
-    Statement
-)
-from app.core.legacy.base import (
-    TblCatalog,
-    FuncCatalog,
-    PipeCatalog,
-    get_run_date,
-    get_cal_date,
-    get_plural,
-    get_process_id,
-    get_process_date,
-    filter_ps_type,
-    sort_by_priority,
-    verbose_log,
-    params,
-    registers,
-    AI_APP_PATH,
-)
-from app.core.base import (
-    get_catalogs
-)
+from app.core.base import get_catalogs
 from app.core.connections.postgresql import (
-    query_select_one,
-    query_select,
+    ParamType,
     query_execute,
     query_execute_row,
-    query_transaction,
-    query_select_df,
     query_insert_from_csv,
-    ParamType,
+    query_select,
+    query_select_df,
+    query_select_one,
+    query_transaction,
 )
-from app.core.utils.reusables import (
-    only_one,
-    path_join,
-    merge_dicts,
-    convert_str_bool,
-    must_bool,
-    split_iterable,
-    must_list,
+from app.core.errors import (
+    ControlPipelineNotExists,
+    ControlProcessNotExists,
+    ControlTableNotExists,
+    ControlTableValueError,
+    DatabaseProcessError,
+    DatabaseSchemaNotExists,
+    FuncArgumentError,
+    FuncNotFound,
+    FuncRaiseError,
+    ObjectBaseError,
+    ProcessValueError,
+    TableArgumentError,
+    TableNotFound,
+    TableNotImplement,
 )
-from app.core.utils.logging_ import logging
+from app.core.legacy.base import (
+    AI_APP_PATH,
+    FuncCatalog,
+    PipeCatalog,
+    TblCatalog,
+    filter_ps_type,
+    get_cal_date,
+    get_plural,
+    get_process_date,
+    get_process_id,
+    get_run_date,
+    params,
+    registers,
+    sort_by_priority,
+    verbose_log,
+)
+from app.core.legacy.convertor import (
+    Statement,
+    Value,
+    reduce_in_value,
+    reduce_stm,
+    reduce_text,
+    reduce_value,
+    reduce_value_pairs,
+)
+from app.core.legacy.models import Status, VerboseDummy
 from app.core.utils.cache import ignore_unhash
 from app.core.utils.config import (
     Environs,
 )
-from app.core.legacy.models import Status, VerboseDummy
-from app.core.errors import (
-    TableNotFound,
-    TableNotImplement,
-    TableArgumentError,
-    FuncNotFound,
-    FuncRaiseError,
-    FuncArgumentError,
-    DatabaseSchemaNotExists,
-    DatabaseProcessError,
-    ControlTableValueError,
-    ControlTableNotExists,
-    ControlPipelineNotExists,
-    ControlProcessNotExists,
-    ProcessValueError,
-    ObjectBaseError,
+from app.core.utils.logging_ import logging
+from app.core.utils.reusables import (
+    convert_str_bool,
+    merge_dicts,
+    must_bool,
+    must_list,
+    only_one,
+    path_join,
+    split_iterable,
 )
-
+from conf.settings import settings
 
 env = Environs(env_name='.env')
 logger = logging.getLogger(__name__)
@@ -560,7 +557,7 @@ class TblProcess(TblCatalog):
             dt.date.fromisoformat(tbl_run_date)
             if tbl_run_date else get_run_date(date_type='date')
         )
-        super(TblProcess, self).__init__(
+        super().__init__(
             tbl_name=tbl_name,
             tbl_type=tbl_type,
             verbose=verbose
@@ -1448,7 +1445,7 @@ class FuncProcess(FuncCatalog):
     ):
         self.func_run_date: dt.date = dt.date.fromisoformat(func_run_date) if func_run_date \
             else get_run_date(date_type='date')
-        super(FuncProcess, self).__init__(
+        super().__init__(
             func_name=func_name,
             func_type=func_type
         )
@@ -1579,7 +1576,7 @@ class Action(FuncProcess):
         self.act_func_params: dict = fwk_parameters or merge_dicts(
             Control.parameters(), (external_parameters or {})
         )
-        super(Action, self).__init__(
+        super().__init__(
             func_name=self.act_func_name,
             func_type=self.act_func_type,
             func_run_date=run_date,
@@ -1636,7 +1633,7 @@ class Node(TblProcess):
         self.node_tbl_type, self.node_tbl_name = filter_ps_type(name)
         self.node_tbl_ps_id: str = process_id or get_process_id("undefined")
         _node_tbl_ps_included, self.node_tbl_ps_excluded = split_choose(
-            (choose or [])
+            choose or []
         )
         self.node_tbl_run_mode: str = check_run_mode('node', run_mode)
         self.verbose = verbose
@@ -1654,7 +1651,7 @@ class Node(TblProcess):
         self.node_tbl_params: dict = (fwk_parameters or merge_dicts(
             Control.parameters(), (external_parameters or {})
         ))
-        super(Node, self).__init__(
+        super().__init__(
             tbl_name=self.node_tbl_name,
             tbl_type=self.node_tbl_type,
             tbl_run_date=run_date,
@@ -1994,34 +1991,28 @@ class PipeProcess(PipeCatalog):
         self.pipe_node_auto_init: bool = node_auto_init
         self.pipe_node_generator: bool = True
         if pipe_name == 'control_search':
-            super(PipeProcess, self).__init__(
+            super().__init__(
                 pipe_name=pipe_name,
                 pipe_catalog={
                     'config_name': pipe_name,
                     'id': 'control',
-                    'nodes': list(map(
-                        lambda x: {'name': f"sql:{x['table_name']}"},
-                        Control.tables()
-                    ))
+                    'nodes': [{'name': f"sql:{x['table_name']}"} for x in Control.tables()]
                 },
                 verbose=verbose
             )
         elif pipe_name == 'retention_search':
-            super(PipeProcess, self).__init__(
+            super().__init__(
                 pipe_name=pipe_name,
                 pipe_catalog={
                     'config_name': pipe_name,
                     'id': 'retention',
-                    'nodes': list(map(
-                        lambda x: {'name': f"sql:{x['table_name']}"},
-                        Control.tables(condition='rtt_value > 0')
-                    ))
+                    'nodes': [{'name': f"sql:{x['table_name']}"} for x in Control.tables(condition='rtt_value > 0')]
                 },
                 verbose=verbose
             )
         else:
             self.pipe_node_generator: bool = False
-            super(PipeProcess, self).__init__(
+            super().__init__(
                 pipe_name=pipe_name,
                 verbose=verbose
             )
@@ -2241,7 +2232,7 @@ class Pipeline(PipeProcess):
     ):
         self.pipe_run_mode: str = check_run_mode('pipe', run_mode)
         self.pipe_ps_id: str = process_id or get_process_id("undefined")
-        super(Pipeline, self).__init__(
+        super().__init__(
             pipe_name=name,
             pipe_run_date=run_date,
             external_parameters=external_parameters,

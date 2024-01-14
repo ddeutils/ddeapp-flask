@@ -1,6 +1,8 @@
 import math
+
 import pandas as pd
 import scipy.stats as stats
+
 from app.core.base import get_run_date
 from app.core.utils.logging_ import get_logger
 

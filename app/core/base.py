@@ -3,41 +3,40 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
-import os
-import re
-import operator
 import fnmatch
 import importlib
+import operator
+import os
+import re
 from datetime import (
     date,
     datetime,
     timedelta,
 )
 from typing import (
-    Tuple,
-    Optional,
-    Union,
     Dict,
+    Optional,
+    Tuple,
+    Union,
 )
 
 import yaml
-from dateutil.relativedelta import relativedelta
 from dateutil import tz
+from dateutil.relativedelta import relativedelta
 
-from .utils.reusables import (
-    merge_dicts,
-    must_list,
-    hash_string,
-)
-from .utils.config import (
-    Params,
-    AI_APP_PATH,
-)
-from .utils.logging_ import logging
 from .errors import (
     CatalogNotFound,
 )
-
+from .utils.config import (
+    AI_APP_PATH,
+    Params,
+)
+from .utils.logging_ import logging
+from .utils.reusables import (
+    hash_string,
+    merge_dicts,
+    must_list,
+)
 
 params = Params(param_name='parameters.yaml')
 registers = Params(param_name='registers.yaml')
@@ -280,7 +279,7 @@ class LoadCatalog:
     def filter_catalog_shortname(self, data: dict) -> list:
         _results: list = []
         for _tbl, _result in data.items():
-            if "".join(map(lambda x: x[0], _tbl.split("_"))) == self.name:
+            if "".join(x[0] for x in _tbl.split("_")) == self.name:
                 _result['name'] = _tbl
                 _results.append(_result)
         return _results
@@ -331,11 +330,10 @@ def get_catalogs(
     """
     _key_exists: list = must_list(key_exists)
     _folder_config: list = must_list(
-        (config_form or CATALOGS)
+        config_form or CATALOGS
     )
-    conf_paths = map(
-        lambda x: (os.path.join(AI_APP_PATH, registers.path.conf, x), x),
-        _folder_config
+    conf_paths = (
+        (AI_APP_PATH / registers.path.conf / x, x) for x in _folder_config
     )
     _files: dict = {}
     for conf_path, fol_conf in conf_paths:

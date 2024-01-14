@@ -1,11 +1,11 @@
-import concurrent.futures
-import inspect
-import threading
 import asyncio
-import time
-import os
-import typing
+import concurrent.futures
 import ctypes
+import inspect
+import os
+import threading
+import time
+import typing
 from typing import Any
 
 threadList: list = []
@@ -122,7 +122,7 @@ class ThreadWithControl(threading.Thread):
             return self._thread_id
 
         # no, look for it in the _active dict
-        for thread_id, thread_obj in getattr(threading, '_active').items():
+        for thread_id, thread_obj in threading._active.items():
             if thread_obj is self:
                 self._thread_id = thread_id
                 return thread_id
@@ -163,7 +163,7 @@ class ThreadWithControl(threading.Thread):
         self.raise_exc(SystemExit)
 
 
-class _WorkItem(object):
+class _WorkItem:
     """concurrent.futures.thread.py"""
 
     def __init__(
@@ -307,7 +307,7 @@ class BackgroundTasks(threading.Thread):
         Args:
             app: Flask application object.
         """
-        super(BackgroundTasks, self).__init__()
+        super().__init__()
         self.app = app
 
 

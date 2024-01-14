@@ -1,12 +1,14 @@
 import pickle
-from typing import Optional
-from pathlib import Path
 from dataclasses import dataclass
-from app.extensions import db
-from app.core.validators import Pipeline as PipelineCatalog
-from app.core.errors import CatalogNotFound
-from sqlalchemy.orm import reconstructor
+from pathlib import Path
+from typing import Optional
+
 from sqlalchemy import or_
+from sqlalchemy.orm import reconstructor
+
+from app.core.errors import CatalogNotFound
+from app.core.validators import Pipeline as PipelineCatalog
+from app.extensions import db
 
 
 class Node(db.Model):
@@ -32,7 +34,7 @@ class Node(db.Model):
     active = db.Column('active_flg', db.String(32), nullable=False)
 
     def __init__(self, **kwargs):
-        super(Node, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def __repr__(self):
         return f"Node('{self.name}', '{self.type}', '{self.sys_type}')"
@@ -90,7 +92,7 @@ class Pipeline(db.Model):
     primary_id = db.Column('primary_id', db.BigInteger, nullable=False)
 
     def __init__(self, **kwargs):
-        super(Pipeline, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     @reconstructor
     def __re_init__(self):

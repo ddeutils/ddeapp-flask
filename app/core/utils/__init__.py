@@ -1,4 +1,4 @@
 from .config import (
-    Params,
     Environs,
+    Params,
 )

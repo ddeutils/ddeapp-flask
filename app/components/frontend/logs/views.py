@@ -1,14 +1,11 @@
-import pandas as pd
 import numpy as np
-from flask import (
-    Blueprint,
-    render_template,
-    request,
-    jsonify
-)
-from .models import TaskLog
-from ....extensions import db
+import pandas as pd
+from flask import Blueprint, jsonify, render_template, request
+
 from app.core.utils.reusables import must_dict
+
+from ....extensions import db
+from .models import TaskLog
 
 logs = Blueprint('logs', __name__, template_folder='templates')
 
@@ -20,7 +17,7 @@ def all_log():
 
 @logs.get("/logs/chart-data")
 def log_data_chart():
-    period = request.args.get('period', '', type=str)
+    request.args.get('period', '', type=str)
 
     logs_df = pd.read_sql_query(
         TaskLog.query.filter_by().order_by(TaskLog.update_date.asc()).statement,

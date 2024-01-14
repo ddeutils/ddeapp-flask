@@ -1,18 +1,20 @@
-import jwt
-from functools import wraps
 from datetime import datetime
+from functools import wraps
+
+import jwt
 from flask import (
-    flash,
-    redirect,
-    url_for,
-    session,
-    request,
-    jsonify,
-    current_app,
     abort,
-    g
+    current_app,
+    flash,
+    g,
+    jsonify,
+    redirect,
+    request,
+    session,
+    url_for,
 )
 from flask_login import current_user
+
 from .models import User
 
 

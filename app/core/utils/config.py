@@ -1,23 +1,24 @@
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Copyright (c) 2022 Korawich Anuttra. All rights reserved.
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
-# --------------------------------------------------------------------------
-
+# ------------------------------------------------------------------------------
 import os
-import yaml
+from pathlib import Path
 from typing import Optional
+
+import yaml
+
 from ..utils.reusables import (
-    path_join,
     merge_dicts,
 )
 
-AI_APP_PATH: str = os.getenv(
+AI_APP_PATH: Path = Path(os.getenv(
     'AI_APP_PATH',
-    os.path.abspath(path_join(os.path.dirname(__file__), '../../..'))
-)
+    str((Path(__file__).parent / '../../..').resolve())
+))
 
-CONF_PATH: str = os.path.join(AI_APP_PATH, 'conf')
+CONF_PATH: Path = AI_APP_PATH / 'conf'
 
 
 class Params:
@@ -30,9 +31,7 @@ class Params:
     ):
         __param_name: str = param_name or 'parameters.yaml'
         if not parameters:
-            with open(
-                    os.path.join(CONF_PATH, __param_name), encoding='utf8'
-            ) as f:
+            with (CONF_PATH / __param_name).open(encoding='utf8') as f:
                 parameters = yaml.load(f, Loader=yaml.Loader)
 
         if parameters:
@@ -75,15 +74,19 @@ class Environs:
         __env_name: str = env_name or '.env'
         if reload:
             result: dict = {}
-            with open(
-                    os.path.join(AI_APP_PATH, __env_name), encoding='utf8'
-            ) as file:
-                # TODO: fix reading logic of .env file
-                for line in file:
-                    if line.startswith('#'):
-                        continue
-                    if len(line_split := line.replace('\n', '').split('=')) == 2:
-                        result[line_split[0]]: str = str(eval(line_split[1]))
+            __env_file: Path = AI_APP_PATH / __env_name
+            if __env_file.exists():
+                with __env_file.open(encoding='utf8') as file:
+                    # TODO: fix reading logic of .env file
+                    for line in file:
+                        if line.startswith('#'):
+                            continue
+                        if (
+                            len(
+                                line_split := line.replace('\n', '').split('=')
+                            ) == 2
+                        ):
+                            result[line_split[0]]: str = str(eval(line_split[1]))
             _result: dict = merge_dicts(
                 result, {
                     key: value

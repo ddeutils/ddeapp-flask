@@ -1,10 +1,11 @@
 from typing import (
     Optional,
 )
+
 from .postgresql import (
     query_execute,
-    query_select_one,
     query_execute_row,
+    query_select_one,
 )
 
 

@@ -1,9 +1,10 @@
 from typing import (
-    List,
     Dict,
+    List,
     Optional,
     Union,
 )
+
 from pydantic import BaseModel
 
 

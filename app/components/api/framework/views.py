@@ -4,39 +4,33 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import queue
 import logging
+import queue
 
-from flask import (
-    Blueprint,
-    jsonify
-)
+from flask import Blueprint, jsonify
 
-from ....core.errors import ValidateFormsError
 from ....core.base import get_run_date
+from ....core.constants import HTTP_200_OK, HTTP_401_UNAUTHORIZED
+from ....core.errors import ValidateFormsError
+from ....core.models import (
+    Result,
+    Status,
+)
 from ....core.utils.reusables import (
-    random_sting,
     hash_string,
+    random_sting,
 )
 from ....core.utils.threads import ThreadWithControl
-from ....core.models import (
-    Result, Status,
-)
-from ....core.constants import (
-    HTTP_200_OK,
-    HTTP_401_UNAUTHORIZED
-)
+from ....securities import apikey_required
 from ..framework.forms import (
-    FormSetup,
     FormData,
     FormRetention,
+    FormSetup,
 )
 from ..framework.tasks import (
     background_tasks,
     foreground_tasks,
 )
-from ....securities import apikey_required
-
 
 logger = logging.getLogger(__name__)
 frameworks = Blueprint('frameworks', __name__)

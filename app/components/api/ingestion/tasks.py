@@ -6,23 +6,22 @@
 import queue
 from typing import Callable, Dict
 
-from ....core.errors import ObjectBaseError
-from ....core.utils.config import Params
-from ....core.utils.logging_ import logging
 from ....core.base import get_plural
-from ....core.models import (
-    Result,
-    CommonResult,
-    Status,
-    TaskMode,
-    TaskComponent,
-)
+from ....core.errors import ObjectBaseError
 from ....core.legacy.objects import (
     Node,
     ObjectType,
 )
+from ....core.models import (
+    CommonResult,
+    Result,
+    Status,
+    TaskComponent,
+    TaskMode,
+)
 from ....core.services import Task
-
+from ....core.utils.config import Params
+from ....core.utils.logging_ import logging
 
 logger = logging.getLogger(__name__)
 registers = Params(param_name='registers.yaml')

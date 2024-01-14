@@ -1,13 +1,10 @@
+import datetime
 import unittest
 from unittest import mock
-import datetime
+
 from pydantic import ValidationError
 
-from ..models import (
-    Status,
-    TaskMode,
-    TaskComponent
-)
+from ..models import Status, TaskComponent, TaskMode
 from ..validators import (
     Column,
     Profile,

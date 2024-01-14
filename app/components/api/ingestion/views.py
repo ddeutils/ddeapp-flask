@@ -13,11 +13,12 @@ from flask import (
     request,
 )
 
-from ....core.models import Status
 from ....core.constants import (
     HTTP_200_OK,
     HTTP_401_UNAUTHORIZED,
 )
+from ....core.errors import ValidateFormsError
+from ....core.models import Status
 from ....core.utils.threads import ThreadWithControl
 from ....securities import apikey_required
 from ..ingestion.forms import FormIngest
@@ -25,8 +26,6 @@ from ..ingestion.tasks import (
     ingestion_background,
     ingestion_foreground,
 )
-from ....core.errors import ValidateFormsError
-
 
 ingestion = Blueprint('ingestion', __name__)
 logger = logging.getLogger(__name__)

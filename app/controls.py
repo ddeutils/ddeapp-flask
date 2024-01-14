@@ -9,30 +9,27 @@ from typing import (
     Optional,
     Tuple,
 )
-from sqlalchemy.exc import OperationalError
+
 from psycopg2 import OperationalError as PsycopgOperationalError
+from sqlalchemy.exc import OperationalError
+
 from app.components.api.framework.tasks import foreground_tasks
-from app.core.utils.logging_ import logging
-from app.core.legacy.objects import (
-    Pipeline,
-    Node,
-    Action,
-    Control
+from app.core.base import get_catalogs
+from app.core.errors import (
+    CatalogBaseError,
+    ObjectBaseError,
 )
+from app.core.legacy.objects import Action, Control, Node, Pipeline
 from app.core.models import (
     Result,
     Status,
 )
 from app.core.services import Task
 from app.core.utils.config import (
-    Params,
     Environs,
+    Params,
 )
-from app.core.base import get_catalogs
-from app.core.errors import (
-    ObjectBaseError,
-    CatalogBaseError,
-)
+from app.core.utils.logging_ import logging
 
 logger = logging.getLogger(__name__)
 registers = Params(param_name='registers.yaml')
@@ -161,7 +158,7 @@ def pull_migrate_tables():
         auto_create=False,
         verbose=False,
     )
-    for order, node in pipe_cnt.nodes():
+    for _order, node in pipe_cnt.nodes():
         node.push_tbl_diff()
 
 
@@ -193,7 +190,7 @@ def push_trigger_schedule() -> int:
     """Push run data with trigger schedule
     """
     ps_time_all: int = 0
-    for pipe_name, pipe_props in get_catalogs(
+    for pipe_name, _pipe_props in get_catalogs(
             config_form='pipeline',
             key_exists=params.map_pipe.trigger,
             key_exists_all_mode=False,

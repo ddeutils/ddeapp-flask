@@ -15,17 +15,17 @@ from typing import (
 
 from flask import request
 
+from ...core.errors import (
+    CatalogNotFound,
+    ValidateFormsError,
+)
 from ...core.utils.reusables import (
     convert_str_list,
     merge_dicts,
 )
 from ...core.validators import (
-    Table,
     Pipeline,
-)
-from ...core.errors import (
-    CatalogNotFound,
-    ValidateFormsError,
+    Table,
 )
 
 
@@ -165,7 +165,7 @@ class FormValidate(BaseValidate):
         return cls(add_values=value)
 
     def __init__(self, add_values: Optional[dict] = None):
-        super(FormValidate, self).__init__(
+        super().__init__(
             form=request.form,
             add_values=add_values
         )
@@ -191,7 +191,7 @@ class ContentValidate(BaseValidate):
         return cls(add_values=value)
 
     def __init__(self, add_values: Optional[dict] = None):
-        super(ContentValidate, self).__init__(
+        super().__init__(
             form=request.get_json(force=False, silent=True),
             add_values=add_values
         )

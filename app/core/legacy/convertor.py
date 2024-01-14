@@ -4,26 +4,27 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import re
 import datetime as dt
+import re
 from itertools import compress
 from typing import (
-    Union,
+    Dict,
+    List,
     Optional,
     Tuple,
-    List,
-    Dict,
+    Union,
 )
-from app.core.utils.reusables import merge_dicts
+
 from app.core.errors import (
-    TableArgumentError,
     ColumnsNotEqualError,
     DuplicateColumnError,
     NullableColumnError,
+    OuterColumnError,
     PrimaryKeyNotExists,
     SQLInjection,
-    OuterColumnError,
+    TableArgumentError,
 )
+from app.core.utils.reusables import merge_dicts
 
 
 def reduce_stm(stm: str, add_row_number: bool = False) -> str:
@@ -138,7 +139,7 @@ class Value:
         ):
             _raise: list = list(compress(
                 list(self.vl_expected_cols.keys()),
-                map(lambda x: not x, not_found)
+                (not x for x in not_found)
             ))
             raise NullableColumnError(
                 f"column which not null property, "

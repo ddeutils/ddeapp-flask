@@ -1,6 +1,7 @@
-from ....extensions import db
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import synonym
-from sqlalchemy import and_, or_, not_
+
+from ....extensions import db
 
 
 class TaskLog(db.Model):

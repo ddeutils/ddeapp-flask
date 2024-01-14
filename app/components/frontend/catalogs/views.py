@@ -1,20 +1,22 @@
 import time
+
 from flask import (
     Blueprint,
+    make_response,
     redirect,
     render_template,
-    make_response,
 )
+
+from ....infrastructures import response
+from .services import add_catalog
 from .viewmodels import (
-    IndexViewModel,
-    CategoryViewModel,
-    CatalogViewModel,
-    FeedViewModel,
     AddCatalogViewModel,
+    CatalogViewModel,
+    CategoryViewModel,
+    FeedViewModel,
+    IndexViewModel,
     SearchViewModel,
 )
-from .services import add_catalog
-from ....infrastructures import response
 
 catalogs = Blueprint('catalogs', __name__, template_folder='templates')
 CATALOGS_PER_PAGE = 10

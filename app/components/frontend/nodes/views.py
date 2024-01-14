@@ -1,23 +1,16 @@
 import json
 import time
-import pandas as pd
-import numpy as np
-from typing import Optional
 from datetime import timedelta
-from flask import (
-    Blueprint,
-    render_template,
-    request,
-    jsonify
-)
-from .models import (
-    Node,
-    NodeLog,
-    Pipeline
-)
+from typing import Optional
+
+import numpy as np
+import pandas as pd
 import plotly
 import plotly.express as px
+from flask import Blueprint, jsonify, render_template, request
+
 from ....extensions import db
+from .models import Node, NodeLog, Pipeline
 
 nodes = Blueprint('nodes', __name__, template_folder='templates')
 PIPELINES_PER_PAGE = 10

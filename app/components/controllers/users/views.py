@@ -6,24 +6,25 @@
 
 import os
 import secrets
-from PIL import Image
-from markupsafe import Markup
+
 from flask import (
     Blueprint,
-    render_template,
-    flash,
-    redirect,
-    url_for,
-    request,
     current_app,
+    flash,
     make_response,
+    redirect,
+    render_template,
+    request,
+    url_for,
 )
 from flask_login import (
-    login_user,
     current_user,
-    logout_user,
     login_required,
+    login_user,
+    logout_user,
 )
+from markupsafe import Markup
+from PIL import Image
 
 from ....extensions import (
     bcrypt,
@@ -31,17 +32,17 @@ from ....extensions import (
     limiter,
 )
 from .forms import (
-    RegistrationForm,
     LoginForm,
-    UpdateAccountForm,
+    RegistrationForm,
     RequestResetForm,
-    ResetPasswordForm
-)
-from .tasks import (
-    send_reset_token,
-    send_reset_email,
+    ResetPasswordForm,
+    UpdateAccountForm,
 )
 from .models import User
+from .tasks import (
+    send_reset_email,
+    send_reset_token,
+)
 
 users = Blueprint('users', __name__, template_folder='templates')
 

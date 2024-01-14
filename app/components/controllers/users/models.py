@@ -4,25 +4,21 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import jwt
-import string
 import random
-import numpy as np
+import string
 from datetime import (
     datetime,
     timedelta,
 )
-from sqlalchemy import Table
-from sqlalchemy.orm import synonym
-from ....extensions import (
-    db,
-    login_manager,
-    bcrypt
-)
+
+import jwt
+import numpy as np
 from flask import current_app
 from flask_login import AnonymousUserMixin
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.sql import func
+from sqlalchemy import Table
+from sqlalchemy.orm import synonym
+
+from ....extensions import db, login_manager
 
 
 @login_manager.user_loader
@@ -131,7 +127,7 @@ class User(db.Model):
     # )
 
     def __init__(self, **kwargs):
-        super(User, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         # self.short_url = self.generate_short_characters()
 
     def __repr__(self):
@@ -293,7 +289,7 @@ class Role(db.Model):
     )
 
     def __init__(self, **kwargs):
-        super(Role, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def __repr__(self):
         return f"Role('{self.role_name}', '{self.description}')"
@@ -458,7 +454,7 @@ class Group(db.Model):
     )
 
     def __init__(self, **kwargs):
-        super(Group, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def __repr__(self):
         return f"Group('{self.group_name}', '{self.description}')"

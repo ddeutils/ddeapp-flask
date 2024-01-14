@@ -3,24 +3,21 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
-from typing import Union, Optional
 from dataclasses import (
     dataclass,
     field,
 )
 from datetime import datetime
-from functools import (
-    total_ordering,
-    partial
-)
-from strenum import StrEnum
 from enum import (
     IntEnum,
 )
+from functools import partial, total_ordering
+from typing import Optional, Union
+
+from strenum import StrEnum
 
 from .base import get_run_date
 from .legacy.convertor import reduce_text
-
 
 UNDEFINED: str = 'undefined'
 
@@ -32,7 +29,7 @@ def enum_ordering(cls):
             return self.value < other.value
         raise ValueError("Cannot compare different Enums")
 
-    setattr(cls, '__lt__', __lt__)
+    cls.__lt__ = __lt__
     return total_ordering(cls)
 
 
