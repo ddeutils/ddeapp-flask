@@ -1,8 +1,8 @@
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Copyright (c) 2022 Korawich Anuttra. All rights reserved.
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
-# --------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 import atexit
 import json
 from typing import Optional
@@ -60,10 +60,10 @@ def create_app(
 ):
     """Create a Flask application using the app factory pattern.
 
-        Flask is a WSGI application. A WSGI server is used to run the application,
-    converting incoming HTTP requests to the standard WSGI environ, and converting
-    outgoing WSGI responses to HTTP responses.
-    docs: https://flask.palletsprojects.com/en/2.2.x/deploying/
+        Flask is a WSGI application. A WSGI server is used to run the
+    application, converting incoming HTTP requests to the standard WSGI environ,
+    and converting outgoing WSGI responses to HTTP responses.
+        docs: https://flask.palletsprojects.com/en/2.2.x/deploying/
 
     :param settings_override: Override settings
     :param frontend: Run Flask server included frontend component flag

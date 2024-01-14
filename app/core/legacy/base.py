@@ -1,8 +1,8 @@
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Copyright (c) 2022 Korawich Anuttra. All rights reserved.
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
-# --------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 """
 This is the legacy base file for generate validator object with pure python code

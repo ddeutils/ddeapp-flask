@@ -58,10 +58,12 @@ class ParameterMode(StrEnum):
     COMMON = 'common'
     RERUN = 'rerun'
 
+
 class ParameterIngestMode(StrEnum):
     """Parameter Ingestion Mode Enum"""
     COMMON = 'common'
     MERGE = 'merge'
+
 
 class TaskMode(StrEnum):
     FOREGROUND = 'foreground'
