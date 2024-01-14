@@ -18,7 +18,7 @@ class BaseConfig:
 
     # Flask
     SECRET_KEY: str = '476e90c596a2311335c553599125bf92'
-    DEBUG: bool = eval(os.environ.get('DEBUG'))
+    DEBUG: bool = eval(os.environ.get('DEBUG', 'True'))
 
     # Flask Bcrypt
     BCRYPT_LOG_ROUNDS: int = 12

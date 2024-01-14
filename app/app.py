@@ -214,6 +214,12 @@ def create_app(
                 )
             }), HTTP_200_OK
 
+        @app.get("/health")
+        def health():
+            return jsonify(
+                {'message': 'DFA Flask Postgres started!!!'}
+            ), HTTP_200_OK
+
         @app.get("/")
         @app.get("/home")
         @limiter.limit("5/second", override_defaults=False)
