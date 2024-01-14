@@ -5,62 +5,62 @@
 waitress==2.1.2
 
 # - WSGI Application, claim it as the most micro-web-framework in Python
-Flask==2.3.2
-Werkzeug==2.3.4
+Flask==3.0.0
+Werkzeug==3.0.1
 
 # - Extension: Schduleer
-Flask-APScheduler==1.12.4
-apscheduler==3.10.1
+Flask-APScheduler==1.13.1
+apscheduler==3.10.4
 
 # - Extension: Limiter
-Flask-Limiter==3.3.1
+flask-limiter==3.5.0
 
 # - Extendion: Caching
-Flask-Caching==2.0.2
+flask-caching==2.1.0
 
 # - Extension: DBMS ORM
-Flask-SQLAlchemy==3.0.3
+Flask-SQLAlchemy==3.1.1
 sshtunnel==0.4.0
-sqlalchemy==2.0.15
-psycopg2-binary==2.9.6
-asyncpg==0.27.0
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+asyncpg==0.29.0
 
 # - Extension: Authentication & Security
-flask-login==0.6.2
+flask-login==0.6.3
 Flask-Bcrypt==1.0.1
-flask-cors==3.0.10
+flask-cors==4.0.0
 
 # - Extension: Frontend assets reserve
-Flask-Assets==2.0
+Flask-Assets==2.1.0
 jsmin==3.0.1
 cssmin==0.2.0
 lesscpy==0.15.1
 pyScss==1.4.0
-Pillow==9.3.0
+Pillow==10.2.0
 
 # - Extension: Form
-Flask-WTF==1.1.1
-WTForms==3.0.1
-email-validator==2.0.0.post2
+Flask-WTF==1.2.1
+WTForms==3.1.2
+email-validator==2.1.0.post1
 
 # - Extension: Mail
 Flask-Mail==0.9.1
 
 # - Extension: JWT
-flask-jwt-extended==4.5.2
-pyjwt==2.7.0
+flask-jwt-extended==4.6.0
+pyjwt==2.8.0
 
 # - Extension: Swagger
-flasgger==0.9.7b2
+flasgger==0.9.7.1
 flask-swagger-ui==4.11.1
 
-click==8.1.3
-cryptography==41.0.1
+click==8.1.7
+cryptography==41.0.7
 markupsafe==2.1.3
 
 # - Extension: Executor
 Flask-Executor==1.0.0
-celery==5.2.7
+celery==5.3.6
 # Redis==4.4.0
 
 # - Model for data class management
@@ -70,7 +70,7 @@ StrEnum==0.4.15
 
 # - Others
 python_dateutil==2.8.2
-more-itertools==9.1.0
+more-itertools==10.2.0
 
 # Analytic ====================
 # ------------------------------------------------

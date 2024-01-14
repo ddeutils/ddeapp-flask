@@ -51,7 +51,7 @@ metadata = MetaData(
 )
 
 
-class GlobalQuery(flask_sqlalchemy.BaseQuery):
+class GlobalQuery(flask_sqlalchemy.query.Query):
     """Custom Query Class for all model in this application"""
 
     def get_or(self, identity, default=None):

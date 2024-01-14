@@ -72,7 +72,7 @@ class BaseConfig:
     SCHEDULER_JOBSTORES = {
         # Save jobs and checkpoint of next schedule
         "sqlite": SQLAlchemyJobStore(
-            url=f'sqlite:///{BASE_PATH}/schedulers.db',
+            url=f'sqlite:///{BASE_PATH}/data/schedulers.db',
             tablename="scheduler",
         )
     }
@@ -123,7 +123,6 @@ class BaseConfig:
 
 class DevConfig(BaseConfig):
     """Development environment configuration"""
-    # SQLALCHEMY_ENGINE_OPTIONS: dict = {}
 
 
 class SitConfig(BaseConfig):
