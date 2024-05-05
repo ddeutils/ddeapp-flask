@@ -1,8 +1,9 @@
 # Pre-Requirement for the `prophet` lib
 # ------------------------------------------------
-numpy==1.24.2
-pandas==1.5.3
-pystan==2.19.1.1
+# numpy==1.24.2
+# pandas==1.5.3
+# pystan==2.19.1.1
+pystan==3.9.1
 convertdate==2.4.0
 LunarCalendar==0.0.9
 holidays==0.21
