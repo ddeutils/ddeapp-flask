@@ -60,7 +60,9 @@ jobs:
           git config --list
 
       - name: Start containers
-        run: docker-compose -f "docker-compose.pg.yml" up -d --build
+        run: |
+          sudo mkdir -p ./data/postgres-data/
+          USER=$(id -u) docker-compose -f "docker-compose.pg.yml" up -d --build
 
       - name: Test with pytest
         run: |
