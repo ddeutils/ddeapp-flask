@@ -2,10 +2,9 @@ name: test
 
 on:
   push:
-    branches: [
-      "main",
-      "*.*.*"
-    ]
+    branches:
+      - "main",
+      - "*.*.*"
     paths-ignore:
       - 'docs/**'
       - '*.md'
@@ -19,13 +18,7 @@ on:
 
 permissions:
   contents: read
-
-defaults:
-  run:
-    shell: bash
-
 jobs:
-
   tests:
     strategy:
       fail-fast: false
@@ -33,7 +26,7 @@ jobs:
         os:
           - ubuntu-latest
         python-version:
-          - "3.8"
+          - "3.9"
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -49,18 +42,19 @@ jobs:
         id: cache
         with:
           path: ${{ env.pythonLocation }}
-          key: ${{ runner.os }}-python-${{ env.pythonLocation }}-${{ hashFiles('requirements.txt') }}-test-v03
+          key: ${{ runner.os }}-python-${{ env.pythonLocation }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements.analytic.txt') }}-test
 
       - name: Install Dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          pip install --upgrade pip
+          pip install -U pip
+          pip install -r requirements.analytic.txt
           pip install -r requirements.txt
-          pip install "pytest>=7.4.3,<8.0.0"
+          pip install pytest
 
       - name: Check git is working
         run: |
-          git config --global user.email "korawica@github.actions"
+          git config --global user.email "ddeutils@github.actions"
           git config --global user.name "Testing Git on Travis CI"
           git --version
           git config --list
