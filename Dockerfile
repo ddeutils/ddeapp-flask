@@ -3,12 +3,12 @@
 FROM python:3.8-slim
 
 RUN apt-get clean \
-    && apt-get -y update
+    && apt-get -y update \
+    && apt-get cache clean
 
-RUN apt-get -y install \
-    nginx \
-    python3-dev \
-    build-essential
+RUN apt-get update \
+    && apt-get -y install nginx python3-dev build-essential \
+    && apt-get clean
 
 # set the working directory in the container
 WORKDIR /app

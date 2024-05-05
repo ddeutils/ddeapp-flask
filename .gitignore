@@ -22,7 +22,7 @@ data/postgres-data/
 conf/*.pem
 
 # Dot Environment variables file
-.env
+#.env
 
 # Ruff
 .ruff_cache
