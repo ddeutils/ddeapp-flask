@@ -3,7 +3,7 @@
 **Table of Contents**:
 
 * [Overviews](#overviews)
-  * [Get Started](#get-started)
+  * [Getting Started](#getting-started)
   * [Components](#components)
 * [Build Application](#build-application)
 * [API Document](#api-document)
@@ -37,7 +37,7 @@ using only the database engine, but the part of DataFrame transformation which
 use CPU bound this framework application can handle this purpose
 (This application framework already implement this function).
 
-### Get Started
+### Getting Started
 
 Before start this application, the needed environment parameters are,
 
@@ -75,10 +75,6 @@ For the first time, you should create all tables to database:
 python .\manage.py run --api --debug --recreated
 ```
 
-> **Warning**: \
-> The`requirements.pre.txt` file was created because of installation issue of `prophet`
-> It need install `pystan==2.19.1.1` package before install `prophet`.
-
 ### Components
 
 **This data application framework has 2 functional components**:
@@ -96,7 +92,7 @@ show UI for control any framework components.
 - Table
 - Admin 
 
-> **Note**: \
+> [!NOTE]
 > This Web App use **HTMX**, and **Ajax** for sync data from server.
 
 #### RestAPI Service

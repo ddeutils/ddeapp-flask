@@ -7,7 +7,7 @@ repos:
     rev:  v3.15.2
     hooks:
     -   id: pyupgrade
-        args: ["--py38-plus", "--keep-runtime-typing"]
+        args: ["--py39-plus", "--keep-runtime-typing"]
         stages: [ commit ]
 
 -   repo: https://github.com/astral-sh/ruff-pre-commit

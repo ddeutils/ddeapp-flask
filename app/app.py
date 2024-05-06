@@ -5,6 +5,7 @@
 # ------------------------------------------------------------------------------
 import atexit
 import json
+from pathlib import Path
 from typing import Optional
 
 from celery import Celery, Task
@@ -72,7 +73,6 @@ def create_app(
     """
     app = Flask(
         __name__,
-
         # set up the template folder
         template_folder='./templates',
 
@@ -283,7 +283,7 @@ def create_app(
     return app
 
 
-def events(app: Flask):
+def events(app: Flask) -> None:
     """Add events
     """
 
@@ -351,7 +351,7 @@ def events(app: Flask):
         return response
 
 
-def filters(app: Flask):
+def filters(app: Flask) -> None:
     """Register 0 or more custom Jinja filters on an element
 
     :param app: Flask application instance
@@ -458,6 +458,7 @@ def extensions(app: Flask) -> None:
     assets.init_app(app)
     assets.url = app.static_url_path
     assets.directory = app.static_folder
+    Path(f"{app.static_folder}/assets/cache").mkdir(parents=True, exist_ok=True)
     assets.cache = f"{app.static_folder}/assets/cache"
     # assets.append_path('assets')
 

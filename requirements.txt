@@ -4,8 +4,7 @@
 waitress==2.1.2
 
 # - WSGI Application, claim it as the most micro-web-framework in Python
-Flask==3.0.0
-Werkzeug==3.0.1
+Flask==3.0.3
 
 # - Extension: Schduleer
 Flask-APScheduler==1.13.1
@@ -54,8 +53,7 @@ flasgger==0.9.7.1
 flask-swagger-ui==4.11.1
 
 click==8.1.7
-cryptography==41.0.7
-markupsafe==2.1.3
+cryptography==42.0.4
 
 # - Extension: Executor
 Flask-Executor==1.0.0

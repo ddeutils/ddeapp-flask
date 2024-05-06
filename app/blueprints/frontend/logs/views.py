@@ -27,12 +27,9 @@ def log_data_chart():
     logs_df[['process_type_bg', 'process_type']] = logs_df['process_type'].str.split('|', n=1, expand=True)
     logs_df[['process_module', 'process_module_value']] = logs_df['process_module'].str.split('|', n=1, expand=True)
     logs_df['update_date'] = pd.to_datetime(logs_df['update_date']).dt.date
-
-    if True:
-        logs_df['update_date'] = pd.to_datetime(logs_df['update_date']) + pd.offsets.MonthBegin(1)
+    logs_df['update_date'] = pd.to_datetime(logs_df['update_date']) + pd.offsets.MonthBegin(1)
 
     logs_df = logs_df.groupby(
-        # ['process_type_bg', 'process_type', 'process_module', 'process_name_put', 'update_date'],
         ['process_type_bg', 'update_date'],
         sort=False,
         as_index=False
@@ -43,10 +40,7 @@ def log_data_chart():
     })
 
     logs_df['process_time'] = logs_df['process_time'].round(2)
-    print(logs_df)
-
     data = logs_df.to_dict(orient='records')
-    print(data)
     data = list(filter(lambda row: row['process_type_bg'] == 'foreground', data))
     return jsonify({
         'labels': [row['update_date'] for row in data],

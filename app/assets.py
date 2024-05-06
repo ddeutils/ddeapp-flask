@@ -1,10 +1,7 @@
-from typing import Dict
-
 from flask_assets import Bundle
 
 # If you want to re-create bundle manually: `bundles[<bundle-name>].build()`
-bundles: Dict[str, Bundle] = {
-
+bundles: dict[str, Bundle] = {
     # Main asset bundles
     'home_js': Bundle(
         'js/utilities.js',
