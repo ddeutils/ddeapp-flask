@@ -10,6 +10,7 @@ exclude = [
     ".ruff_cache",
     "venv",
     "vendor",
+    "__legacy",
 ]
 
 [tool.ruff.lint]
@@ -29,4 +30,4 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-"app/core/legacy/objects.py" = ["B019"]
+"app/core/__legacy/objects.py" = ["B019"]

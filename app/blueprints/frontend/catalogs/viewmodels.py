@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 import more_itertools
 from flask import (
@@ -34,7 +34,7 @@ class ViewModelBase:
 class IndexViewModel(ViewModelBase):
     def __init__(self):
         super().__init__()
-        self.categories: List[Category] = all_categories()
+        self.categories: list[Category] = all_categories()
         self.rows = [
             list(row)
             for row in more_itertools.chunked(self.categories, 3)
@@ -49,7 +49,7 @@ class FeedViewModel(ViewModelBase):
         _all_catalogs = all_catalogs()
         start = (page - 1) * page_size
         end = start + page_size
-        self.catalogs: List[Catalog] = _all_catalogs[start:end]
+        self.catalogs: list[Catalog] = _all_catalogs[start:end]
         self.has_more_catalogs = len(_all_catalogs) > end
         print("Has more: ", self.has_more_catalogs)
 
@@ -88,6 +88,6 @@ class SearchViewModel(ViewModelBase):
     def __init__(self):
         super().__init__()
         self.search_text: str = self.request_dict.get('search_text')
-        self.catalogs: List[Catalog] = []
+        self.catalogs: list[Catalog] = []
         if self.search_text and self.search_text.strip():
             self.catalogs = search_catalogs(self.search_text)

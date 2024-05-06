@@ -7,7 +7,6 @@
 import os
 from typing import (
     Optional,
-    Tuple,
 )
 
 from psycopg2 import OperationalError as PsycopgOperationalError
@@ -115,7 +114,7 @@ def push_ctr_setup(
 MAP_BG_PROCESS: dict = {}
 
 
-def pull_ctr_check_process() -> Tuple[int, ...]:
+def pull_ctr_check_process() -> tuple[int, ...]:
     """Check process_id in `ctr_task_process` table
     """
     # search process with status does not success in control table

@@ -113,7 +113,7 @@ class Value:
             else update_date.strftime('%Y-%m-%d %H:%M:%S')
         )
 
-    def generate(self) -> Tuple:
+    def generate(self) -> tuple:
         if self.vl_mode == 'common':
             return self._generate_common(self.vl_values)
         elif self.vl_mode == 'merge':
@@ -181,7 +181,7 @@ class Value:
                 f"Please check column name in payloads"
             )
 
-    def _generate_common(self, values: Union[dict, list]) -> Tuple:
+    def _generate_common(self, values: Union[dict, list]) -> tuple:
         """Ingest with common mode and insert mode
         CASE I
         ------
@@ -338,7 +338,7 @@ class Value:
         )
         return result_columns, result_values
 
-    def _generate_merge(self, values: Union[dict, list]) -> Tuple:
+    def _generate_merge(self, values: Union[dict, list]) -> tuple:
         """Ingest with merge mode
         CASE I
         ------
@@ -451,7 +451,7 @@ class Value:
             )
         ]
 
-        def merge_with_key(_data: dict, _key: Optional[str] = "data_merge") -> List[dict]:
+        def merge_with_key(_data: dict, _key: Optional[str] = "data_merge") -> list[dict]:
             if _key not in _data:
                 return [_data]
             _parents: dict = {k: v for k, v in _data.items() if k != _key}
@@ -576,7 +576,7 @@ class Statement:
         return self._check_type(self.stm_result)
 
     @property
-    def stm_params(self) -> List[str]:
+    def stm_params(self) -> list[str]:
         if not self.stm_generate_flg:
             self.generate()
         _params_all = re.findall(r'{([^{}]+?)}', self.stm_result)
@@ -643,7 +643,7 @@ class Statement:
             self.generate(),
         ))
 
-    def mapping(self) -> Dict[int, Tuple[str]]:
+    def mapping(self) -> dict[int, tuple[str]]:
         find_list: list = re.findall(
             r"(insert into|update|delete from|from|join|left join|right join|cross join|full join) "
             r"{database_name}\.{ai_schema_name}\.(\w+)",

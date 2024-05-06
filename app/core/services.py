@@ -7,16 +7,16 @@ from typing import Optional
 
 from pydantic import Field
 
+from .__legacy.objects import Control as LegacyControl
 from .connections import query_execute, query_select_check
 from .errors import ControlProcessNotExists
-from .legacy.convertor import reduce_text
-from .legacy.objects import Control as LegacyControl
 from .models import (
     ParameterMode,
     ParameterType,
     Status,
     TaskComponent,
     TaskMode,
+    reduce_text,
 )
 from .statements import (
     FunctionStatement,

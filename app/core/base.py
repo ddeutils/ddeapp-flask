@@ -14,9 +14,7 @@ from datetime import (
     timedelta,
 )
 from typing import (
-    Dict,
     Optional,
-    Tuple,
     Union,
 )
 
@@ -325,7 +323,7 @@ def get_catalogs(
         key_exists: Optional[Union[str, list]] = None,
         key_exists_all_mode: bool = True,
         priority_sorted: bool = False
-) -> Dict:
+) -> dict:
     """Get all raw configuration from .yaml file
     """
     _key_exists: list = must_list(key_exists)
@@ -357,7 +355,7 @@ def get_catalogs(
     )
 
 
-def split_datatype(datatype_full: str) -> Tuple[str, str]:
+def split_datatype(datatype_full: str) -> tuple[str, str]:
     for null_str in ['not null', 'null']:
         if search := re.search(null_str, datatype_full):
             _nullable: str = search[0].strip()
@@ -365,7 +363,7 @@ def split_datatype(datatype_full: str) -> Tuple[str, str]:
     return datatype_full.strip(), 'null'
 
 
-def filter_ps_type(ps_name_full: str) -> Tuple[str, str]:
+def filter_ps_type(ps_name_full: str) -> tuple[str, str]:
     if ':' in ps_name_full:
         _name_split: list = ps_name_full.split(':')
         _type: str = _name_split.pop(0)

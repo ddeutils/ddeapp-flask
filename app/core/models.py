@@ -17,15 +17,19 @@ from typing import Optional, Union
 from strenum import StrEnum
 
 from .base import get_run_date
-from .legacy.convertor import reduce_text
 
 UNDEFINED: str = 'undefined'
+
+
+def reduce_text(text: str, newline: Optional[str] = None) -> str:
+    """Reduce text before insert to Database"""
+    return text.replace("'", "''").replace("\n", (newline or "|"))
 
 
 def enum_ordering(cls):
     """Add order property to Enum object."""
     def __lt__(self, other):
-        if type(other) == type(self):
+        if isinstance(other, type(self)):
             return self.value < other.value
         raise ValueError("Cannot compare different Enums")
 

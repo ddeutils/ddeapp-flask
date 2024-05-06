@@ -1,8 +1,6 @@
 import pickle
 from pathlib import Path
 from typing import (
-    Dict,
-    List,
     Optional,
 )
 
@@ -21,8 +19,8 @@ from ...frontend.catalogs.models import (
 )
 
 logger = get_logger(__name__)
-__categories: Dict['str', Category] = {}
-__all_catalogs_list: List[Catalog] = []
+__categories: dict['str', Category] = {}
+__all_catalogs_list: list[Catalog] = []
 
 
 def load_catalogs(cache: bool = False):
@@ -46,7 +44,7 @@ def load_catalogs(cache: bool = False):
         }
         for cat, obj in cat_mapping.items():
             raw_data = get_catalogs(cat)
-            data: List = [
+            data: list = [
                 obj.parse_name(name).catalog
                 for name in raw_data
             ]
@@ -88,7 +86,7 @@ def category_by_name(category: str) -> Optional[Category]:
     return cat or None
 
 
-def all_catalogs(page: int = 1, page_size: Optional[int] = None) -> List[Catalog]:
+def all_catalogs(page: int = 1, page_size: Optional[int] = None) -> list[Catalog]:
     catalogs = __all_catalogs_list
     if page_size:
         start = page_size * (page - 1)
@@ -97,7 +95,7 @@ def all_catalogs(page: int = 1, page_size: Optional[int] = None) -> List[Catalog
     return catalogs
 
 
-def all_categories() -> List[Category]:
+def all_categories() -> list[Category]:
     categories = list(__categories.values())
     categories.sort(key=lambda c: c.category.lower().strip())
     return categories
@@ -117,8 +115,8 @@ def catalog_by_name(catalog_name: str) -> Optional[Catalog]:
     )
 
 
-def search_catalogs(search_text: str) -> List[Catalog]:
-    results: List[Catalog] = []
+def search_catalogs(search_text: str) -> list[Catalog]:
+    results: list[Catalog] = []
     if not search_text or not search_text.strip():
         return results
 

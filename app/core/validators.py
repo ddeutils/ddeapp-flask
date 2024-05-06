@@ -5,6 +5,7 @@
 # ------------------------------------------------------------------------------
 import importlib
 import re
+from collections.abc import Generator, Iterator
 from datetime import (
     date,
     datetime,
@@ -14,12 +15,7 @@ from typing import (
     AbstractSet,
     Any,
     Callable,
-    Dict,
-    Generator,
-    Iterator,
-    List,
     Optional,
-    Tuple,
     Union,
 )
 
@@ -31,16 +27,16 @@ from pydantic import (
     validator,
 )
 
+from .__legacy.convertor import (
+    Statement,
+    reduce_stm,
+)
 from .base import (
     LoadCatalog,
     get_process_id,
     get_run_date,
 )
 from .connections.io import load_json_to_values
-from .legacy.convertor import (
-    Statement,
-    reduce_stm,
-)
 from .models import (
     ParameterMode,
     ParameterType,
@@ -83,7 +79,7 @@ def sorted_set(values):
     return sorted(set(values))
 
 
-def split_datatype(datatype_full: str) -> Tuple[str, str]:
+def split_datatype(datatype_full: str) -> tuple[str, str]:
     """Split the datatype value from long string by null string"""
     _nullable: str = 'null'
     for null_str in ['not null', 'null']:
@@ -93,7 +89,7 @@ def split_datatype(datatype_full: str) -> Tuple[str, str]:
     return ' '.join(datatype_full.strip().split()), _nullable
 
 
-def split_fk(value: str) -> Tuple[str, Optional[str]]:
+def split_fk(value: str) -> tuple[str, Optional[str]]:
     """Split the key value from dot or bracket"""
     if '.' in value:
         prefix, sub_value = value.rsplit('.', maxsplit=1)
@@ -141,7 +137,7 @@ def convert_str_to_dict(key: str, value: Union[str, dict]) -> dict:
 def filter_ps_type(
         ps_name_full: str,
         default: str = 'sql',
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     if ':' in ps_name_full:
         _name_split: list = ps_name_full.split(':')
         _type: str = _name_split.pop(0)
@@ -154,7 +150,7 @@ def filter_not_null(datatype: str) -> bool:
 
 
 AbstractSetOrDict = Union[
-    AbstractSet[Union[int, str]], Dict[Union[int, str], Any]
+    AbstractSet[Union[int, str]], dict[Union[int, str], Any]
 ]
 
 
@@ -184,7 +180,7 @@ class BaseUpdatableModel(BaseModel):
             exclude_unset: bool = False,
             exclude_defaults: bool = False,
             **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Override the dict function to include our properties
         docs: https://github.com/pydantic/pydantic/issues/935
         """
@@ -433,7 +429,7 @@ class Column(BaseUpdatableModel):
 class Partition(BaseModel):
     """Partition model"""
     type: Optional[str] = Field(default=None)
-    columns: List[str] = Field(default_factory=list)
+    columns: list[str] = Field(default_factory=list)
 
 
 class Reference(BaseModel):
@@ -451,7 +447,7 @@ class ForeignKey(BaseModel):
 
 
 ValueListOrDict = Union[
-    List[dict], Dict[int, dict], Dict[str, Union[str, dict]]
+    list[dict], dict[int, dict], dict[str, Union[str, dict]]
 ]
 
 
@@ -460,15 +456,15 @@ class Profile(BaseUpdatableModel):
 
     note: If data parsing with empty value, it will return default of mapping
     """
-    features: List[Column] = Field(
+    features: list[Column] = Field(
         default_factory=list,
         description='Mapping Column features with position order',
     )
-    primary_key: List[str] = Field(
+    primary_key: list[str] = Field(
         default_factory=list,
         description='List of primary key or composite key',
     )
-    foreign_key: List[dict] = Field(
+    foreign_key: list[dict] = Field(
         default_factory=list,
         description='Mapping of foreign keys',
     )
@@ -519,7 +515,7 @@ class Profile(BaseUpdatableModel):
                 else:
                     _features.append(v)
             del value
-            value: List[dict] = _features
+            value: list[dict] = _features
         return value
 
     @validator('primary_key', each_item=True)
@@ -531,7 +527,7 @@ class Profile(BaseUpdatableModel):
             'Profile: ... Start validate primary_key and update pk flag '
             'to feature'
         )
-        _features: List[Column] = values.get('features')
+        _features: list[Column] = values.get('features')
         _columns_exist: list = [feature.name for feature in _features]
         if value not in _columns_exist:
             raise ValueError(
@@ -546,7 +542,7 @@ class Profile(BaseUpdatableModel):
     @validator('foreign_key', pre=True)
     def prepare_foreign_key(
             cls,
-            value: Union[List[dict], Dict[str, Dict[str, str]]]
+            value: Union[list[dict], dict[str, dict[str, str]]]
     ):
         """Prepare foreign key value before foreign key type validation occurs
         """
@@ -601,7 +597,7 @@ class Profile(BaseUpdatableModel):
         features.
         """
         logger.debug('Profile: ... ... Start validate for each foreign_key')
-        features: List[Column] = values.get('features')
+        features: list[Column] = values.get('features')
         _columns_exist: list = [feature.name for feature in features]
         if value['name'] not in _columns_exist:
             raise ValueError(
@@ -615,7 +611,7 @@ class Profile(BaseUpdatableModel):
 
     @validator('partition')
     def validate_partition(cls, value, values):
-        features: List[Column] = values.get('features')
+        features: list[Column] = values.get('features')
         _columns_exist: list = [feature.name for feature in features]
         for v in value.columns:
             if v not in _columns_exist:
@@ -638,9 +634,9 @@ class Profile(BaseUpdatableModel):
             if (primary := ", ".join(self.primary_key)) else ''
         )
 
-    def columns(self, pk_included: bool = False) -> List[str]:
+    def columns(self, pk_included: bool = False) -> list[str]:
         """Return list of column name"""
-        _columns: List[str] = [feature.name for feature in self.features]
+        _columns: list[str] = [feature.name for feature in self.features]
         return (
             _columns
             if pk_included
@@ -651,7 +647,7 @@ class Profile(BaseUpdatableModel):
 class BaseProcess(BaseUpdatableModel):
     """Process model"""
     name: str = Field(..., description='Process name')
-    parameter: List[str] = Field(
+    parameter: list[str] = Field(
         default_factory=list,
         description='List of process\'s parameter'
     )
@@ -734,7 +730,7 @@ class Table(BaseUpdatableModel):
 
     # Action metadata of catalog model
     profile: Profile = Field(..., description='Profile data of catalog')
-    process: Dict[str, Process] = Field(
+    process: dict[str, Process] = Field(
         default_factory=dict, description='Process data of catalog'
     )
     initial: Any = Field(
@@ -988,7 +984,7 @@ class Table(BaseUpdatableModel):
             else {_col: columns[_col] for _col in columns if _col in _filter}
         )
 
-    def dependency(self) -> Dict[str, Dict[int, Tuple[str]]]:
+    def dependency(self) -> dict[str, dict[int, tuple[str]]]:
         """Return dependencies mapping"""
         _result: dict = {}
         # FIXME: this method does not support for process type "py"
@@ -1118,7 +1114,7 @@ class Pipeline(BaseUpdatableModel):
     schedule: list = Field(default_factory=list)
     trigger: Union[list, set] = Field(default_factory=list)
     alert: list = Field(default_factory=list)
-    nodes: Dict[Union[int, float], dict] = Field(default_factory=dict)
+    nodes: dict[Union[int, float], dict] = Field(default_factory=dict)
 
     # Tag metadata of catalog model
     tag: Tag = Field(default_factory=dict, description='Tag of Pipeline')
@@ -1400,7 +1396,7 @@ class Parameter(BaseUpdatableModel):
         default=None,
         description='Parameter name'
     )
-    dates: List[str] = Field(
+    dates: list[str] = Field(
         default_factory=lambda: [get_run_date()],
         description='Parameter dates'
     )
@@ -1545,7 +1541,7 @@ class Task(BaseUpdatableModel):
     def runner(
             self,
             start: int = 0,
-    ) -> Generator[Tuple[int, str], None, None]:
+    ) -> Generator[tuple[int, str], None, None]:
         """Yield index and date values from enumerate of dates"""
         for idx, dt in enumerate(self.parameters.dates, start=0):
             if idx < start:

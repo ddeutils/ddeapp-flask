@@ -4,7 +4,6 @@
 # license information.
 # ------------------------------------------------------------------------------
 
-from typing import Dict
 
 from sqlalchemy.orm import synonym
 
@@ -411,7 +410,7 @@ class NodeView(Node, BaseView):
         }
 
 
-MODEL_VIEWS: Dict = {
+MODEL_VIEWS: dict = {
     model.v_name(): model
     for model in [
         UserView,

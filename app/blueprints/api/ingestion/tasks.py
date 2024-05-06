@@ -4,7 +4,7 @@
 # license information.
 # ------------------------------------------------------------------------------
 import queue
-from typing import Callable, Dict
+from typing import Callable
 
 from ....core.base import get_plural
 from ....core.errors import ObjectBaseError
@@ -51,7 +51,7 @@ def ingest_payload(
     return result
 
 
-MAP_MODULE_FUNC: Dict[str, Callable] = {
+MAP_MODULE_FUNC: dict[str, Callable] = {
     name: eval(func_name)
     for name, func_name in registers.modules.ingestion.items()
 }

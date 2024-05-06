@@ -24,11 +24,12 @@ import os
 import re
 from typing import (
     Dict,
-    Iterator,
     Optional,
     Tuple,
     Union,
 )
+
+from collections.abc import Iterator
 
 import yaml
 from dateutil import tz
@@ -379,7 +380,7 @@ def get_catalog_all(
     return sort_by_priority(_files) if priority_sorted else _files
 
 
-def split_datatype(datatype_full: str) -> Tuple[str, str]:
+def split_datatype(datatype_full: str) -> tuple[str, str]:
     for null_str in ['not null', 'null']:
         if search := re.search(null_str, datatype_full):
             _nullable: str = search[0].strip()
@@ -387,7 +388,7 @@ def split_datatype(datatype_full: str) -> Tuple[str, str]:
     return datatype_full.strip(), 'null'
 
 
-def filter_ps_type(ps_name_full: str) -> Tuple[str, str]:
+def filter_ps_type(ps_name_full: str) -> tuple[str, str]:
     if ':' in ps_name_full:
         _name_split: list = ps_name_full.split(':')
         _type: str = _name_split.pop(0)
@@ -565,7 +566,7 @@ class TblCatalog:
         )
 
     # [x] Migrate to modern style
-    def get_tbl_dependency(self) -> Dict[str, Dict[int, Tuple[str]]]:
+    def get_tbl_dependency(self) -> dict[str, dict[int, tuple[str]]]:
         _result: dict = {}
         for ps, attrs in sorted(
                 self.tbl_process.items(),

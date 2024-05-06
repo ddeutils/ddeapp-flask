@@ -17,10 +17,9 @@ with warnings.catch_warnings():
     )
     from sshtunnel import SSHTunnelForwarder
 
+from collections.abc import Iterator
 from typing import (
-    Iterator,
     Optional,
-    Type,
     Union,
 )
 
@@ -41,7 +40,7 @@ from app.core.utils.reusables import (
 
 env = Environs()
 
-ParamType: Type = Optional[Union[dict, bool]]
+ParamType: type = Optional[Union[dict, bool]]
 
 DRIVER: str = (
         env.DB_DRIVER or 'postgresql+psycopg2'

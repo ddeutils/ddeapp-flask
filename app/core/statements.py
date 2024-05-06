@@ -5,14 +5,12 @@
 # ------------------------------------------------------------------------------
 import re
 from typing import (
-    List,
     Optional,
     Union,
 )
 
 from pydantic import Field
 
-from .legacy.convertor import reduce_stm
 from .validators import (
     Column,
     Function,
@@ -21,6 +19,24 @@ from .validators import (
     Schema,
     Table,
 )
+
+
+def reduce_stm(stm: str, add_row_number: bool = False) -> str:
+    """Reduce statement and prepare statement if it wants to catch number of
+    result
+    """
+    _reduce_stm: str = ' '.join(stm.replace('\t', ' ').split()).strip()
+    if add_row_number:
+        _split_stm: list = _reduce_stm.split(';')
+        _last_stm: str = _split_stm.pop(-1)
+        if 'select count(*) as row_number ' not in _last_stm:
+            _last_stm: str = (
+                f"with row_table as ({_last_stm} returning 1 ) "
+                f"select count(*) as row_number from row_table"
+            )
+        _split_stm.append(_last_stm)
+        return '; '.join(_split_stm)
+    return _reduce_stm
 
 
 def filter_not_null(datatype: str) -> bool:
@@ -106,7 +122,7 @@ class ProfileStatement(Profile):
     """Profile Model which enhance with generator method for any Postgres
     statement
     """
-    features: List[ColumnStatement] = Field(
+    features: list[ColumnStatement] = Field(
         ...,
         description='Mapping Column features with position order'
     )

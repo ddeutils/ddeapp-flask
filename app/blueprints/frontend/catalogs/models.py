@@ -1,6 +1,4 @@
 from typing import (
-    Dict,
-    List,
     Optional,
     Union,
 )
@@ -14,8 +12,8 @@ class Table(BaseModel):
     name: str
     type: str
     prefix: str
-    profile: Optional[Dict]
-    process: Optional[Dict]
+    profile: Optional[dict]
+    process: Optional[dict]
 
 
 class Function(BaseModel):
@@ -24,7 +22,7 @@ class Function(BaseModel):
     name: str
     type: str
     prefix: str
-    profile: Optional[Dict]
+    profile: Optional[dict]
 
 
 class Pipeline(BaseModel):
@@ -33,10 +31,10 @@ class Pipeline(BaseModel):
     name: str
     type: str
     prefix: str
-    schedule: Optional[List]
+    schedule: Optional[list]
     trigger: Optional[Union[list, set]]
-    alert: Optional[List[str]]
-    nodes: Dict[int, Dict]
+    alert: Optional[list[str]]
+    nodes: dict[int, dict]
 
 
 Catalog = Union[Table, Function, Pipeline]
@@ -44,4 +42,4 @@ Catalog = Union[Table, Function, Pipeline]
 
 class Category(BaseModel):
     category: str
-    data: List[Catalog]
+    data: list[Catalog]

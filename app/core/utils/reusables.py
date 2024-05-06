@@ -12,10 +12,9 @@ import random
 import re
 import string
 from collections import defaultdict
+from collections.abc import Iterable
 from typing import (
     AnyStr,
-    Iterable,
-    List,
     Optional,
     Union,
 )
@@ -288,7 +287,7 @@ def convert_str_bool(str_bool: str, force_raise: bool = False) -> bool:
 
 
 # utility function -------------------------------------------------------------
-def sort_by_priority_list(values: Iterable, priority: List) -> List:
+def sort_by_priority_list(values: Iterable, priority: list) -> list:
     """
     Sorts an iterable according to a list of priority items.
     Usage

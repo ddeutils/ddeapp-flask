@@ -13,13 +13,14 @@ import itertools
 import time
 from typing import (
     Any,
-    Iterator,
     List,
     Optional,
     Tuple,
     Type,
     Union,
 )
+
+from collections.abc import Iterator
 
 import pandas as pd
 from sqlalchemy.exc import ProgrammingError
@@ -197,7 +198,7 @@ def get_time_checkpoint(
     return get_run_date(date_type=(date_type or 'date_time'))
 
 
-def split_choose(choose: Union[str, list]) -> Tuple[list, list]:
+def split_choose(choose: Union[str, list]) -> tuple[list, list]:
     processes: list = list(set(choose)) if isinstance(choose, list) else [choose]
     _process: dict = {'reject': [], 'filter': []}
     for process in processes:
@@ -292,7 +293,7 @@ class Control:
             return {}
 
     @classmethod
-    def tables(cls, condition: Optional[str] = None) -> List[dict]:
+    def tables(cls, condition: Optional[str] = None) -> list[dict]:
         """Get all tables with `condition` argument from `ctr_data_pipeline` in
         target database and convert to python list of dictionary type.
         """
@@ -322,7 +323,7 @@ class Control:
         return [{'table_name': name} for name in _sorted]
 
     @classmethod
-    def catalogs(cls) -> List[dict]:
+    def catalogs(cls) -> list[dict]:
         """Get all catalogs from all configuration file at `./conf/catalog` path
         """
         _result: list = list(get_catalogs(
@@ -895,7 +896,7 @@ class TblProcess(TblCatalog):
             mode: str,
             action: str,
             update_date: dt.datetime,
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         ps_row_success: int = 0
         ps_row_failed: int = 0
         _start_time: dt.datetime = get_time_checkpoint()
@@ -1368,7 +1369,7 @@ class TblProcess(TblCatalog):
             'daily'
         )
 
-    def _generate_tbl_columns_diff(self) -> Tuple[dict, ...]:
+    def _generate_tbl_columns_diff(self) -> tuple[dict, ...]:
         _pull_cols: dict = self.pull_tbl_columns_datatype()
         _get_cols: dict = self.get_tbl_columns(
             pk_included=True, datatype_included=True
@@ -1734,7 +1735,7 @@ class Node(TblProcess):
             )
         return self.tbl_process_count - len(_excluded)
 
-    def _prepare_before_rerun(self, sla: int) -> Tuple[dt.date, dt.date]:
+    def _prepare_before_rerun(self, sla: int) -> tuple[dt.date, dt.date]:
         _run_date: dt.date = (
             self.tbl_run_date
             if self.node_tbl_run_mode == 'common'
@@ -1886,7 +1887,7 @@ class Node(TblProcess):
     def ingest_action(self) -> str:
         return self.node_tbl_params.get('ingest_action', 'insert')
 
-    def ingest_start(self) -> Tuple[int, int]:
+    def ingest_start(self) -> tuple[int, int]:
         if (
                 self.ingest_mode not in {'common', 'merge'}
                 or self.ingest_action not in {'insert', 'update'}
@@ -1908,7 +1909,7 @@ class Node(TblProcess):
                 f"the current control data date: "
                 f"'{self.tbl_ctr_data_date:'%Y-%m-%d'}'"
             )
-        _row_record: Tuple[int, int] = self.push_tbl_ingestion(
+        _row_record: tuple[int, int] = self.push_tbl_ingestion(
             payloads=self.ingest_payloads,
             mode=self.ingest_mode,
             action=self.ingest_action,
@@ -2073,7 +2074,7 @@ class PipeProcess(PipeCatalog):
             self,
             node_props: Optional[dict] = None,
             auto_update: bool = True
-    ) -> Iterator[Tuple[int, Node]]:
+    ) -> Iterator[tuple[int, Node]]:
         """Pull all nodes that the pipeline contains in configuration file and
         passing node's properties.
         """
@@ -2443,7 +2444,7 @@ class Process:
         return self.ps_component
 
     @property
-    def obj(self) -> Type[Union[Node, Pipeline]]:
+    def obj(self) -> type[Union[Node, Pipeline]]:
         if self.ps_type == 'undefined':
             raise ProcessValueError(
                 f"Process does not support attribute `obj` "
@@ -2565,7 +2566,7 @@ class Process:
         return self.update_task(update_values=_update)
 
 
-ObjectType: Type = Optional[Union[Node, Pipeline, Action]]
+ObjectType: type = Optional[Union[Node, Pipeline, Action]]
 
 
 # [x] Migrate to modern style by `Schema` Service Model
