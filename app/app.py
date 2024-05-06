@@ -284,8 +284,10 @@ def create_app(
             from .controls import (
                 push_ctr_setup,
                 push_func_setup,
+                push_schema_setup,
             )
 
+            push_schema_setup()
             push_func_setup()
             push_ctr_setup()
 

@@ -50,7 +50,16 @@ def push_close_ssh(force: bool = False):
         server.close()
 
 
-def push_func_setup(task: Optional[Task] = None) -> None:
+def push_schema_setup() -> None:
+    from app.core.__legacy.objects import Schema
+
+    _schema: Schema = Schema()
+    if not _schema.exists:
+        _schema.create()
+        logger.info("Success: Create Schema to target database.")
+
+
+def push_func_setup(task: Task | None = None) -> None:
     """Run Setup function in `register.yaml`"""
     task: Task = task or Task.make(module="function_setup")
     functions = registers.functions
