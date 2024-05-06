@@ -6,6 +6,7 @@ changelog = "CHANGELOG.md"
 commit_prefix_force_fix = true
 commit_prefix = [
     ["initial", "Features", ":bulb:"],
+    ["v0.2.0", "Features", ":bulb:"],
 ]
 
 [tool.ruff]

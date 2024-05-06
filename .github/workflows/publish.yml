@@ -6,8 +6,11 @@ on:
       - 'v*.*.*'
 
 jobs:
-  publish:
+  publish-image:
     runs-on: ubuntu-latest
+    environment:
+      name: gh-image
+      url: https://github.com/ddeutils/ddeapp-flask/pkgs/container/dfa-flask
     permissions:
       packages: write
 
@@ -21,16 +24,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build the dfa-flask-postgres Docker image
+      - name: Build Docker image
         run: |
-          docker build . --tag ghcr.io/korawica/dfa-flask-postgres:latest
-          docker push ghcr.io/korawica/dfa-flask-postgres:latest
+          docker build . --tag ${{ vars.GH_REPO_URL }}:latest
+          docker push ${{ vars.GH_REPO_URL }}:latest
 
-      - name: Test Running the dfa-flask-postgres Docker image
+      - name: Test Running Docker image
         run: |
-          docker pull ghcr.io/korawica/dfa-flask-postgres:latest
+          docker pull ${{ vars.GH_REPO_URL }}:latest
           docker run -d \
-            --name dfa-flask-postgres-local \
+            --name ddeapp-flask-local \
             -p 5000:5000 \
-            ghcr.io/korawica/dfa-flask-postgres:latest
+            ${{ vars.GH_REPO_URL }}:latest
           docker ps -a

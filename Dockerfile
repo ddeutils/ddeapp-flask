@@ -43,8 +43,6 @@ RUN touch ./.env  \
 # Copy .env if the deploy process can not add .env in agent after run docker
 COPY ./.env ./.env
 
-# The container listens on the specified network port
 EXPOSE 5000
 
-# Command to run on container start
-CMD [ "python", "./manage.py", "run", "--api", "--recreated"]
+ENTRYPOINT python ./manage.py run --api --recreated
