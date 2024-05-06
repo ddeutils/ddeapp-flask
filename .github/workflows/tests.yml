@@ -27,6 +27,7 @@ jobs:
           - ubuntu-latest
         python-version:
           - "3.9"
+          - "3.10"
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -37,19 +38,26 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         id: cache
         with:
-          path: ${{ env.pythonLocation }}
-          key: ${{ runner.os }}-python-${{ env.pythonLocation }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements.analytic.txt') }}-test
+          path: .venv
+          key: ${{ runner.os }}-python-${{ env.pythonLocation }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements.analytic.txt') }}-test-v01
 
       - name: Install Dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          pip install -U pip
-          pip install -r requirements.analytic.txt
-          pip install -r requirements.txt
-          pip install pytest
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv venv
+          uv pip install -U pip
+          uv pip install -r requirements.analytic.txt
+          uv pip install -r requirements.txt
+          uv pip install pytest
+
+      - name: Use Python virtual environment
+        run: |
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> $GITHUB_PATH
+          echo "VIRTUAL_ENV=$GITHUB_WORKSPACE/.venv" >> $GITHUB_ENV
 
       - name: Check git is working
         run: |

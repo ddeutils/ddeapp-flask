@@ -10,12 +10,11 @@
 * [CI/CD Flow](#application-cicd-flow)
 * [Service Reference](#service-reference)
 
-This is the Full-Stack **Data Framework Application** (DFA) that was built by 
-[Flask Micro-Web Application Framework](https://flask.palletsprojects.com/en/2.0.x/)
-and does not use any 3th-party of data orchestration or data framework like; 
-[Airflow](https://airflow.apache.org/), [Dagster](https://dagster.io/),
-[Prefect](https://www.prefect.io/), or [Airbyte](https://airbyte.com/).
-Then it was making this framework application is easy to enhance, fix, and deploy
+This is the Full-Stack **Data Framework Application** that was built by 
+[Flask](https://flask.palletsprojects.com/en/2.0.x/)
+and does not use any 3th-party of data orchestration or data framework libs like; 
+[Airflow](https://airflow.apache.org/), [Dagster](https://dagster.io/), [Prefect](https://www.prefect.io/), or [Airbyte](https://airbyte.com/).
+Then I was making this framework application is easy to enhance, fix, and deploy
 on different environments or systems. It has [fewer dependencies](requirements.txt),
 less complex code, and lightweight of coding which mean you can remove some components
 of this framework before deploy without error or with debuggable error.
@@ -121,9 +120,9 @@ There are 3 ways to build application with input parameters. If both types were
 created at the same time, the application inherits from `environment parameter` 
 first.
 
-- [Built with setting `environment variables` in local]()
-- [Built with the `.env` file]()
-- [Built with Docker Compose]()
+- [Built with setting `environment variables` in local](#built-with-setting-environment-variables-in-local)
+- [Built with the `.env` file](#built-with-the-env-file)
+- [Built with Docker Compose](#built-with-docker-compose)
 
 ### Built with setting `environment variables` in local
      
