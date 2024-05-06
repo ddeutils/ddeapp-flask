@@ -5,14 +5,14 @@
 # ------------------------------------------------------------------------------
 import queue
 
-from ....core.errors import (
-    ObjectBaseError,
-    ProcessStatusError,
-)
-from ....core.legacy.objects import (
+from ....core.__legacy.objects import (
     Node,
     ObjectType,
     Pipeline,
+)
+from ....core.errors import (
+    ObjectBaseError,
+    ProcessStatusError,
 )
 from ....core.models import (
     CommonResult,

@@ -42,11 +42,11 @@ from app.core.errors import (
     TableNotImplement,
     TableValidatorError,
 )
-from app.core.legacy.convertor import (
+from app.core.__legacy.convertor import (
     Statement,
     reduce_stm,
 )
-from app.core.legacy.models import VerboseObject
+from app.core.__legacy.models import VerboseObject
 from app.core.utils.config import (
     AI_APP_PATH,
     Params,

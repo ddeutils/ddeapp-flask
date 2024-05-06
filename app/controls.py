@@ -13,12 +13,17 @@ from psycopg2 import OperationalError as PsycopgOperationalError
 from sqlalchemy.exc import OperationalError
 
 from app.blueprints.api.framework.tasks import foreground_tasks
+from app.core.__legacy.objects import (
+    Action,
+    Control,
+    Node,
+    Pipeline,
+)
 from app.core.base import get_catalogs
 from app.core.errors import (
     CatalogBaseError,
     ObjectBaseError,
 )
-from app.core.legacy.objects import Action, Control, Node, Pipeline
 from app.core.models import (
     Result,
     Status,

@@ -1193,12 +1193,15 @@ class Pipeline(BaseUpdatableModel):
                 ):
                     _trigger = _trigger.replace(_, _.strip('()'))
             _trigger: str = _trigger.replace('(', '( ').replace(')', ' )')
-            return [x.strip() for x in (
+            return [
+                x.strip()
+                for x in (
                     _trigger
                     .replace(config.pipe_cond_and, f' {config.pipe_cond_and} ')
                     .replace(config.pipe_cond_or, f' {config.pipe_cond_or} ')
                     .split()
-                )]
+                )
+            ]
 
         if isinstance(value, list):
             return value

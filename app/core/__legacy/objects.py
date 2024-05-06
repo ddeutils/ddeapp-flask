@@ -52,7 +52,7 @@ from app.core.errors import (
     TableNotFound,
     TableNotImplement,
 )
-from app.core.legacy.base import (
+from app.core.__legacy.base import (
     AI_APP_PATH,
     FuncCatalog,
     PipeCatalog,
@@ -68,7 +68,7 @@ from app.core.legacy.base import (
     sort_by_priority,
     verbose_log,
 )
-from app.core.legacy.convertor import (
+from app.core.__legacy.convertor import (
     Statement,
     Value,
     reduce_in_value,
@@ -77,7 +77,7 @@ from app.core.legacy.convertor import (
     reduce_value,
     reduce_value_pairs,
 )
-from app.core.legacy.models import Status, VerboseDummy
+from app.core.__legacy.models import Status, VerboseDummy
 from app.core.utils.cache import ignore_unhash
 from app.core.utils.config import (
     Environs,

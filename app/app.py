@@ -69,6 +69,8 @@ def create_app(
     :param settings_override: Override settings
     :param frontend: Run Flask server included frontend component flag
     :param recreated: Re-create table in target database
+    :type recreated: bool(=False)
+
     :return: Flask app
     """
     app = Flask(
@@ -97,9 +99,6 @@ def create_app(
 
     # update override configuration to app
     app.config.update(settings_override or {})
-
-    # import pprint
-    # pprint.pprint(app.config, indent=2)
 
     # Set the Jinja Template environment config
     app.jinja_env.lstrip_blocks = True

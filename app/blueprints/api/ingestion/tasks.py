@@ -6,12 +6,12 @@
 import queue
 from typing import Callable
 
-from ....core.base import get_plural
-from ....core.errors import ObjectBaseError
-from ....core.legacy.objects import (
+from ....core.__legacy.objects import (
     Node,
     ObjectType,
 )
+from ....core.base import get_plural
+from ....core.errors import ObjectBaseError
 from ....core.models import (
     CommonResult,
     Result,
