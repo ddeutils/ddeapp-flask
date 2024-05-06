@@ -1,41 +1,50 @@
-# set base image (host OS)
-# TODO: Look more images in https://hub.docker.com/r/tiangolo/uwsgi-nginx/
-FROM python:3.9-slim
+FROM python:3.9 AS build
 
-RUN apt-get clean \
-    && apt-get -y update \
-    && apt-get cache clean
-
-RUN apt-get update \
-    && apt-get -y install nginx python3-dev build-essential \
+RUN apt-get update  \
+    && apt-get -y install build-essential nginx curl \
     && apt-get clean
 
-# set the working directory in the container
-WORKDIR /app
+ENV VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
 
-# copy the dependencies file to the working directory
-COPY requirements.pre.txt ./requirements.pre.txt
+ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
+
+RUN /install.sh  \
+    && rm /install.sh
+
+COPY ./requirements.analytic.txt ./requirements.analytic.txt
 COPY ./requirements.txt ./requirements.txt
 
-# install dependencies
-RUN pip install --no-cache-dir -r requirements.pre.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN /root/.cargo/bin/uv venv /opt/venv
 
-# copy the content of the local directory to the working directory
+RUN /root/.cargo/bin/uv pip install -U pip \
+    && /root/.cargo/bin/uv pip install --no-cache -r requirements.analytic.txt \
+    && /root/.cargo/bin/uv pip install --no-cache -r requirements.txt
+
+FROM python:3.9-alpine
+
+COPY --from=build /opt/venv /opt/venv
+
+# Activate the virtualenv in the container
+# See here for more information:
+# https://pythonspeed.com/articles/multi-stage-docker-python/
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy the content of the local directory to the working directory
 COPY app ./app
 COPY conf ./conf
 COPY tests ./tests
 COPY ./manage.py ./manage.py
 
-# touch config file before run container with .env option
-RUN touch ./.env
-RUN mkdir -p ./logs
+# Touch config file before run container with .env option
+RUN touch ./.env  \
+    && mkdir -p ./logs
 
-# copy .env if the deploy process can not add .env in agent after run docker
+# Copy .env if the deploy process can not add .env in agent after run docker
 COPY ./.env ./.env
 
-# the container listens on the specified network port
+# The container listens on the specified network port
 EXPOSE 5000
 
-# command to run on container start
-CMD [ "python", "./manage.py", "run", "--api=True", "recreate=True"]
+# Command to run on container start
+CMD [ "python", "./manage.py", "run", "--api", "--recreated"]

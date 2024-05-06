@@ -2,22 +2,19 @@ version: "3"
 services:
     postgres:
         container_name: postgres
-
         # Use alpine images if possible. They’re usually smaller in size.
         # For instance,
         #       postgres:14.2 is 131mb in size whereas postgres:14.2-alpine
         #       is only 78mb with the same functionality.
         # Additionally, alpine images are secure because all the userspace
         # binaries are compiled to protect against common vulnerabilities.
-        image: postgres:12.14-alpine
-        restart: always
+        image: postgres:13-alpine
+#        restart: always
         environment:
-            - PGUSER=postgres
-            - PGPASSWORD=P@ssW0rd
-            - PGDATABASE=postgres
             - POSTGRES_USER=postgres
             - POSTGRES_PASSWORD=P@ssW0rd
             - POSTGRES_DB=postgres
+            # - POSTGRES_INITDB_ARGS
         ports:
             - "5432:5432"
 
@@ -26,23 +23,20 @@ services:
         # 2) ALTER SYSTEM SET shared_preload_libraries='pg_stat_statements';
         # 3) Restart Database
         command: |
-            postgres \
-                -c shared_preload_libraries=pg_stat_statements \
-                -c pg_stat_statements.track=all \
+            postgres
+                -c shared_preload_libraries='pg_stat_statements'
+                -c pg_stat_statements.track=all
                 -c max_connections=200
 
         # Use a persistent volume to store data. As mentioned above,
         # without a persistent volume, you’ll lose data if the
         # container restarts.
         volumes:
-            - postgres-db-volume:/var/lib/postgresql/data
-            # - ./data/postgres-data:/var/lib/postgresql/data
+            - ./data/postgres-data:/var/lib/postgresql/data
+            - ./scripts/postgres-extensions:/docker-entrypoint-initdb.d
             # - ./data/initial/db/init.sql:/docker-entrypoint-initdb.d/create_tables.sql
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U postgres"]
-            interval: 5s
+            test: [ "CMD-SHELL", "sh -c 'pg_isready -U postgres -d postgres'"]
+            interval: 10s
             timeout: 5s
             retries: 5
-
-volumes:
-    postgres-db-volume:
