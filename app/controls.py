@@ -14,7 +14,6 @@ from sqlalchemy.exc import OperationalError
 
 from app.blueprints.api.framework.tasks import foreground_tasks
 from app.core.__legacy.objects import (
-    Action,
     Control,
     Node,
     Pipeline,
@@ -29,6 +28,7 @@ from app.core.models import (
     Status,
 )
 from app.core.services import (
+    Action,
     ActionQuery,
     Schema,
     Task,
@@ -64,23 +64,18 @@ def push_schema_setup() -> None:
 
 def push_func_setup(task: Optional[Task] = None) -> None:
     """Run Setup function in `register.yaml`"""
-    task: Task = task or Task.make(module="function_setup")
+    _: Task = task or Task.make(module="function_setup")
     for idx, _func_prop in enumerate(registers.functions, start=1):
-        try:
-            _func: Action = Action(
-                _func_prop["name"], process_id=task.id, auto_create=False
-            )
-        except ObjectBaseError:
-            _func: Action = Action(
-                _func_prop["name"], process_id=task.id, auto_create=True
-            )
+        _func: Action = Action.parse_name(fullname=_func_prop["name"])
+        if not _func.exists():
+            _func.create()
         logger.info(
             f"START {idx:02d}: {_func.name} "
             f'{"~" * (30 - len(_func.name) + 31)}'
         )
         logger.info(
             f"Success: Setup {_func.name} "
-            f"with logging value {_func.process_time} sec"
+            f"with logging value {_func.tag.ts:%Y-%m-%d %H-%M-%S} sec"
         )
 
 
@@ -303,7 +298,7 @@ def push_initialize_frontend(): ...
 
 
 def push_testing() -> None:
-    from app.core.services import Action, Node, Schema
+    from app.core.services import Node, Schema
 
     Schema().create()
 
@@ -313,17 +308,4 @@ def push_testing() -> None:
         start=1,
     ):
         node = Node.parse_name(fullname=_ctr_prop["name"])
-        logger.info(node)
-
-    for idx, _func_prop in enumerate(registers.functions, start=1):
-        _func: Action = Action.parse_name(_func_prop["name"])
-        if _func.name == "func_count_if_exists" and not _func.exists():
-            _func.create()
-        logger.info(
-            f"START {idx:02d}: {_func.name} "
-            f'{"~" * (30 - len(_func.name) + 31)}'
-        )
-        logger.info(_func.exists())
-        logger.info(
-            f"Success: Setup {_func.name} " f"with logging value {_func} sec"
-        )
+        logger.info(node.exists())

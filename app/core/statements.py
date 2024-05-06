@@ -153,8 +153,8 @@ class TableStatement(Table):
         return reduce_stm(
             f"SELECT CASE WHEN EXISTS("
             f"SELECT FROM {{database_name}}.information_schema.tables "
-            f"WHERE table_schema = {{ai_schema_name}} "
-            f"AND table_name = {self.name}"
+            f"WHERE table_schema = '{{ai_schema_name}}' "
+            f"AND table_name = '{self.name}'"
             f") THEN 'True' ELSE 'False' END AS check_exists"
         )
 

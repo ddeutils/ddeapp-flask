@@ -499,17 +499,22 @@ dictConfig(
                 "level": "INFO",
                 "propagate": False,
             },
-            "application.components.api.analytic.tasks": {
+            "app.blueprints.api.analytic.tasks": {
                 "handlers": ["console"],
                 "level": "DEBUG" if DEBUG else "INFO",
                 "propagate": False,
             },
-            "application.components.api.framework": {
+            "app.blueprints.api.framework": {
                 "handlers": ["console"],
                 "level": "DEBUG" if DEBUG else "INFO",
                 "propagate": False,
             },
-            "application.utils": {
+            "app.core.utils": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "app.core.validators": {
                 "handlers": ["console"],
                 "level": "INFO",
                 "propagate": False,

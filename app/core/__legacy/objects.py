@@ -1771,7 +1771,8 @@ class Action(FuncProcess):
 
 
 class Node(TblProcess):
-    """Node object for control process of table object and log to Control task process"""
+    """Node object for control process of table object and log to Control task
+    process"""
 
     @classmethod
     def convert_short(cls, name_short: str) -> str:

@@ -110,7 +110,7 @@ class BaseNode(TableStatement):
 
     def exists(self) -> bool:
         """Push exists statement to target database"""
-        return query_select_check(self.statement_check())
+        return query_select_check(self.statement_check(), parameters=True)
 
     def log_push(self): ...
 
