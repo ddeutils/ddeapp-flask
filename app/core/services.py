@@ -132,6 +132,8 @@ class Node(BaseNode):
 
     def retention(self): ...
 
+    def init(self): ...
+
 
 class NodeIngest(BaseNode):
     """Node for Ingestion"""
@@ -147,6 +149,18 @@ class NodeIngest(BaseNode):
 
 class Pipeline(PipelineCatalog):
     """Pipeline Service Model"""
+
+    def nodes(self): ...
+
+    def log_push(self): ...
+
+    def log_fetch(self): ...
+
+    def check_triggered(self): ...
+
+    def check_scheduled(self): ...
+
+    def schedule_push(self): ...
 
 
 class Task(BaseTask):

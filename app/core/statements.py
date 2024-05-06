@@ -159,7 +159,9 @@ class TableStatement(Table):
         )
 
     def statement_create(
-        self, bk: bool = False, bk_name: Optional[str] = None
+        self,
+        bk: bool = False,
+        bk_name: Optional[str] = None,
     ) -> str:
         """Generate create statement
 
@@ -182,9 +184,11 @@ class TableStatement(Table):
         )
         return (
             re.sub(
-                r"{database_name}\.{ai_schema_name}\.\w+",
-                f"{{database_name}}.{{ai_schema_name_backup}}."
-                f"{bk_name or f'{self.name}_bk'}",
+                r"{{database_name}\.{ai_schema_name}\.\w+",
+                (
+                    f"{{database_name}}.{{ai_schema_name_backup}}."
+                    f"{bk_name or f'{self.name}_bk'}"
+                ),
                 create_stm,
             )
             if bk
@@ -192,7 +196,9 @@ class TableStatement(Table):
         )
 
     def statement_create_partition(
-        self, start: str, end: Optional[str] = None
+        self,
+        start: str,
+        end: Optional[str] = None,
     ) -> str:
         """Generate create partition statement
 
