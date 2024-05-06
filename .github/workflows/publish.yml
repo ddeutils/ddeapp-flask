@@ -33,7 +33,7 @@ jobs:
         run: |
           docker pull ${{ vars.GH_REPO_URL }}:latest
           docker run -d \
-            --name ddeapp-flask-local \
+            --name dfa-flask-local \
             -p 5000:5000 \
             ${{ vars.GH_REPO_URL }}:latest
           docker ps -a
