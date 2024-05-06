@@ -76,6 +76,7 @@ from app.core.__legacy.convertor import (
     reduce_value_pairs,
 )
 from app.core.__legacy.models import Status, VerboseDummy
+from app.core.utils import ptext
 from app.core.utils.cache import ignore_unhash
 from app.core.utils.config import (
     Environs,
@@ -576,7 +577,7 @@ class TblProcess(TblCatalog):
 
         if not self.check_tbl_exists:
             logger.warning(
-                f"Table {self.tbl_name} not found in AI Database ..."
+                f"Table {self.tbl_name!r} not found in AI Database ..."
             )
             if self.tbl_auto_create:
                 self.tbl_just_init: int = self.push_tbl_create(
@@ -791,7 +792,9 @@ class TblProcess(TblCatalog):
     def push_tbl_drop_partition(self): ...
 
     def push_tbl_create(
-        self, force_drop: bool = False, cascade: bool = False
+        self,
+        force_drop: bool = False,
+        cascade: bool = False,
     ) -> int:
         """Push create table"""
         if self.tbl_just_create:
@@ -1439,7 +1442,8 @@ class TblProcess(TblCatalog):
         return Control("ctr_data_pipeline").push(push_values=_push_values)
 
     def update_tbl_to_ctr_pipeline(
-        self, update_values: Optional[dict] = None
+        self,
+        update_values: Optional[dict] = None,
     ) -> int:
         """Update data information to the Control Data Pipeline"""
         _update_values: dict = merge_dicts(
@@ -1457,7 +1461,7 @@ class TblProcess(TblCatalog):
         except DatabaseProcessError as err:
             logger.warning(
                 f"Does not update control data pipeline table because of, \n"
-                f"{err}"
+                f"{ptext(str(err))}"
             )
             return 0
 

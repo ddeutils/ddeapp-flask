@@ -59,7 +59,7 @@ def push_schema_setup() -> None:
         logger.info("Success: Create Schema to target database.")
 
 
-def push_func_setup(task: Task | None = None) -> None:
+def push_func_setup(task: Optional[Task] = None) -> None:
     """Run Setup function in `register.yaml`"""
     task: Task = task or Task.make(module="function_setup")
     functions = registers.functions
