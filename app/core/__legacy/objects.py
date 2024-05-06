@@ -1659,7 +1659,8 @@ class FuncProcess(FuncCatalog):
     def push_query(self, limit: int = 10):
         if self.func_type not in {"query", "view", "mview"}:
             raise FuncRaiseError(
-                f"Function type {self.func_type!r} does not support for query method"
+                f"Function type {self.func_type!r} does not support for query "
+                f"method"
             )
 
         stm = Statement(self.get_func_stm_create())

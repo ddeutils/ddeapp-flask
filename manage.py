@@ -5,6 +5,7 @@
 # ------------------------------------------------------------------------------
 
 import os
+import sys
 
 import click
 
@@ -175,12 +176,16 @@ def runserver(
 @click.command(name="test", short_help="test application server")
 def test():
     """Test Application Server"""
-    ...
+    from app.controls import push_testing
+
+    push_testing()
+    sys.exit(0)
 
 
 cli.add_command(load)
 cli.add_command(migrate)
 cli.add_command(runserver)
+cli.add_command(test)
 
 
 if __name__ == "__main__":

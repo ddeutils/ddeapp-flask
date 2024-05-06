@@ -28,7 +28,11 @@ from app.core.models import (
     Result,
     Status,
 )
-from app.core.services import Task
+from app.core.services import (
+    ActionQuery,
+    Schema,
+    Task,
+)
 from app.core.utils.config import (
     Environs,
     Params,
@@ -51,8 +55,7 @@ def push_close_ssh(force: bool = False):
 
 
 def push_schema_setup() -> None:
-    from app.core.__legacy.objects import Schema
-
+    """Run Set up the main schema"""
     _schema: Schema = Schema()
     if not _schema.exists:
         _schema.create()
@@ -62,8 +65,7 @@ def push_schema_setup() -> None:
 def push_func_setup(task: Optional[Task] = None) -> None:
     """Run Setup function in `register.yaml`"""
     task: Task = task or Task.make(module="function_setup")
-    functions = registers.functions
-    for idx, _func_prop in enumerate(functions, start=1):
+    for idx, _func_prop in enumerate(registers.functions, start=1):
         try:
             _func: Action = Action(
                 _func_prop["name"], process_id=task.id, auto_create=False
@@ -175,16 +177,17 @@ def push_ctr_stop_running() -> None:
 
     try:
         logger.info("Start update message and status to in-progress tasks.")
-        Action(
-            name="query:query_shutdown",
-            external_parameters={
-                "status": 1,
-                "process_message": (
-                    "Error: RuntimeError: Server shutdown while "
-                    "process was running in background"
-                ),
-            },
-        ).push_query()
+        (
+            ActionQuery.parse_name(fullname="query:query_shutdown").push(
+                params={
+                    "status": 1,
+                    "process_message": (
+                        "Error: RuntimeError: Server shutdown while "
+                        "process was running in background"
+                    ),
+                }
+            )
+        )
     except (OperationalError, PsycopgOperationalError):
         logger.warning("... Target database does not connectable.")
     logger.critical("Success server has been shut down :'(")
@@ -297,3 +300,30 @@ def push_load_file_to_db(
 
 
 def push_initialize_frontend(): ...
+
+
+def push_testing() -> None:
+    from app.core.services import Action, Node, Schema
+
+    Schema().create()
+
+    logger.info("Start Testing ...")
+    for _, _ctr_prop in enumerate(
+        registers.control_frameworks,
+        start=1,
+    ):
+        node = Node.parse_name(fullname=_ctr_prop["name"])
+        logger.info(node)
+
+    for idx, _func_prop in enumerate(registers.functions, start=1):
+        _func: Action = Action.parse_name(_func_prop["name"])
+        if _func.name == "func_count_if_exists" and not _func.exists():
+            _func.create()
+        logger.info(
+            f"START {idx:02d}: {_func.name} "
+            f'{"~" * (30 - len(_func.name) + 31)}'
+        )
+        logger.info(_func.exists())
+        logger.info(
+            f"Success: Setup {_func.name} " f"with logging value {_func} sec"
+        )

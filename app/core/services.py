@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import Field
 
@@ -20,6 +20,7 @@ from .models import (
 )
 from .statements import (
     FunctionStatement,
+    QueryStatement,
     SchemaStatement,
     TableStatement,
 )
@@ -45,6 +46,7 @@ env = Environs(env_name=".env")
 __all__ = (
     "Schema",
     "Action",
+    "ActionQuery",
     "Node",
     "Pipeline",
     "Task",
@@ -64,19 +66,38 @@ class Schema(SchemaStatement):
         """Push exists statement to target database"""
         return query_select_check(self.statement_check())
 
-    def create(self):
+    def create(self) -> "Schema":
         """Push create statement to target database"""
         query_execute(self.statement_create())
+        return self
 
-    def drop(self, cascade: bool = False):
+    def drop(self, cascade: bool = False) -> "Schema":
         """Push drop statement to target database"""
         query_execute(self.statement_drop(cascade=cascade))
+        return self
 
 
 class Action(FunctionStatement):
-    ...
 
-    def exists(self): ...
+    def exists(self) -> bool:
+        """Push exists statement to target database"""
+        return query_select_check(self.statement_check())
+
+    def create(self) -> None:
+        """Push create statement to target database"""
+        query_execute(self.statement_create(), parameters=True)
+
+
+class ActionQuery(QueryStatement):
+
+    def push(self, params: dict[str, Any]):
+        query_execute(
+            self.statement(),
+            parameters={
+                "update_date": self.tag.ts.strftime("%Y-%m-%d %H:%M:%S"),
+                **params,
+            },
+        )
 
 
 class BaseNode(TableStatement):
@@ -126,8 +147,6 @@ class NodeIngest(BaseNode):
 
 class Pipeline(PipelineCatalog):
     """Pipeline Service Model"""
-
-    ...
 
 
 class Task(BaseTask):

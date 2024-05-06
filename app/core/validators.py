@@ -532,7 +532,7 @@ class Profile(BaseUpdatableModel):
     def prepare_foreign_key(
         cls, value: Union[list[dict], dict[str, dict[str, str]]]
     ):
-        """Prepare foreign key value before foreign key type validation occurs"""
+        """Prepare foreign key value before foreign key type validation occurs."""
         logger.debug("Profile: ... Start pre-validate foreign_key")
         if isinstance(value, list):
             return value
@@ -1421,9 +1421,6 @@ class Parameter(BaseUpdatableModel):
         elif rd := values["others"].pop("run_date", None):
             return [rd]
         return value
-
-    # class Config(BaseUpdatableModel.Config):
-    #     validate_all = True
 
 
 class ReleaseDate(BaseModel):

@@ -354,8 +354,16 @@ class FunctionStatement(Function):
     statement
     """
 
+    def statement_check(self) -> str:
+        return reduce_stm(
+            f"SELECT CASE WHEN EXISTS(SELECT * FROM pg_proc "
+            f"WHERE proname = '{self.name}') THEN 'True' ELSE 'False' "
+            f"END AS check_exists"
+        )
+
     def statement_create(self) -> str:
-        return self.profile.statement
+        """Return function profile statement."""
+        return reduce_stm(self.profile.statement)
 
     def statement_drop(self, cascade: bool = False) -> str:
         """Generate drop statement
@@ -372,13 +380,20 @@ class FunctionStatement(Function):
         )
 
 
+class QueryStatement(Function):
+    """Query Model"""
+
+    def statement(self) -> str:
+        return reduce_stm(self.profile.statement)
+
+
 class SchemaStatement(Schema):
     """Schema Model with enhance with generator method for any Postgres
     statement
     """
 
     def statement_check(self) -> str:
-        """"""
+        """Generate check schema statement."""
         return reduce_stm(
             f"SELECT CASE WHEN EXISTS("
             f"SELECT FROM {{database_name}}.information_schema.schemata"

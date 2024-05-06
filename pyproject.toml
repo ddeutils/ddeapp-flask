@@ -57,4 +57,3 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-"app/core/__legacy/objects.py" = ["B019"]
