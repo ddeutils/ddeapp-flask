@@ -4,8 +4,8 @@ from unittest import mock
 
 from pydantic import ValidationError
 
-from ..models import Status, TaskComponent, TaskMode
-from ..validators import (
+from app.core.models import Status, TaskComponent, TaskMode
+from app.core.validators import (
     Column,
     Profile,
     Table,
