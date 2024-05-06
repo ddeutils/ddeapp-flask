@@ -55,9 +55,9 @@ def make_celery(app: Flask) -> Celery:
 
 
 def create_app(
-        settings_override: Optional[dict] = None,
-        frontend: bool = True,
-        recreated: bool = False,
+    settings_override: Optional[dict] = None,
+    frontend: bool = True,
+    recreated: bool = False,
 ):
     """Create a Flask application using the app factory pattern.
 
@@ -76,16 +76,14 @@ def create_app(
     app = Flask(
         __name__,
         # set up the template folder
-        template_folder='./templates',
-
+        template_folder="./templates",
         # set up the static folder and url path for request static file,
         # like url_for('static', filename='<filename-path>')
-        static_folder='./static',
-        static_url_path='/',
-
+        static_folder="./static",
+        static_url_path="/",
         # set up the instance folder
         # instance_path='./instance',
-        instance_relative_config=False
+        instance_relative_config=False,
     )
 
     # Set default logging handler from Flask to manual logging.
@@ -115,18 +113,21 @@ def create_app(
         # Initialize Blueprints for Core Engine
         from .blueprints.api import analytics, frameworks, ingestion
         from .securities import apikey_required
-        app.register_blueprint(frameworks, url_prefix='/api/ai/run')
-        app.register_blueprint(analytics, url_prefix='/api/ai/get')
-        app.register_blueprint(ingestion, url_prefix='/api/ai')
+
+        app.register_blueprint(frameworks, url_prefix="/api/ai/run")
+        app.register_blueprint(analytics, url_prefix="/api/ai/get")
+        app.register_blueprint(ingestion, url_prefix="/api/ai")
 
         # Exempt CSRF with API blueprints
         from .extensions import csrf
+
         csrf.exempt(frameworks)
         csrf.exempt(analytics)
         csrf.exempt(ingestion)
 
         # Exempt Limiter with API blueprints
         from .extensions import limiter
+
         limiter.exempt(ingestion)
 
         if frontend:
@@ -137,10 +138,11 @@ def create_app(
                 errors,
                 users,
             )
+
             app.register_blueprint(errors)
             app.register_blueprint(users)
-            app.register_blueprint(admin, url_prefix='/admin')
-            app.register_blueprint(auth, url_prefix='/api/auth')
+            app.register_blueprint(admin, url_prefix="/admin")
+            app.register_blueprint(auth, url_prefix="/api/auth")
 
             # Exempt CSRF to the admin and auth page
             csrf.exempt(admin)
@@ -148,6 +150,7 @@ def create_app(
 
             # Initialize Blueprints for Backend Static
             from .blueprints.frontend import catalogs, logs, nodes
+
             app.register_blueprint(nodes)
             app.register_blueprint(logs)
             app.register_blueprint(catalogs)
@@ -175,18 +178,19 @@ def create_app(
 
             logger.debug(
                 f'Request "{request.method} {request.url}"\n'
-                f'Header:\n'
-                f'{request.headers}'
+                f"Header:\n"
+                f"{request.headers}"
             )
 
-        @app.get('/api')
+        @app.get("/api")
         def api_index():
             logger.info("Start: Application was running ...")
-            return jsonify({
-                'message': "Success: Application was running ..."
-            }), HTTP_200_OK
+            return (
+                jsonify({"message": "Success: Application was running ..."}),
+                HTTP_200_OK,
+            )
 
-        @app.get('/apikey')
+        @app.get("/apikey")
         @apikey_required
         def apikey():
             """API Key endpoint returning a JSON message
@@ -206,64 +210,71 @@ def create_app(
                     description: The provided API key value is not valid
             """
             logger.info("Success: The AI app was running ...")
-            return jsonify({
-                'message': (
-                    "Connect with the apikey successful, "
-                    "the application was running ..."
-                )
-            }), HTTP_200_OK
+            return (
+                jsonify(
+                    {
+                        "message": (
+                            "Connect with the apikey successful, "
+                            "the application was running ..."
+                        )
+                    }
+                ),
+                HTTP_200_OK,
+            )
 
         @app.get("/health")
         def health():
-            return jsonify(
-                {'message': 'DFA Flask Postgres started!!!'}
-            ), HTTP_200_OK
+            return (
+                jsonify({"message": "DFA Flask Postgres started!!!"}),
+                HTTP_200_OK,
+            )
 
         @app.get("/")
         @app.get("/home")
         @limiter.limit("5/second", override_defaults=False)
         def home():
             if frontend:
-                return redirect(url_for('nodes.pipeline'))
-            return redirect(url_for('api_index'))
+                return redirect(url_for("nodes.pipeline"))
+            return redirect(url_for("api_index"))
 
-        @app.get('/about')
+        @app.get("/about")
         @limiter.limit("5/second", override_defaults=False)
         def about():
-            body = render_template('indexes/about.html')
+            body = render_template("indexes/about.html")
             response = make_response(body)
-            response.headers['X-Powered-By'] = 'Not-PHP/1.0'
+            response.headers["X-Powered-By"] = "Not-PHP/1.0"
             return response
 
-        @app.get('/alert')
+        @app.get("/alert")
         def alert():
-            return make_response(
-                render_template('indexes/alert.html')
-            )
+            return make_response(render_template("indexes/alert.html"))
 
-        @app.get('/beta')
+        @app.get("/beta")
         @cache.cached(timeout=5, unless=lambda: current_user.is_authenticated)
         def beta():
             from datetime import datetime
-            return jsonify({
-                "message": f"Coming Soon, {datetime.now()}"
-            }), HTTP_200_OK
 
-        @app.route('/opr/shutdown', methods=['GET'])
+            return (
+                jsonify({"message": f"Coming Soon, {datetime.now()}"}),
+                HTTP_200_OK,
+            )
+
+        @app.route("/opr/shutdown", methods=["GET"])
         @apikey_required
         def shutdown():
             """shutdown server"""
 
             def shutdown_server():
-                func = request.environ.get('werkzeug.server.shutdown')
+                func = request.environ.get("werkzeug.server.shutdown")
                 if func is None:
-                    raise RuntimeError('Not running with the Werkzeug Server')
+                    raise RuntimeError("Not running with the Werkzeug Server")
                 func()
 
             shutdown_server()
-            return jsonify({
-                'message': 'Success: Server shutting down ...'
-            }), HTTP_200_OK
+            return (
+                jsonify({"message": "Success: Server shutting down ..."}),
+                HTTP_200_OK,
+            )
 
         # Add events
         events(app)
@@ -274,6 +285,7 @@ def create_app(
                 push_ctr_setup,
                 push_func_setup,
             )
+
             push_func_setup()
             push_ctr_setup()
 
@@ -283,8 +295,7 @@ def create_app(
 
 
 def events(app: Flask) -> None:
-    """Add events
-    """
+    """Add events"""
 
     warp_app: Flask = app
 
@@ -292,10 +303,11 @@ def events(app: Flask) -> None:
     def called_on_teardown(error=None):
         """Called function on app teardown event."""
         if error:
-            logger.warning(f'Tearing down with error, {error}')
+            logger.warning(f"Tearing down with error, {error}")
 
         # For resource management
         from .extensions import db
+
         db.session.remove()
         db.engine.dispose()
 
@@ -303,8 +315,10 @@ def events(app: Flask) -> None:
     from psycopg2 import OperationalError as PsycopgOperationalError
     from sqlalchemy import text
     from sqlalchemy.exc import OperationalError
+
     try:
         from app.core.connections.postgresql import generate_engine
+
         engine = generate_engine()
 
         # Pre-connect to target database before start application
@@ -322,19 +336,19 @@ def events(app: Flask) -> None:
     #       )
     @warp_app.after_request
     def after_request_func(response):
-        origin = request.headers.get('Origin')
+        origin = request.headers.get("Origin")
         # Check method options.
-        if request.method == 'OPTIONS':
+        if request.method == "OPTIONS":
             response = make_response()
-            response.headers.add('Access-Control-Allow-Credentials', 'true')
-            response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+            response.headers.add("Access-Control-Allow-Credentials", "true")
+            response.headers.add("Access-Control-Allow-Headers", "Content-Type")
             # response.headers.add('Access-Control-Allow-Headers', 'x-csrf-token')
             response.headers.add(
-                'Access-Control-Allow-Methods',
-                'GET, POST, OPTIONS, PUT, PATCH, DELETE'
+                "Access-Control-Allow-Methods",
+                "GET, POST, OPTIONS, PUT, PATCH, DELETE",
             )
         else:
-            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            response.headers.add("Access-Control-Allow-Credentials", "true")
 
         if origin:
             logger.debug(f"Origin: {origin}")
@@ -346,7 +360,7 @@ def events(app: Flask) -> None:
             #       it will be 80.
             #       docs: https://tools.ietf.org/html/rfc6454#section-3.2.1
             # docs: https://acoshift.me/2019/0004-web-cors.html
-            response.headers.add('Access-Control-Allow-Origin', origin)
+            response.headers.add("Access-Control-Allow-Origin", origin)
         return response
 
 
@@ -371,49 +385,49 @@ def filters(app: Flask) -> None:
     warp_app: Flask = app
     logger.debug("Start set up filters to this application ...")
 
-    @warp_app.template_filter('tag-user')
+    @warp_app.template_filter("tag-user")
     def tag_user(text):
-        return Markup(re.sub(r'@(\w+)', r'<a href="/\1">@\1</a>', text))
+        return Markup(re.sub(r"@(\w+)", r'<a href="/\1">@\1</a>', text))
 
-    @warp_app.template_filter('make-img')
+    @warp_app.template_filter("make-img")
     def make_image(text):
         return re.sub(
-            r'img([a-zA-Z0-9_./:-]+)', r'<img width="100px" src="\1">',
+            r"img([a-zA-Z0-9_./:-]+)",
+            r'<img width="100px" src="\1">',
             text,
         )
 
-    @warp_app.template_filter('dumps')
+    @warp_app.template_filter("dumps")
     def dumps(text):
         return (
-            json.dumps(json.loads(text), indent=4, separators=(',', ': '))
-            if text else ""
+            json.dumps(json.loads(text), indent=4, separators=(",", ": "))
+            if text
+            else ""
         )
 
-    @warp_app.template_filter('pascal')
-    def pascal_case(text, joined: str = ''):
+    @warp_app.template_filter("pascal")
+    def pascal_case(text, joined: str = ""):
         return to_pascal_case(text, joined)
 
     def render_partial(
-            name: str,
-            renderer: Optional = None,
-            **context_data
+        name: str, renderer: Optional = None, **context_data
     ) -> Markup:
         return Markup(renderer(name, **context_data))
 
     @warp_app.context_processor
     def inject_render_partial():
         return {
-            'render_partial': partial(render_partial, renderer=render_template),
-            'now': datetime.utcnow(),
+            "render_partial": partial(render_partial, renderer=render_template),
+            "now": datetime.utcnow(),
         }
 
     # Add global function mapping to Jinja template.
     helpers: dict = {
-        'len': len,
-        'isinstance': isinstance,
-        'str': str,
-        'type': type,
-        'enumerate': enumerate,
+        "len": len,
+        "isinstance": isinstance,
+        "str": str,
+        "type": type,
+        "enumerate": enumerate,
     }
     app.jinja_env.globals.update(**helpers)
 
@@ -427,6 +441,7 @@ def extensions(app: Flask) -> None:
     logger.debug("Start set up extensions to this application ...")
 
     from .controls import push_ctr_stop_running
+
     atexit.register(push_ctr_stop_running)
 
     from .extensions import (
@@ -442,6 +457,7 @@ def extensions(app: Flask) -> None:
         mail,
         scheduler,
     )
+
     limiter.init_app(app)
     cache.init_app(app)
     csrf.init_app(app)
@@ -467,6 +483,7 @@ def extensions(app: Flask) -> None:
     # Register shutdown schedule in not debugging mode.
     if not app.debug:
         from .schedules import add_schedules
+
         add_schedules(scheduler)
         atexit.register(lambda: scheduler.shutdown(wait=False))
         scheduler.start()
@@ -475,10 +492,8 @@ def extensions(app: Flask) -> None:
         SWAGGER_UI_BLUEPRINT,
         SWAGGER_URL,
     )
-    app.register_blueprint(
-        SWAGGER_UI_BLUEPRINT,
-        url_prefix=SWAGGER_URL
-    )
+
+    app.register_blueprint(SWAGGER_UI_BLUEPRINT, url_prefix=SWAGGER_URL)
 
 
 def middleware(app: Flask):
@@ -499,21 +514,21 @@ def middleware(app: Flask):
 
 
 def load_data(
-        filename: str,
-        target: str,
-        truncate: bool = False,
-        compress: Optional[str] = None
+    filename: str,
+    target: str,
+    truncate: bool = False,
+    compress: Optional[str] = None,
 ) -> None:
     """Load data from local to target database
 
     :return: None
     """
     from .controls import push_load_file_to_db
-    push_load_file_to_db(
-        filename, target, truncate=truncate, compress=compress
-    )
+
+    push_load_file_to_db(filename, target, truncate=truncate, compress=compress)
 
 
 def migrate_table() -> None:
     from .controls import pull_migrate_tables
+
     pull_migrate_tables()

@@ -1,15 +1,13 @@
 import unittest
 
 parameters: dict = {
-    "list_tbl_priority": ['ctr', 'src', 'ai', 'imp', 'plt'],
-    "map_tbl_ps_sla": {
-        "daily": 'date_range_sla_day'
-    },
+    "list_tbl_priority": ["ctr", "src", "ai", "imp", "plt"],
+    "map_tbl_ps_sla": {"daily": "date_range_sla_day"},
     "bs_stm": {
         "drop": {
             "tbl": "drop table if exists {{database_name}}.{{ai_schema_name}}.{table_name} {cascade}"
         }
-    }
+    },
 }
 
 environment: str = """
@@ -23,11 +21,8 @@ DB_NAME=database-name
 
 
 class ConfigTestCase(unittest.TestCase):
-    def setUp(self) -> None:
-        ...
+    def setUp(self) -> None: ...
 
-    def tearDown(self) -> None:
-        ...
+    def tearDown(self) -> None: ...
 
-    def test_dummy(self):
-        ...
+    def test_dummy(self): ...

@@ -38,57 +38,58 @@ from .models import TokenBlockList
 auth = Blueprint("auth", __name__)
 
 
-@auth.post('/register')
+@auth.post("/register")
 # @swag_from('./docs/auth/register.yaml')
 def register():
-    username = request.json['username']
-    email = request.json['email']
-    password = request.json['password']
+    username = request.json["username"]
+    email = request.json["email"]
+    password = request.json["password"]
 
     if len(password) < 6:
-        return jsonify({'error': "Password is too short"}), HTTP_400_BAD_REQUEST
+        return jsonify({"error": "Password is too short"}), HTTP_400_BAD_REQUEST
 
     if len(username) < 3:
-        return jsonify({'error': "User is too short"}), HTTP_400_BAD_REQUEST
+        return jsonify({"error": "User is too short"}), HTTP_400_BAD_REQUEST
 
     if not username.isalnum() or " " in username:
-        return jsonify({
-            'error': "Username should be alphanumeric, also no spaces"
-        }), HTTP_400_BAD_REQUEST
+        return (
+            jsonify(
+                {"error": "Username should be alphanumeric, also no spaces"}
+            ),
+            HTTP_400_BAD_REQUEST,
+        )
 
     if not validate_email(email):
-        return jsonify({'error': "Email is not valid"}), HTTP_400_BAD_REQUEST
+        return jsonify({"error": "Email is not valid"}), HTTP_400_BAD_REQUEST
 
     if User.query.filter_by(email=email).first() is not None:
-        return jsonify({'error': "Email is taken"}), HTTP_409_CONFLICT
+        return jsonify({"error": "Email is taken"}), HTTP_409_CONFLICT
 
     if User.query.filter_by(username=username).first() is not None:
-        return jsonify({'error': "username is taken"}), HTTP_409_CONFLICT
+        return jsonify({"error": "username is taken"}), HTTP_409_CONFLICT
 
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    user = User(
-        username=username,
-        email=email,
-        password=hashed_password
-    )
+    hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
+    user = User(username=username, email=email, password=hashed_password)
     db.session.add(user)
     db.session.commit()
 
-    return jsonify({
-        'message': "Your account has been created! You are now able to log in",
-        'user': {
-            'username': username,
-            "email": email
-        },
-    }), HTTP_201_CREATED
+    return (
+        jsonify(
+            {
+                "message": "Your account has been created! You are now able to log in",
+                "user": {"username": username, "email": email},
+            }
+        ),
+        HTTP_201_CREATED,
+    )
 
 
-@auth.post('/token')
-@auth.post('/login')
-@swag_from('./docs/auth/login.yaml')
+@auth.post("/token")
+@auth.post("/login")
+@swag_from("./docs/auth/login.yaml")
 def login():
-    email = request.json.get('email', '')
-    password = request.json.get('password', '')
+    email = request.json.get("email", "")
+    password = request.json.get("password", "")
 
     if user := User.query.filter_by(email=email).first():
         if bcrypt.check_password_hash(user.password, password):
@@ -103,22 +104,30 @@ def login():
 
             # add refresh token to additional_claims,
             # so we can use it later in the revoke part in logout action
-            additional_claims['refresh_token'] = refresh_token
+            additional_claims["refresh_token"] = refresh_token
 
             access_token = create_access_token(
                 identity=user.public_id, additional_claims=additional_claims
             )
-            return jsonify({
-                'user': {
-                    'refresh_token': refresh_token,
-                    'access_token': access_token,
-                    'username': user.username,
-                    'email': user.email
-                }
-            }), HTTP_200_OK
-    return jsonify({
-        'error': 'Wrong credentials! Please check email and password'
-    }), HTTP_401_UNAUTHORIZED
+            return (
+                jsonify(
+                    {
+                        "user": {
+                            "refresh_token": refresh_token,
+                            "access_token": access_token,
+                            "username": user.username,
+                            "email": user.email,
+                        }
+                    }
+                ),
+                HTTP_200_OK,
+            )
+    return (
+        jsonify(
+            {"error": "Wrong credentials! Please check email and password"}
+        ),
+        HTTP_401_UNAUTHORIZED,
+    )
 
 
 @auth.get("/protected")
@@ -133,18 +142,28 @@ def protected():
         # and add function user_lookup_callback,
         # and then, it's free to use
         # docs: https://flask-jwt-extended.readthedocs.io/en/stable/automatic_user_loading/
-        return jsonify({
-            "id": current_user.id,
-            'email': current_user.email,
-            'username': current_user.username,
-            "aud": claims['aud']
-        }), HTTP_200_OK
-    return jsonify({
-        "message": f"This url '{claims['aud']}' is not allowed",
-    }), HTTP_401_UNAUTHORIZED
+        return (
+            jsonify(
+                {
+                    "id": current_user.id,
+                    "email": current_user.email,
+                    "username": current_user.username,
+                    "aud": claims["aud"],
+                }
+            ),
+            HTTP_200_OK,
+        )
+    return (
+        jsonify(
+            {
+                "message": f"This url '{claims['aud']}' is not allowed",
+            }
+        ),
+        HTTP_401_UNAUTHORIZED,
+    )
 
 
-@auth.get('/refresh')
+@auth.get("/refresh")
 @jwt_required(refresh=True)
 def refresh_users_token():
     identity = get_jwt_identity()
@@ -153,19 +172,21 @@ def refresh_users_token():
     claims = get_jwt()
 
     # extract from claims to additional_claims
-    additional_claims = {x: claims[x] for x in {'aud'}}
+    additional_claims = {x: claims[x] for x in {"aud"}}
 
     # add refresh token from header to additional_claims
-    refresh_token = request.headers.get('HTTP_AUTHORIZATION').replace('Bearer ', '')
-    additional_claims['refresh_token'] = refresh_token
+    refresh_token = request.headers.get("HTTP_AUTHORIZATION").replace(
+        "Bearer ", ""
+    )
+    additional_claims["refresh_token"] = refresh_token
 
-    access = create_access_token(identity=identity, additional_claims=additional_claims)
-    return jsonify({
-        'access_token': access
-    }), HTTP_200_OK
+    access = create_access_token(
+        identity=identity, additional_claims=additional_claims
+    )
+    return jsonify({"access_token": access}), HTTP_200_OK
 
 
-@auth.delete('/logout')
+@auth.delete("/logout")
 @jwt_required(verify_type=False)
 def logout():
     now = datetime.now(pytz.utc)
@@ -180,14 +201,21 @@ def logout():
 
     # Revoke refresh token by adding the token information to table TokenBlockList
     # then we will use token_block_list to check revoked token in function check_if_token_revoked
-    refresh_token = token['refresh_token']
+    refresh_token = token["refresh_token"]
     jti_refresh_token = get_jti(refresh_token)
     ttype = "refresh"
-    token_block_list = TokenBlockList(jti=jti_refresh_token, type=ttype, create_at=now)
+    token_block_list = TokenBlockList(
+        jti=jti_refresh_token, type=ttype, create_at=now
+    )
     db.session.add(token_block_list)
     db.session.commit()
 
     # Returns "Access token revoked" or "Refresh token revoked"
-    return jsonify({
-        "message": f"{ttype.capitalize()} and refresh token successfully revoked"
-    }), HTTP_200_OK
+    return (
+        jsonify(
+            {
+                "message": f"{ttype.capitalize()} and refresh token successfully revoked"
+            }
+        ),
+        HTTP_200_OK,
+    )

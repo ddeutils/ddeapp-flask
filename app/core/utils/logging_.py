@@ -19,13 +19,13 @@ import requests
 
 from ..utils.reusables import must_bool
 
-if not os.getenv('DEBUG'):
-    os.environ['DEBUG']: str = 'True'
+if not os.getenv("DEBUG"):
+    os.environ["DEBUG"]: str = "True"
 
 ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), os.pardir, os.pardir)
 )
-LOG_DIR = os.path.join(ROOT, 'logs')
+LOG_DIR = os.path.join(ROOT, "logs")
 DEBUG: bool = must_bool(os.getenv("DEBUG", "False"))
 LOG_CONF: bool = must_bool(os.getenv("LOG_CONF", "False"))
 
@@ -54,13 +54,14 @@ class StyleAdapter(logging.LoggerAdapter):
 
 class UTCFormatter(logging.Formatter):
     """override logging.Formatter to use an aware datetime object"""
+
     # converter = time.gmtime
 
     def converter(self, timestamp):
         # Create datetime in UTC
         dt = datetime.datetime.fromtimestamp(timestamp, tz=pytz.UTC)
         # Change timezone of datetime
-        return dt.astimezone(pytz.timezone('Asia/Bangkok'))
+        return dt.astimezone(pytz.timezone("Asia/Bangkok"))
 
     def formatTime(self, record, datefmt=None):
         dt = self.converter(record.created)
@@ -68,7 +69,7 @@ class UTCFormatter(logging.Formatter):
             s = dt.strftime(datefmt)
         else:
             try:
-                s = dt.isoformat(timespec='milliseconds')
+                s = dt.isoformat(timespec="milliseconds")
             except TypeError:
                 s = dt.isoformat()
         return s
@@ -78,14 +79,13 @@ class HTTPSlackHandler(logging.Handler):
     """
     Send logging to slack application
     """
+
     def emit(self, record):
         log_entry = self.format(record)
         json_text = json.dumps({"text": log_entry})
-        url = 'https://hooks.slack.com/services/<org_id>/<api_key>'
+        url = "https://hooks.slack.com/services/<org_id>/<api_key>"
         return requests.post(
-            url,
-            json_text,
-            headers={"Content-type": "application/json"}
+            url, json_text, headers={"Content-type": "application/json"}
         ).content
 
 
@@ -94,8 +94,8 @@ class NoConsoleFilter(logging.Filter):
         super().__init__()
 
     def filter(self, record):
-        return (
-            not (record.levelname == logging.INFO) & ('no-console' in record.msg)
+        return not (record.levelname == logging.INFO) & (
+            "no-console" in record.msg
         )
 
 
@@ -103,6 +103,7 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
     """
     change time-rotating file format
     """
+
     def __init__(self, *args, **kwargs):
         self.baseFilename = None
         self.backupCount = None
@@ -125,7 +126,11 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
                 if self.extMatch.match(date):
                     result.append(os.path.join(_dirname, file_name))
         result.sort()
-        return [] if len(result) < self.backupCount else result[:len(result) - self.backupCount]
+        return (
+            []
+            if len(result) < self.backupCount
+            else result[: len(result) - self.backupCount]
+        )
 
     def doRollover(self):
         """
@@ -152,7 +157,12 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
             if datetime_now != dstThen:
                 addend = 3600 if datetime_now else -3600
                 timeTuple = time.localtime(t + addend)
-        dfn = time.strftime("%Y%m%d", timeTuple) + "_" + self.baseFilename + ".log"
+        dfn = (
+            time.strftime("%Y%m%d", timeTuple)
+            + "_"
+            + self.baseFilename
+            + ".log"
+        )
         if os.path.exists(dfn):
             os.remove(dfn)
         # Issue 18940: A file may not have been created if delay is True.
@@ -167,7 +177,9 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
         while _rolloverAt <= current_time:
             _rolloverAt = _rolloverAt + self.interval
         # If DST changes and midnight or weekly rollover, adjust for this.
-        if (self.when == 'MIDNIGHT' or self.when.startswith('W')) and not self.utc:
+        if (
+            self.when == "MIDNIGHT" or self.when.startswith("W")
+        ) and not self.utc:
             dstAtRollover = time.localtime(_rolloverAt)[-1]
             if datetime_now != dstAtRollover:
                 addend = 3600 if datetime_now else -3600
@@ -183,6 +195,7 @@ class RefmtTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
         - fileName.20211101_110012.log
         - fileName.20211101_110013.log
     """
+
     def __init__(self, maxBytes=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.suffix = "%Y%m%d_%H%M%S"
@@ -229,11 +242,15 @@ class RefmtTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
         for file_name in file_names:
             if file_name[-end_len:] == ends and file_name[:start_len] == starts:
                 logging.info(file_name)
-                date = file_name[start_len + 1:-end_len]
+                date = file_name[start_len + 1 : -end_len]
                 if self.extMatch.match(date):
                     result.append(os.path.join(_dirname, file_name))
         result.sort()
-        return [] if len(result) < self.backupCount else result[:len(result) - self.backupCount]
+        return (
+            []
+            if len(result) < self.backupCount
+            else result[: len(result) - self.backupCount]
+        )
 
 
 class DailyRotatingFileHandler(logging.handlers.RotatingFileHandler):
@@ -246,15 +263,16 @@ class DailyRotatingFileHandler(logging.handlers.RotatingFileHandler):
         - 2016-10-06.log.alias.1
         - 2016-10-07.log.alias.1
     """
+
     def __init__(
-            self,
-            alias,
-            basedir,
-            mode='a',
-            maxBytes: int = 0,
-            backupCount=0,
-            encoding=None,
-            delay=0
+        self,
+        alias,
+        basedir,
+        mode="a",
+        maxBytes: int = 0,
+        backupCount=0,
+        encoding=None,
+        delay=0,
     ):
         """
         @summary:
@@ -273,7 +291,7 @@ class DailyRotatingFileHandler(logging.handlers.RotatingFileHandler):
             maxBytes,
             backupCount,
             encoding,
-            delay
+            delay,
         )
 
     def getBaseFilename(self):
@@ -281,7 +299,9 @@ class DailyRotatingFileHandler(logging.handlers.RotatingFileHandler):
         @summary: Return logFile name string formatted to "today.log.alias"
         """
         self.today_ = datetime.date.today()
-        basename_ = self.today_.strftime("%Y-%m-%d") + ".log" + '.' + self.alias_
+        basename_ = (
+            self.today_.strftime("%Y-%m-%d") + ".log" + "." + self.alias_
+        )
         return os.path.join(self.basedir_, basename_)
 
     def shouldRollover(self, record):
@@ -313,6 +333,7 @@ class PickableLoggerAdapter:
     """
     pickle module
     """
+
     def __init__(self, name):
         self.name = name
         self.logger = _create_logger(name)
@@ -326,7 +347,7 @@ class PickableLoggerAdapter:
         Dictionary, representing the object state to be pickled. Ignores
         the self.logger field and only returns the logger name.
         """
-        return {'name': self.name}
+        return {"name": self.name}
 
     def __setstate__(self, state):
         """
@@ -338,7 +359,7 @@ class PickableLoggerAdapter:
         state - dictionary, containing the logger name.
 
         """
-        self.name = state['name']
+        self.name = state["name"]
         self.logger = _create_logger(self.name)
 
     def debug(self, msg, *args, **kwargs):
@@ -374,175 +395,154 @@ def get_logger(name):
     return PickableLoggerAdapter(name)
 
 
-dictConfig({
-    "version": 1,
-    "disable_existing_loggers": True,
-    "formatters": {
-        "default": {
-            '()': UTCFormatter,
-            # "format": (
-            #     "%(asctime)s.%(msecs)04d (%(name)s:%(threadName)s"
-            #     "[%(thread)d]) - %(lineno)d %(levelname)-8s: %(message)s"
-            # ),
-            # "format": (
-            #     "%(asctime)s (%(thread)06d) %(levelname)-8s|: "
-            #     "%(message)s"
-            # ),
-            "format": (
-                "%(asctime)s (%(thread)06d) %(levelname)-8s|%(name)s: "
-                "%(message)s"
-            ),
-            "datefmt": '%Y-%m-%d %H:%M:%S'
+dictConfig(
+    {
+        "version": 1,
+        "disable_existing_loggers": True,
+        "formatters": {
+            "default": {
+                "()": UTCFormatter,
+                # "format": (
+                #     "%(asctime)s.%(msecs)04d (%(name)s:%(threadName)s"
+                #     "[%(thread)d]) - %(lineno)d %(levelname)-8s: %(message)s"
+                # ),
+                # "format": (
+                #     "%(asctime)s (%(thread)06d) %(levelname)-8s|: "
+                #     "%(message)s"
+                # ),
+                "format": (
+                    "%(asctime)s (%(thread)06d) %(levelname)-8s|%(name)s: "
+                    "%(message)s"
+                ),
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+            "access": {
+                "format": (
+                    "%(asctime)s.%(msecs)04d (%(name)s:%(threadName)s"
+                    "[%(thread)d]) - %(lineno)d %(levelname)-8s: "
+                    "%(message)s"
+                ),
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+            "fsting": {
+                "format": (
+                    "{asctime}.{msecs:.0f} {levelname:<8s} "
+                    "({name}:{threadName}) {message}"
+                ),
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+                "style": "{",
+                "validate": True,
+            },
         },
-        "access": {
-            "format": (
-                "%(asctime)s.%(msecs)04d (%(name)s:%(threadName)s"
-                "[%(thread)d]) - %(lineno)d %(levelname)-8s: "
-                "%(message)s"
-            ),
-            "datefmt": '%Y-%m-%d %H:%M:%S'
+        "filters": {"no_console_filter": {(): "logging_.NoConsoleFilter"}},
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "level": "DEBUG",
+                "formatter": "default",
+                # Stream default is "ext://sys.stdout"
+                "stream": "ext://flask.logging.wsgi_errors_stream",
+            },
+            # "framework_file": {
+            #     "class": "logging_.RefmtTimedRotatingFileHandler",
+            #     "level": "DEBUG",
+            #     "formatter": "default",
+            #     "filename": os.path.join(LOG_DIR, "framework.log"),
+            #     # "maxBytes": 1024,
+            #     "when": "m",
+            #     "interval": 1,
+            #     "backupCount": 5,
+            #     "encoding": "utf8",
+            # },
+            # # Example for alert with TimeRotatingFile
+            # "app_file": {
+            #     "level": "DEBUG",
+            #     "class": "logging.handlers.TimedRotatingFileHandler",
+            #     "formatter": "default",
+            #     "filename": os.path.join(LOG_DIR, "app.log"),
+            #     "when": "m",
+            #     "interval": 2,
+            #     "backupCount": 5,
+            #     "encoding": "utf8"
+            # },
+            # # Example for alert to slack
+            # "slack": {
+            #     "class": "logging_.HTTPSlackHandler",
+            #     "formatter": "default",
+            #     "level": "ERROR",
+            # },
+            # # Example for alert to email
+            # "email": {
+            #     "class": "logging.handlers.SMTPHandler",
+            #     "formatter": "default",
+            #     "level": "ERROR",
+            #     "mailhost": ("smtp.example.com", 587),
+            #     "fromaddr": "devops@example.com",
+            #     "toaddrs": ["receiver@example.com", "receiver2@example.com"],
+            #     "subject": "Error Logs",
+            #     "credentials": ("username", "password"),
+            # },
+            # # Example for alert with RotatingFile
+            # "error_file": {
+            #     "class": "logging.handlers.RotatingFileHandler",
+            #     "formatter": "default",
+            #     "filename": os.path.join(LOG_DIR, "error.log"),
+            #     "maxBytes": 10000,
+            #     "backupCount": 10,
+            #     "delay": "True",
+            #     "filters": ["no_console_filter"]
+            # },
         },
-        "fsting": {
-            "format": (
-                '{asctime}.{msecs:.0f} {levelname:<8s} '
-                '({name}:{threadName}) {message}'
-            ),
-            "datefmt": '%Y-%m-%d %H:%M:%S',
-            "style": '{',
-            "validate": True
-        }
-    },
-
-    "filters": {
-        "no_console_filter": {
-            (): "logging_.NoConsoleFilter"
-        }
-    },
-
-    "handlers": {
-
-        "console": {
-            "class": "logging.StreamHandler",
-            "level": "DEBUG",
-            "formatter": "default",
-            # Stream default is "ext://sys.stdout"
-            "stream": "ext://flask.logging.wsgi_errors_stream",
+        "loggers": {
+            "apscheduler.scheduler": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "application.components.api.analytic.tasks": {
+                "handlers": ["console"],
+                "level": "DEBUG" if DEBUG else "INFO",
+                "propagate": False,
+            },
+            "application.components.api.framework": {
+                "handlers": ["console"],
+                "level": "DEBUG" if DEBUG else "INFO",
+                "propagate": False,
+            },
+            "application.utils": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "paramiko.transport": {
+                "handlers": ["console"],
+                "level": "ERROR",
+                "propagate": False,
+            },
+            "apscheduler.executors.default": {
+                "handlers": ["console"],
+                "level": "ERROR",
+                "propagate": False,
+            },
+            "matplotlib": {
+                "handlers": ["console"],
+                "level": "ERROR",
+                "propagate": False,
+            },
+            "waitress": {
+                "handlers": ["console"],
+                "level": "DEBUG",
+                "propagate": False,
+            },
+            "werkzeug": {
+                "handlers": ["console"],
+                "level": "DEBUG",
+                "propagate": False,
+            },
         },
-
-        # "framework_file": {
-        #     "class": "logging_.RefmtTimedRotatingFileHandler",
-        #     "level": "DEBUG",
-        #     "formatter": "default",
-        #     "filename": os.path.join(LOG_DIR, "framework.log"),
-        #     # "maxBytes": 1024,
-        #     "when": "m",
-        #     "interval": 1,
-        #     "backupCount": 5,
-        #     "encoding": "utf8",
-        # },
-
-        # # Example for alert with TimeRotatingFile
-        # "app_file": {
-        #     "level": "DEBUG",
-        #     "class": "logging.handlers.TimedRotatingFileHandler",
-        #     "formatter": "default",
-        #     "filename": os.path.join(LOG_DIR, "app.log"),
-        #     "when": "m",
-        #     "interval": 2,
-        #     "backupCount": 5,
-        #     "encoding": "utf8"
-        # },
-
-        # # Example for alert to slack
-        # "slack": {
-        #     "class": "logging_.HTTPSlackHandler",
-        #     "formatter": "default",
-        #     "level": "ERROR",
-        # },
-
-        # # Example for alert to email
-        # "email": {
-        #     "class": "logging.handlers.SMTPHandler",
-        #     "formatter": "default",
-        #     "level": "ERROR",
-        #     "mailhost": ("smtp.example.com", 587),
-        #     "fromaddr": "devops@example.com",
-        #     "toaddrs": ["receiver@example.com", "receiver2@example.com"],
-        #     "subject": "Error Logs",
-        #     "credentials": ("username", "password"),
-        # },
-
-        # # Example for alert with RotatingFile
-        # "error_file": {
-        #     "class": "logging.handlers.RotatingFileHandler",
-        #     "formatter": "default",
-        #     "filename": os.path.join(LOG_DIR, "error.log"),
-        #     "maxBytes": 10000,
-        #     "backupCount": 10,
-        #     "delay": "True",
-        #     "filters": ["no_console_filter"]
-        # },
-
-    },
-    "loggers": {
-
-        "apscheduler.scheduler": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": False
-        },
-
-        "application.components.api.analytic.tasks": {
-            "handlers": ["console"],
+        "root": {
             "level": "DEBUG" if DEBUG else "INFO",
-            "propagate": False
-        },
-
-        "application.components.api.framework": {
             "handlers": ["console"],
-            "level": "DEBUG" if DEBUG else "INFO",
-            "propagate": False
         },
-
-        "application.utils": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": False
-        },
-
-        "paramiko.transport": {
-            "handlers": ["console"],
-            "level": "ERROR",
-            "propagate": False
-        },
-
-        "apscheduler.executors.default": {
-            "handlers": ["console"],
-            "level": "ERROR",
-            "propagate": False
-        },
-
-        "matplotlib": {
-            "handlers": ["console"],
-            "level": "ERROR",
-            "propagate": False
-        },
-
-        "waitress": {
-            "handlers": ["console"],
-            "level": "DEBUG",
-            "propagate": False
-        },
-
-        "werkzeug": {
-            "handlers": ["console"],
-            "level": "DEBUG",
-            "propagate": False
-        }
-
-    },
-    "root": {
-        "level": "DEBUG" if DEBUG else "INFO",
-        "handlers": ["console"]
     }
-})
+)

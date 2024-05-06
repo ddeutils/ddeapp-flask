@@ -11,22 +11,20 @@ celery = make_celery(current_app)
 
 @celery.task(name="create_task")
 def create_task(task_type):
-    print('Success task')
+    print("Success task")
     return True
 
 
 def send_reset_email(user) -> None:
     token = user.get_reset_token()
     msg = Message(
-        'Password Reset Request',
+        "Password Reset Request",
         sender=tuple(settings.ADMINS),
-        recipients=[user.email]
+        recipients=[user.email],
     )
-    msg.body = (
-        f"""To reset your password, visit the following link:
+    msg.body = f"""To reset your password, visit the following link:
 { url_for('users.reset_token', token=token, _external=True) } \n
 If you did not make this request then simply ignore this email and no changes  will be made."""
-    )
     mail.send(msg)
 
 

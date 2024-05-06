@@ -46,19 +46,16 @@ def schedule_retention_data() -> None:
 
 
 def schedule_trigger() -> None:
-    """Run data pipeline trigger from data in `ctr_task_schedule`
-    """
+    """Run data pipeline trigger from data in `ctr_task_schedule`"""
     ps_time: int = push_trigger_schedule()
     logger.info(
-        f"End Schedule trigger for run data pipeline "
-        f"with {ps_time} sec."
+        f"End Schedule trigger for run data pipeline " f"with {ps_time} sec."
     )
 
 
 def schedule_cron_every_sunday() -> None:
-    """Run data pipeline cron job every sunday at 00.05 AM
-    """
-    ps_time: int = push_cron_schedule(group_name='every_sunday_at_00_05')
+    """Run data pipeline cron job every sunday at 00.05 AM"""
+    ps_time: int = push_cron_schedule(group_name="every_sunday_at_00_05")
     logger.info(
         f"End Schedule `every_sunday_at_00_05` for run data pipeline "
         f"with {ps_time} sec."
@@ -69,7 +66,7 @@ def schedule_cron_everyday() -> None:
     """
     Run data pipeline cron job everyday at 08.05 PM
     """
-    ps_time: int = push_cron_schedule(group_name='everyday_at_08_05')
+    ps_time: int = push_cron_schedule(group_name="everyday_at_08_05")
     logger.info(
         f"End Schedule `everyday_at_08_05` for run data pipeline "
         f"with {ps_time} sec."
@@ -80,7 +77,7 @@ def schedule_cron_every_quarter() -> None:
     """
     Run data pipeline cron job every quarter at 19th and 00.10 AM
     """
-    ps_time: int = push_cron_schedule(group_name='every_quarter_at_19th_00_10')
+    ps_time: int = push_cron_schedule(group_name="every_quarter_at_19th_00_10")
     logger.info(
         f"End Schedule `every_quarter_at_19th_00_10` "
         f"for run data pipeline with {ps_time} sec."
@@ -90,6 +87,7 @@ def schedule_cron_every_quarter() -> None:
 def schedule_close_ssh() -> None:
     """Close SSH session"""
     import time
+
     time.sleep(10)
     push_close_ssh()
 
@@ -97,9 +95,9 @@ def schedule_close_ssh() -> None:
 def listener_log(event):
     """Listener"""
     if event.exception:
-        logger.warning('The job crashed :(')
+        logger.warning("The job crashed :(")
     else:
-        logger.info('The job worked :)')
+        logger.info("The job worked :)")
 
 
 def add_schedules(scheduler: APScheduler):
@@ -114,58 +112,53 @@ def add_schedules(scheduler: APScheduler):
     # )
 
     scheduler.add_job(
-        id='check_process',
+        id="check_process",
         func=schedule_check_process,
-        trigger='cron',
-        minute='*/10',
+        trigger="cron",
+        minute="*/10",
         jitter=10,
         misfire_grace_time=None,
-
         # Usage configuration
         max_instances=1,
-
         # Option for using job store
-        jobstore='sqlite',
+        jobstore="sqlite",
         replace_existing=True,
     )
 
     scheduler.add_job(
-        id='trigger_schedule',
+        id="trigger_schedule",
         func=schedule_trigger,
-        trigger='interval',
+        trigger="interval",
         minutes=1,
         jitter=5,
-
         # Option for using job store
-        jobstore='sqlite',
+        jobstore="sqlite",
         replace_existing=True,
     )
 
     scheduler.add_job(
-        id='cron_everyday',
+        id="cron_everyday",
         func=schedule_cron_everyday,
-        trigger='cron',
-        hour='20',
-        minute='5',
+        trigger="cron",
+        hour="20",
+        minute="5",
         jitter=60,
-
         # Option for using job store
-        jobstore='sqlite',
+        jobstore="sqlite",
         replace_existing=True,
     )
 
     scheduler.add_job(
-        id='cron_every_quarter',
+        id="cron_every_quarter",
         func=schedule_cron_every_quarter,
-        trigger='cron',
-        month='*/3',
-        day='19',
-        hour='0',
-        minute='10',
+        trigger="cron",
+        month="*/3",
+        day="19",
+        hour="0",
+        minute="10",
         jitter=300,
-
         # Option for using job store
-        jobstore='sqlite',
+        jobstore="sqlite",
         replace_existing=True,
     )
 
@@ -178,7 +171,5 @@ def add_schedules(scheduler: APScheduler):
     #     misfire_grace_time=None
     # )
 
-    scheduler.add_listener(
-        listener_log, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR
-    )
+    scheduler.add_listener(listener_log, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
     return scheduler

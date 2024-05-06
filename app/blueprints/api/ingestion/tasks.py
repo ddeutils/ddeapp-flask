@@ -24,15 +24,11 @@ from ....core.utils.config import Params
 from ....core.utils.logging_ import logging
 
 logger = logging.getLogger(__name__)
-registers = Params(param_name='registers.yaml')
+registers = Params(param_name="registers.yaml")
 
 
-def ingest_payload(
-        node: Node,
-        task: Task
-) -> Result:
-    """Run Ingest process node together with process object
-    """
+def ingest_payload(node: Node, task: Task) -> Result:
+    """Run Ingest process node together with process object"""
     result: CommonResult = CommonResult()
     try:
         ps_row_success, ps_row_failed = node.ingest_start()
@@ -57,64 +53,58 @@ MAP_MODULE_FUNC: dict[str, Callable] = {
 }
 
 
-def ingestion_foreground(
-        module: str,
-        external_parameters: dict
-) -> Result:
+def ingestion_foreground(module: str, external_parameters: dict) -> Result:
     """Foreground ingestion function for running data pipeline with module
     argument. This function will control write process log to Control Task
     Process table. If process input is pipeline, this function will log to
     Control Task Schedule.
     """
     result: Result = CommonResult()
-    task: Task = Task.parse_obj({
-        "module": module,
-        "parameters": external_parameters,
-        "mode": TaskMode.FOREGROUND,
-        "component": TaskComponent.INGESTION
-    })
+    task: Task = Task.parse_obj(
+        {
+            "module": module,
+            "parameters": external_parameters,
+            "mode": TaskMode.FOREGROUND,
+            "component": TaskComponent.INGESTION,
+        }
+    )
     logger.info(
-        f'Start run foreground ingestion: {task.id!r} at time: '
-        f'{task.start_time:%Y-%m-%d %H:%M:%S}'
+        f"Start run foreground ingestion: {task.id!r} at time: "
+        f"{task.start_time:%Y-%m-%d %H:%M:%S}"
     )
     for idx, run_date in task.runner():
         logger.info(f"[ run_date: {run_date} ]{'=' * 48}")
         node: ObjectType = Node(
             name=task.parameters.name,
             process_id=task.id,
-            run_mode=task.parameters.others.get('run_mode', 'ingestion'),
+            run_mode=task.parameters.others.get("run_mode", "ingestion"),
             run_date=run_date,
-            auto_init=task.parameters.others.get('initial_data', 'N'),
-            auto_drop=task.parameters.others.get('drop_before_create', 'N'),
-            external_parameters=external_parameters
+            auto_init=task.parameters.others.get("initial_data", "N"),
+            auto_drop=task.parameters.others.get("drop_before_create", "N"),
+            external_parameters=external_parameters,
         )
         task.start()
         logger.info(
-            f'START {idx:02d}: {node.name} '
+            f"START {idx:02d}: {node.name} "
             f'{"~" * (30 - len(node.name) + 31)}'
         )
-        task.receive(
-            MAP_MODULE_FUNC[module](node=node, task=task)
-        )
+        task.receive(MAP_MODULE_FUNC[module](node=node, task=task))
 
         # Ingestion only first date
         break
 
     task.finish()
     logger.info(
-        f'End foreground ingestion: {task.id!r} '
-        f'with duration: {task.duration():.2f} sec'
+        f"End foreground ingestion: {task.id!r} "
+        f"with duration: {task.duration():.2f} sec"
     )
-    return result.update(
-        task.message,
-        task.status
-    )
+    return result.update(task.message, task.status)
 
 
 def ingestion_background(
-        module: str,
-        bg_queue: queue.Queue,
-        external_parameters: dict,
+    module: str,
+    bg_queue: queue.Queue,
+    external_parameters: dict,
 ) -> Result:
     """Background ingestion function for running data pipeline with module
     argument. This function will control write process log to Control Task
@@ -122,15 +112,17 @@ def ingestion_background(
     Control Task Schedule.
     """
     result: Result = CommonResult()
-    task: Task = Task.parse_obj({
-        "module": module,
-        "parameters": external_parameters,
-        "mode": TaskMode.BACKGROUND,
-        "component": TaskComponent.INGESTION
-    })
+    task: Task = Task.parse_obj(
+        {
+            "module": module,
+            "parameters": external_parameters,
+            "mode": TaskMode.BACKGROUND,
+            "component": TaskComponent.INGESTION,
+        }
+    )
     logger.info(
-        f'Start run background ingestion: {task.id!r} '
-        f'at time: {task.start_time:%Y-%m-%d %H:%M:%S}'
+        f"Start run background ingestion: {task.id!r} "
+        f"at time: {task.start_time:%Y-%m-%d %H:%M:%S}"
     )
     bg_queue.put(task.id)
     for idx, run_date in task.runner():
@@ -140,28 +132,23 @@ def ingestion_background(
             process_id=task.id,
             run_mode=task.component.value,
             run_date=run_date,
-            auto_init=task.parameters.others.get('initial_data', 'N'),
-            auto_drop=task.parameters.others.get('drop_before_create', 'N'),
-            external_parameters=external_parameters
+            auto_init=task.parameters.others.get("initial_data", "N"),
+            auto_drop=task.parameters.others.get("drop_before_create", "N"),
+            external_parameters=external_parameters,
         )
         task.start()
         bg_queue.put(task.parameters.name)
         logger.info(
-            f'START {idx:02d}: {node.name} '
+            f"START {idx:02d}: {node.name} "
             f'{"~" * (30 - len(node.name) + 31)}'
         )
-        task.receive(
-            MAP_MODULE_FUNC[module](node=node, task=task)
-        )
+        task.receive(MAP_MODULE_FUNC[module](node=node, task=task))
 
         # Ingestion only first date
         break
     task.finish()
     logger.info(
-        f'End background ingestion: {task.id!r} '
-        f'with duration: {task.duration():.2f} sec'
+        f"End background ingestion: {task.id!r} "
+        f"with duration: {task.duration():.2f} sec"
     )
-    return result.update(
-        task.message,
-        task.status
-    )
+    return result.update(task.message, task.status)

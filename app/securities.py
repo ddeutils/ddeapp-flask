@@ -24,26 +24,31 @@ from conf import settings
 
 
 def is_valid(api_key: str):
-    """Check the value of `api_key` that must equal APIKEY, setup in .env file
-    """
-    return api_key == os.environ.get('APIKEY', 'NULL')
+    """Check the value of `api_key` that must equal APIKEY, setup in .env file"""
+    return api_key == os.environ.get("APIKEY", "NULL")
 
 
 def apikey_required(func):
     """Required APIKEY decorator function for header of request checking before
     do everything with this application framework.
     """
+
     @functools.wraps(func)
     def decorator(*args, **kwargs):
         if not (api_key := request.headers.get("APIKEY")):
             resp = jsonify({"message": "Please provide an APIKEY in header"})
             resp.status_code = HTTP_400_BAD_REQUEST
             return resp
-        if request.method in {"GET", "POST", "PUT", "DELETE"} and is_valid(api_key):
+        if request.method in {"GET", "POST", "PUT", "DELETE"} and is_valid(
+            api_key
+        ):
             return func(*args, **kwargs)
-        resp = jsonify({"message": f"The provided API key, {api_key!r}, is not valid"})
+        resp = jsonify(
+            {"message": f"The provided API key, {api_key!r}, is not valid"}
+        )
         resp.status_code = HTTP_403_FORBIDDEN
         return resp
+
     return decorator
 
 
@@ -56,36 +61,36 @@ def check_origin(func):
         ...     data = {'message': 'Hello, world!'}
         ...     return jsonify(data)
     """
+
     def wrapper(*args, **kwargs):
-        origin = request.headers.get('Origin')
+        origin = request.headers.get("Origin")
         if origin in settings.ALLOWED_ORIGINS:
             response = func(*args, **kwargs)
-            response.headers['Access-Control-Allow-Origin'] = origin
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type"
             return response
         else:
             return make_response(
-                jsonify({'error': 'Invalid origin'}),
+                jsonify({"error": "Invalid origin"}),
                 HTTP_401_UNAUTHORIZED,
             )
+
     return wrapper
 
 
-def login_manager_wrapper(login_manager):
-    ...
+def login_manager_wrapper(login_manager): ...
 
 
-def authenticate():
-    ...
+def authenticate(): ...
 
 
 def crossdomain(
-        origin=None,
-        methods=None,
-        headers=None,
-        max_age=21600,
-        attach_to_all=True,
-        automatic_options=True
+    origin=None,
+    methods=None,
+    headers=None,
+    max_age=21600,
+    attach_to_all=True,
+    automatic_options=True,
 ):
     """
     usage:
@@ -101,13 +106,13 @@ def crossdomain(
             return 'This route only allows requests from example.com'
     """
     if methods is not None:
-        methods = ', '.join(sorted(x.upper() for x in methods))
+        methods = ", ".join(sorted(x.upper() for x in methods))
 
     if headers is not None and not isinstance(headers, str):
-        headers = ', '.join(x.upper() for x in headers)
+        headers = ", ".join(x.upper() for x in headers)
 
     if not isinstance(origin, str):
-        origin = ', '.join(origin)
+        origin = ", ".join(origin)
 
     if isinstance(max_age, timedelta):
         max_age = max_age.total_seconds()
@@ -117,26 +122,27 @@ def crossdomain(
             return methods
 
         options_resp = current_app.make_default_options_response()
-        return options_resp.headers['allow']
+        return options_resp.headers["allow"]
 
     def decorator(f):
         def wrapped_function(*args, **kwargs):
-            if automatic_options and request.method == 'OPTIONS':
+            if automatic_options and request.method == "OPTIONS":
                 resp = current_app.make_default_options_response()
             else:
                 resp = make_response(f(*args, **kwargs))
 
-            if not attach_to_all and request.method != 'OPTIONS':
+            if not attach_to_all and request.method != "OPTIONS":
                 return resp
 
             h = resp.headers
-            h['Access-Control-Allow-Origin'] = origin
-            h['Access-Control-Allow-Methods'] = get_methods()
-            h['Access-Control-Max-Age'] = str(max_age)
+            h["Access-Control-Allow-Origin"] = origin
+            h["Access-Control-Allow-Methods"] = get_methods()
+            h["Access-Control-Max-Age"] = str(max_age)
             if headers is not None:
-                h['Access-Control-Allow-Headers'] = headers
+                h["Access-Control-Allow-Headers"] = headers
             return resp
 
         f.provide_automatic_options = False
         return functools.update_wrapper(wrapped_function, f)
+
     return decorator

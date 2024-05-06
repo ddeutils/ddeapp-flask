@@ -27,11 +27,11 @@ from ..analytic.tasks import (
 )
 from ..validations import validate_table_short
 
-analytics = Blueprint('analytics', __name__)
+analytics = Blueprint("analytics", __name__)
 logger = logging.getLogger(__name__)
 
 
-@analytics.route('/opt/<int:process_id>', methods=['GET'])
+@analytics.route("/opt/<int:process_id>", methods=["GET"])
 @apikey_required
 def get_operation(process_id):
     """
@@ -51,16 +51,21 @@ def get_operation(process_id):
         f"{' ' * (log_length - math.floor(result.percent * log_length))}] "
         f"({result.percent:.2%}) > {process_id}"
     )
-    return jsonify({
-        'message': result.message,
-        'logging': result.logging,
-        'status': result.status,
-        'percent': result.percent
-    }), HTTP_200_OK
+    return (
+        jsonify(
+            {
+                "message": result.message,
+                "logging": result.logging,
+                "status": result.status,
+                "percent": result.percent,
+            }
+        ),
+        HTTP_200_OK,
+    )
 
 
-@analytics.route('/dpc/', methods=['GET'])
-@analytics.route('/dpc/<path:tbl_name_short>', methods=['GET'])
+@analytics.route("/dpc/", methods=["GET"])
+@analytics.route("/dpc/<path:tbl_name_short>", methods=["GET"])
 @apikey_required
 def get_dependency(tbl_name_short: str = None):
     """
@@ -72,25 +77,29 @@ def get_dependency(tbl_name_short: str = None):
         dependency: Dict[<process>, Dict[]]
     """
     if not tbl_name_short:
-        resp = jsonify({
-            'message': "Error: Get dependency does not support get all yet"
-        })
+        resp = jsonify(
+            {"message": "Error: Get dependency does not support get all yet"}
+        )
         return resp, HTTP_401_UNAUTHORIZED
     elif validate_table_short(tbl_name_short):
-        resp = jsonify({
-            'message': (
-                "Error: Please specific `table_short_name` "
-                "that want to get data dependency"
-            )
-        })
+        resp = jsonify(
+            {
+                "message": (
+                    "Error: Please specific `table_short_name` "
+                    "that want to get data dependency"
+                )
+            }
+        )
         return resp, HTTP_401_UNAUTHORIZED
 
     result: Result = get_dependency_data(tbl_name_short)
-    return jsonify({
-        'message': result.message,
-        'status': result.status,
-        'dependency': result.mapping
-    }), (
+    return jsonify(
+        {
+            "message": result.message,
+            "status": result.status,
+            "dependency": result.mapping,
+        }
+    ), (
         HTTP_200_OK
         if result.status == Status.SUCCESS
         else HTTP_401_UNAUTHORIZED

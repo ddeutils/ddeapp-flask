@@ -22,22 +22,22 @@ from typing import (
 import pandas as pd
 
 __all__ = (
-    'split_iterable',
-    'merge_dicts',
-    'hash_string',
-    'path_join',
-    'only_one',
-    'chunks',
-    'random_sting',
-    'convert_str_list',
-    'convert_str_bool',
-    'must_list',
-    'must_dict',
-    'must_bool',
-    'rows',
-    'to_snake_case',
-    'to_camel_case',
-    'to_pascal_case',
+    "split_iterable",
+    "merge_dicts",
+    "hash_string",
+    "path_join",
+    "only_one",
+    "chunks",
+    "random_sting",
+    "convert_str_list",
+    "convert_str_bool",
+    "must_list",
+    "must_dict",
+    "must_bool",
+    "rows",
+    "to_snake_case",
+    "to_camel_case",
+    "to_pascal_case",
 )
 
 
@@ -65,7 +65,7 @@ def split_str(strings, sep: str = r"\s+"):
         return iter(strings)
 
     # Alternatively, more verbosely:
-    regex = f'(?:^|{sep})((?:(?!{sep}).)*)'
+    regex = f"(?:^|{sep})((?:(?!{sep}).)*)"
     for match in re.finditer(regex, strings):
         yield match.group(1)
 
@@ -134,16 +134,18 @@ def split_iterable(iterable, chunk_size=None, generator_flag: bool = True):
     if generator_flag:
         for _ in range(num_chunks):
             if isinstance(iterable, pd.DataFrame):
-                yield iterable.iloc[_ * chunk_size:(_ + 1) * chunk_size]
+                yield iterable.iloc[_ * chunk_size : (_ + 1) * chunk_size]
             else:
-                yield iterable[_ * chunk_size:(_ + 1) * chunk_size]
+                yield iterable[_ * chunk_size : (_ + 1) * chunk_size]
     else:
         _chunks: list = []
         for _ in range(num_chunks):
             if isinstance(iterable, pd.DataFrame):
-                _chunks.append(iterable.iloc[_ * chunk_size:(_ + 1) * chunk_size])
+                _chunks.append(
+                    iterable.iloc[_ * chunk_size : (_ + 1) * chunk_size]
+                )
             else:
-                _chunks.append(iterable[_ * chunk_size:(_ + 1) * chunk_size])
+                _chunks.append(iterable[_ * chunk_size : (_ + 1) * chunk_size])
         return _chunks
 
 
@@ -151,11 +153,11 @@ def split_iterable(iterable, chunk_size=None, generator_flag: bool = True):
 def chunks(dataframe, n):
     """Yield successive n-sized chunks from dataframe."""
     for i in range(0, len(dataframe), n):
-        yield dataframe.iloc[i:i+n]
+        yield dataframe.iloc[i : i + n]
 
 
 # utility function -------------------------------------------------------------
-def rows(f, chunk_size=1024, sep='|'):
+def rows(f, chunk_size=1024, sep="|"):
     """
     Read a file where the row separator is '|' lazily
     usage:
@@ -163,12 +165,12 @@ def rows(f, chunk_size=1024, sep='|'):
         >>     for r in rows(f):
         >>         process(r)
     """
-    row = ''
-    while (chunk := f.read(chunk_size)) != '':   # End of file
-        while (index := chunk.find(sep)) != -1:     # No separator found
+    row = ""
+    while (chunk := f.read(chunk_size)) != "":  # End of file
+        while (index := chunk.find(sep)) != -1:  # No separator found
             yield row + chunk[:index]
-            chunk = chunk[index + 1:]
-            row = ''
+            chunk = chunk[index + 1 :]
+            row = ""
         row += chunk
     yield row
 
@@ -206,7 +208,9 @@ def hash_string(input_value: str, num_length: int = 8) -> str:
     """
     hash str input to number with SHA256 algorithm
     """
-    return str(int(hashlib.sha256(input_value.encode('utf-8')).hexdigest(), 16))[-num_length:]
+    return str(
+        int(hashlib.sha256(input_value.encode("utf-8")).hexdigest(), 16)
+    )[-num_length:]
 
 
 # utility function -------------------------------------------------------------
@@ -214,10 +218,9 @@ def random_sting(num_length: int = 8) -> str:
     """
     random string from uppercase ASCII and number 0-9
     """
-    return ''.join(random.choices(
-        string.ascii_uppercase + string.digits,
-        k=num_length
-    ))
+    return "".join(
+        random.choices(string.ascii_uppercase + string.digits, k=num_length)
+    )
 
 
 # utility function -------------------------------------------------------------
@@ -230,7 +233,7 @@ def path_join(full_path: AnyStr, full_join_path: str) -> AnyStr:
     for path in _join_split:
         _abspath: AnyStr = (
             os.path.abspath(os.path.join(_abspath, os.pardir))
-            if path == '..'
+            if path == ".."
             else os.path.abspath(os.path.join(_abspath, path))
         )
     return _abspath
@@ -249,7 +252,7 @@ def convert_str_list(str_list: str) -> list:
     """
     return (
         ast.literal_eval(str_list)
-        if str_list.startswith('[') and str_list.endswith(']')
+        if str_list.startswith("[") and str_list.endswith("]")
         else [str_list]
     )
 
@@ -267,7 +270,7 @@ def convert_str_dict(str_dict: str) -> dict:
     """
     return (
         ast.literal_eval(str_dict)
-        if str_dict.startswith('{') and str_dict.endswith('}')
+        if str_dict.startswith("{") and str_dict.endswith("}")
         else {0: str_dict}
     )
 
@@ -282,7 +285,7 @@ def convert_str_bool(str_bool: str, force_raise: bool = False) -> bool:
     elif str_bool.lower() in {"no", "false", "f", "0", "n", "0.0"}:
         return False
     if force_raise:
-        raise ValueError(f'value {str_bool!r} does not convert to boolean type')
+        raise ValueError(f"value {str_bool!r} does not convert to boolean type")
     return False
 
 
@@ -304,14 +307,20 @@ def sort_by_priority_list(values: Iterable, priority: list) -> list:
     #
     # return sorted(values, key=priority_getter)
     priority_dict = defaultdict(
-        lambda: len(priority), zip(priority, range(len(priority)), ),
+        lambda: len(priority),
+        zip(
+            priority,
+            range(len(priority)),
+        ),
     )
     priority_getter = priority_dict.__getitem__  # dict.get(key)
     return sorted(values, key=priority_getter)
 
 
 # utility function -------------------------------------------------------------
-def only_one(check_list: list, match_list: list, default: bool = True) -> Optional:
+def only_one(
+    check_list: list, match_list: list, default: bool = True
+) -> Optional:
     """
     Usage
     -----
@@ -325,7 +334,10 @@ def only_one(check_list: list, match_list: list, default: bool = True) -> Option
     """
     if len(exist := set(check_list).intersection(set(match_list))) == 1:
         return list(exist)[0]
-    return next((_ for _ in match_list if _ in check_list), (match_list[0] if default else None))
+    return next(
+        (_ for _ in match_list if _ in check_list),
+        (match_list[0] if default else None),
+    )
 
 
 # utility function -------------------------------------------------------------
@@ -343,14 +355,20 @@ def must_dict(value: Optional[Union[str, dict]] = None) -> dict:
 
 
 # utility function -------------------------------------------------------------
-def must_bool(value: Optional[Union[str, int, bool]] = None, force_raise: bool = False) -> bool:
+def must_bool(
+    value: Optional[Union[str, int, bool]] = None, force_raise: bool = False
+) -> bool:
     """
     Usage
     -----
         >>
     """
     if value:
-        return value if isinstance(value, bool) else convert_str_bool(str(value), force_raise=force_raise)
+        return (
+            value
+            if isinstance(value, bool)
+            else convert_str_bool(str(value), force_raise=force_raise)
+        )
     return False
 
 
@@ -361,15 +379,18 @@ def to_snake_case(value: str):
     -----
         >>
     """
-    name = re.sub(r'(.)([A-Z][a-z]+)', r'\1_\2', value)
-    return re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', name).lower()
+    name = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", value)
+    return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).lower()
 
 
 # utility function -------------------------------------------------------------
-def to_pascal_case(value: str, joined: str = ''):
-    return joined.join(word.title() for word in value.split('_'))
+def to_pascal_case(value: str, joined: str = ""):
+    return joined.join(word.title() for word in value.split("_"))
 
 
 # utility function -------------------------------------------------------------
 def to_camel_case(value: str):
-    return ''.join(word.title() if index_word > 0 else word for index_word, word in enumerate(value.split('_')))
+    return "".join(
+        word.title() if index_word > 0 else word
+        for index_word, word in enumerate(value.split("_"))
+    )

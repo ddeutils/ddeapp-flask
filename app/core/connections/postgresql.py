@@ -13,7 +13,8 @@ from cryptography.utils import CryptographyDeprecationWarning
 
 with warnings.catch_warnings():
     warnings.filterwarnings(
-        'ignore', category=CryptographyDeprecationWarning,
+        "ignore",
+        category=CryptographyDeprecationWarning,
     )
     from sshtunnel import SSHTunnelForwarder
 
@@ -42,42 +43,34 @@ env = Environs()
 
 ParamType: type = Optional[Union[dict, bool]]
 
-DRIVER: str = (
-        env.DB_DRIVER or 'postgresql+psycopg2'
-)
+DRIVER: str = env.DB_DRIVER or "postgresql+psycopg2"
 
 
 def generate_url(
-        conf_replace: Optional[dict] = None,
-        driver: Optional[str] = None,
+    conf_replace: Optional[dict] = None,
+    driver: Optional[str] = None,
 ):
-    """Generate Database URI
-    """
+    """Generate Database URI"""
     driver: str = driver or DRIVER
     _db_conf: dict = {
-        'drivername': env.DB_DRIVER or driver,
-        'database': env.DB_NAME,
-        'username': env.DB_USER,
-        'password': env.DB_PASS,
-        'host': env.DB_HOST,
-        'port': env.DB_PORT or None
+        "drivername": env.DB_DRIVER or driver,
+        "database": env.DB_NAME,
+        "username": env.DB_USER,
+        "password": env.DB_PASS,
+        "host": env.DB_HOST,
+        "port": env.DB_PORT or None,
     }
     return URL.create(**merge_dicts(_db_conf, (conf_replace or {})))
 
 
 def query_format(
-        statement: Union[str, list],
-        parameters: ParamType
+    statement: Union[str, list], parameters: ParamType
 ) -> Union[str, list]:
-    database_name: str = (
-        'database'
-        if 'sqlite' in DRIVER
-        else env.DB_NAME
-    )
+    database_name: str = "database" if "sqlite" in DRIVER else env.DB_NAME
     _db_param = {
-        'database_name': database_name,
-        'ai_schema_name': env.get('AI_SCHEMA', 'ai'),
-        'main_schema_name': env.get('MAIN_SCHEMA', 'public')
+        "database_name": database_name,
+        "ai_schema_name": env.get("AI_SCHEMA", "ai"),
+        "main_schema_name": env.get("MAIN_SCHEMA", "public"),
     }
     if isinstance(parameters, bool):
         if parameters:
@@ -94,15 +87,18 @@ def query_format(
 
 def ssh_connect():
     from conf import settings
-    return SSHTunnelForwarder(**{
-        'ssh_address_or_host': (env.SSH_HOST, int(env.SSH_PORT)),
-        'ssh_username': env.SSH_USER,
-        'ssh_private_key': str(
-            settings.BASE_PATH / 'conf' / env.SSH_PRIVATE_KEY
-        ),
-        'remote_bind_address': (env.DB_HOST, int(env.DB_PORT)),
-        'local_bind_address': ('localhost', int(env.DB_PORT)),
-    })
+
+    return SSHTunnelForwarder(
+        **{
+            "ssh_address_or_host": (env.SSH_HOST, int(env.SSH_PORT)),
+            "ssh_username": env.SSH_USER,
+            "ssh_private_key": str(
+                settings.BASE_PATH / "conf" / env.SSH_PRIVATE_KEY
+            ),
+            "remote_bind_address": (env.DB_HOST, int(env.DB_PORT)),
+            "local_bind_address": ("localhost", int(env.DB_PORT)),
+        }
+    )
 
 
 def convert_local(function: callable) -> callable:
@@ -110,47 +106,47 @@ def convert_local(function: callable) -> callable:
     of the private database instance allow access from the EC2 instance OR
     from subnet of the EC2 instance.
     """
+
     @functools.wraps(function)
     def wrapper(*args, **kwargs):
-        if eval(env.get('SSH_FLAG', 'False')):
+        if eval(env.get("SSH_FLAG", "False")):
             server = ssh_connect()
             if not server.is_alive:
                 server.start()
             _db_conf: dict = {
-                'database': env.DB_NAME,
-                'username': env.DB_USER,
-                'password': env.DB_PASS,
-                'host': 'localhost',
-                'port': env.DB_PORT
+                "database": env.DB_NAME,
+                "username": env.DB_USER,
+                "password": env.DB_PASS,
+                "host": "localhost",
+                "port": env.DB_PORT,
             }
-            kwargs['conf_replace'] = _db_conf
+            kwargs["conf_replace"] = _db_conf
         return function(*args, **kwargs)
+
     return wrapper
 
 
 @convert_local
 def generate_engine(
-        conf_replace: Optional[dict] = None,
-        parameters: Optional[dict] = None,
+    conf_replace: Optional[dict] = None,
+    parameters: Optional[dict] = None,
 ):
-    """Generate database engine
-    """
+    """Generate database engine"""
     return create_engine(
         generate_url(conf_replace=conf_replace),
         pool_pre_ping=True,
-        **(parameters or {})
+        **(parameters or {}),
     )
 
 
 @convert_local
 def query_select(
-        statement: str,
-        conf_replace: Optional[dict] = None,
-        parameters: ParamType = None
+    statement: str,
+    conf_replace: Optional[dict] = None,
+    parameters: ParamType = None,
 ) -> Iterator[dict]:
     engine = create_engine(
-        generate_url(conf_replace=conf_replace),
-        pool_pre_ping=True
+        generate_url(conf_replace=conf_replace), pool_pre_ping=True
     )
     _statement: str = (
         query_format(statement, parameters)
@@ -163,7 +159,7 @@ def query_select(
                 output_df = pd.read_sql_query(
                     text(_statement),
                     con=conn,
-                    dtype='str',
+                    dtype="str",
                 )
             except SQLAlchemyError as error:
                 raise DatabaseProcessError(
@@ -171,14 +167,14 @@ def query_select(
                     f"{str(error.__dict__['orig'])}"
                     f" \nWith statement: \n{_statement}"
                 ) from error
-        yield from output_df.to_dict(orient='index').values()
+        yield from output_df.to_dict(orient="index").values()
 
 
 @convert_local
 def query_select_df(
-        statement: str,
-        conf_replace: Optional[dict] = None,
-        parameters: ParamType = None
+    statement: str,
+    conf_replace: Optional[dict] = None,
+    parameters: ParamType = None,
 ) -> pd.DataFrame:
     engine = create_engine(
         generate_url(conf_replace=conf_replace),
@@ -186,7 +182,8 @@ def query_select_df(
     )
     _statement: str = (
         query_format(statement, parameters)
-        if parameters is not None else statement
+        if parameters is not None
+        else statement
     )
     with engine.connect() as conn:
         with conn.begin():
@@ -194,7 +191,7 @@ def query_select_df(
                 output_df = pd.read_sql_query(
                     text(_statement),
                     con=conn,
-                    dtype='str',
+                    dtype="str",
                 )
             except SQLAlchemyError as error:
                 raise DatabaseProcessError(
@@ -207,9 +204,9 @@ def query_select_df(
 
 @convert_local
 def query_select_one(
-        statement: str,
-        conf_replace: Optional[dict] = None,
-        parameters: ParamType = None
+    statement: str,
+    conf_replace: Optional[dict] = None,
+    parameters: ParamType = None,
 ) -> dict:
     engine = create_engine(
         generate_url(conf_replace=conf_replace),
@@ -217,13 +214,14 @@ def query_select_one(
     )
     _statement: str = (
         query_format(statement, parameters)
-        if parameters is not None else statement
+        if parameters is not None
+        else statement
     )
     with engine.connect() as conn:
         try:
             with conn.begin():
                 output_df = pd.read_sql_query(
-                    text(_statement), con=conn, dtype='str'
+                    text(_statement), con=conn, dtype="str"
                 )
         except SQLAlchemyError as error:
             raise DatabaseProcessError(
@@ -231,16 +229,16 @@ def query_select_one(
                 f"{str(error.__dict__['orig'])}"
                 f" \nWith statement: \n{_statement}"
             ) from error
-    return output_df.to_dict(orient='index').get(0, {})
+    return output_df.to_dict(orient="index").get(0, {})
 
 
 @convert_local
 def query_insert_from_csv(
-        file_properties: dict,
-        conf_replace: Optional[dict] = None,
-        chunk_size: int = 10000,
-        truncate: bool = False,
-        compress: Optional[str] = None
+    file_properties: dict,
+    conf_replace: Optional[dict] = None,
+    chunk_size: int = 10000,
+    truncate: bool = False,
+    compress: Optional[str] = None,
 ):
     """
     :file_properties:
@@ -257,23 +255,23 @@ def query_insert_from_csv(
     with engine.connect() as conn:
         with conn.begin():
             file_df = pd.read_csv(
-                file_properties['filepath'],
-                encoding=file_properties['props'].get('encoding', "utf-8"),
-                delimiter=file_properties['props'].get('delimiter', ','),
-                engine=file_properties['props'].get('engine', 'python'),
-                compression=(compress or 'infer')
+                file_properties["filepath"],
+                encoding=file_properties["props"].get("encoding", "utf-8"),
+                delimiter=file_properties["props"].get("delimiter", ","),
+                engine=file_properties["props"].get("engine", "python"),
+                compression=(compress or "infer"),
             )
-            if_exists_param: str = 'append'
+            if_exists_param: str = "append"
             for idx, chunk in enumerate(chunks(file_df, chunk_size)):
                 if truncate:
-                    if_exists_param = 'replace' if idx == 0 else 'append'
+                    if_exists_param = "replace" if idx == 0 else "append"
                 try:
                     chunk.to_sql(
                         con=engine,
-                        name=file_properties['table'],
-                        schema=env.get('AI_SCHEMA', 'ai'),
+                        name=file_properties["table"],
+                        schema=env.get("AI_SCHEMA", "ai"),
                         if_exists=if_exists_param,
-                        index=False
+                        index=False,
                     )
 
                 except SQLAlchemyError as error:
@@ -286,9 +284,9 @@ def query_insert_from_csv(
 
 @convert_local
 def query_execute(
-        statement: Union[str, list],
-        conf_replace: Optional[dict] = None,
-        parameters: ParamType = None
+    statement: Union[str, list],
+    conf_replace: Optional[dict] = None,
+    parameters: ParamType = None,
 ) -> None:
     engine = create_engine(
         generate_url(conf_replace=conf_replace),
@@ -296,16 +294,15 @@ def query_execute(
     )
     _statement: Union[str, list] = (
         query_format(statement, parameters)
-        if parameters is not None else statement
+        if parameters is not None
+        else statement
     )
     with engine.execution_options(
-            isolation_level="AUTOCOMMIT"
+        isolation_level="AUTOCOMMIT"
     ).connect() as conn:
         try:
             for _state in (
-                    _statement
-                    if isinstance(_statement, list)
-                    else [_statement]
+                _statement if isinstance(_statement, list) else [_statement]
             ):
                 conn.execute(text(_state))
         except SQLAlchemyError as error:
@@ -318,9 +315,9 @@ def query_execute(
 
 @convert_local
 def query_execute_row(
-        statement: Union[str, list],
-        conf_replace: Optional[dict] = None,
-        parameters: ParamType = None
+    statement: Union[str, list],
+    conf_replace: Optional[dict] = None,
+    parameters: ParamType = None,
 ) -> int:
     engine = create_engine(
         generate_url(conf_replace=conf_replace),
@@ -332,13 +329,11 @@ def query_execute_row(
         else statement
     )
     with engine.execution_options(
-            isolation_level="AUTOCOMMIT"
+        isolation_level="AUTOCOMMIT"
     ).connect() as conn:
         try:
             for _state in (
-                    _statement
-                    if isinstance(_statement, list)
-                    else [_statement]
+                _statement if isinstance(_statement, list) else [_statement]
             ):
                 return conn.execute(text(_state)).rowcount
         except SQLAlchemyError as error:
@@ -351,13 +346,12 @@ def query_execute_row(
 
 @convert_local
 def query_transaction(
-        statement: Union[str, list],
-        conf_replace: Optional[dict] = None,
-        parameters: ParamType = None
+    statement: Union[str, list],
+    conf_replace: Optional[dict] = None,
+    parameters: ParamType = None,
 ) -> int:
     engine = create_engine(
-        generate_url(conf_replace=conf_replace),
-        pool_pre_ping=True
+        generate_url(conf_replace=conf_replace), pool_pre_ping=True
     )
     _statement: Union[str, list] = (
         query_format(statement, parameters)
@@ -368,8 +362,7 @@ def query_transaction(
         with conn.begin():
             try:
                 for _state in (
-                        _statement
-                        if isinstance(_statement, list) else [_statement]
+                    _statement if isinstance(_statement, list) else [_statement]
                 ):
                     _row: int = conn.execute(text(_state)).rowcount
                 return _row
@@ -384,23 +377,23 @@ def query_transaction(
 
 @convert_local
 async def query_execute_async(
-        statement: Union[str, list],
-        conf_replace: Optional[dict] = None,
+    statement: Union[str, list],
+    conf_replace: Optional[dict] = None,
 ) -> None:
     """
     usage:
         asyncio.run(query_execute_async('select * from ai.ctr_data_pipeline'))
     """
     engine = create_async_engine(
-        generate_url(conf_replace=conf_replace, driver='asyncpg'),
+        generate_url(conf_replace=conf_replace, driver="asyncpg"),
         echo=False,
-        pool_pre_ping=True
+        pool_pre_ping=True,
     )
 
     # Pause the execution of the function for a short period of time
     # await asyncio.sleep(0.1)
     async with engine.execution_options(
-            isolation_level="AUTOCOMMIT"
+        isolation_level="AUTOCOMMIT"
     ).connect() as conn:
         async with conn.begin():
             await conn.execute(text(statement))

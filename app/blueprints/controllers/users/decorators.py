@@ -23,7 +23,7 @@ def check_expired(func):
     def decorated_function(*args, **kwargs):
         if datetime.utcnow() > current_user.account_expires:
             flash("Your account has expired. Update your billing info.")
-            return redirect(url_for('account_billing'))
+            return redirect(url_for("account_billing"))
         return func(*args, **kwargs)
 
     return decorated_function
@@ -32,9 +32,10 @@ def check_expired(func):
 def login_required_session(fn):
     @wraps(fn)
     def inner(*args, **kwargs):
-        if session.get('logged_in'):
+        if session.get("logged_in"):
             return fn(*args, **kwargs)
-        return redirect(url_for('login', next=request.path))
+        return redirect(url_for("login", next=request.path))
+
     return inner
 
 
@@ -51,8 +52,9 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if g.user is None:
-            return redirect(url_for('login', next=request.url))
+            return redirect(url_for("login", next=request.url))
         return f(*args, **kwargs)
+
     return decorated_function
 
 
@@ -62,7 +64,7 @@ def requires_roles(*roles):
         def wrapped(*args, **kwargs):
             # Check if the user is authenticated
             if not current_user.is_authenticated:
-                return redirect(url_for('login'))
+                return redirect(url_for("login"))
 
             if any(role.name not in roles for role in current_user.roles):
                 return abort(403)
@@ -81,19 +83,19 @@ def token_required(f):
     @wraps(f)
     def decorator(*args, **kwargs):
         token = None
-        if 'x-access-tokens' in request.headers:
-            token = request.headers['x-access-tokens']
+        if "x-access-tokens" in request.headers:
+            token = request.headers["x-access-tokens"]
         if not token:
-            return jsonify({'message': 'a valid token is missing'})
+            return jsonify({"message": "a valid token is missing"})
         try:
             data = jwt.decode(
-                token,
-                current_app.config['SECRET_KEY'],
-                algorithms=["HS256"]
+                token, current_app.config["SECRET_KEY"], algorithms=["HS256"]
             )
-            _current_user = User.query.filter_by(public_id=data['public_id']).first()
+            _current_user = User.query.filter_by(
+                public_id=data["public_id"]
+            ).first()
         except jwt.InvalidTokenError:
-            return jsonify({'message': 'token is invalid'})
+            return jsonify({"message": "token is invalid"})
         return f(_current_user, *args, **kwargs)
 
     return decorator
@@ -105,7 +107,7 @@ def permission_required(permission):
         def decorated_function(*args, **kwargs):
             # Check if the user is authenticated
             if not current_user.is_authenticated:
-                return redirect(url_for('login'))
+                return redirect(url_for("login"))
 
             # Check if the user has the required permission
             if not current_user.has_permission(permission):

@@ -22,8 +22,8 @@ class ViewModelBase:
 
     def __init__(self):
         self.request: Request = request
-        self.request_dict = request_dict_create('')
-        self.is_htmx_request = 'HX-Request' in request.headers
+        self.request_dict = request_dict_create("")
+        self.is_htmx_request = "HX-Request" in request.headers
         self.error: Optional[str] = None
         self.view_model = self.to_dict()
 
@@ -36,8 +36,7 @@ class IndexViewModel(ViewModelBase):
         super().__init__()
         self.categories: list[Category] = all_categories()
         self.rows = [
-            list(row)
-            for row in more_itertools.chunked(self.categories, 3)
+            list(row) for row in more_itertools.chunked(self.categories, 3)
         ]
 
 
@@ -59,7 +58,9 @@ class CategoryViewModel(ViewModelBase):
         super().__init__()
         self.cat_name = cat_name
         self.category: Optional[Category] = category_by_name(cat_name)
-        self.rows = [list(row) for row in more_itertools.chunked(self.category.data, 3)]
+        self.rows = [
+            list(row) for row in more_itertools.chunked(self.category.data, 3)
+        ]
         self.Catalog = Catalog
 
 
@@ -80,14 +81,14 @@ class AddCatalogViewModel(ViewModelBase):
 
     def restore_from_form(self):
         d = self.request_dict
-        self.name = d.get('name')
-        self.config = d.get('config')
+        self.name = d.get("name")
+        self.config = d.get("config")
 
 
 class SearchViewModel(ViewModelBase):
     def __init__(self):
         super().__init__()
-        self.search_text: str = self.request_dict.get('search_text')
+        self.search_text: str = self.request_dict.get("search_text")
         self.catalogs: list[Catalog] = []
         if self.search_text and self.search_text.strip():
             self.catalogs = search_catalogs(self.search_text)

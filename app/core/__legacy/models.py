@@ -23,7 +23,7 @@ class BaseStatus:
 
     @message.setter
     def message(self, msg: str):
-        self._message += (f'\n{msg}' if self._message else f'{msg}')
+        self._message += f"\n{msg}" if self._message else f"{msg}"
 
     def update(self, _id: int, msg: str):
         self.id: int = _id
@@ -51,12 +51,12 @@ class DependencyStatus(BaseStatus):
 
 
 class VerboseObject(Protocol):
-    """Verbose Object protocol should have verbose property
-    """
+    """Verbose Object protocol should have verbose property"""
+
     verbose: bool
 
 
 class VerboseDummy:
-    """Verbose Object dummy
-    """
-    verbose: bool = must_bool(os.getenv('DEBUG', 'False'))
+    """Verbose Object dummy"""
+
+    verbose: bool = must_bool(os.getenv("DEBUG", "False"))

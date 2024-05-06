@@ -18,7 +18,7 @@ from strenum import StrEnum
 
 from .base import get_run_date
 
-UNDEFINED: str = 'undefined'
+UNDEFINED: str = "undefined"
 
 
 def reduce_text(text: str, newline: Optional[str] = None) -> str:
@@ -28,6 +28,7 @@ def reduce_text(text: str, newline: Optional[str] = None) -> str:
 
 def enum_ordering(cls):
     """Add order property to Enum object."""
+
     def __lt__(self, other):
         if isinstance(other, type(self)):
             return self.value < other.value
@@ -46,45 +47,47 @@ class Status(IntEnum):
 
 
 class PartitionType(StrEnum):
-    RANGE = 'range'
-    LIST = 'list'
-    HASH = 'hash'
+    RANGE = "range"
+    LIST = "list"
+    HASH = "hash"
 
 
 class ParameterType(StrEnum):
-    TABLE = 'table'
-    PIPELINE = 'pipeline'
+    TABLE = "table"
+    PIPELINE = "pipeline"
     UNDEFINED = UNDEFINED
 
 
 class ParameterMode(StrEnum):
     """Parameter Mode Enum"""
-    COMMON = 'common'
-    RERUN = 'rerun'
+
+    COMMON = "common"
+    RERUN = "rerun"
 
 
 class ParameterIngestMode(StrEnum):
     """Parameter Ingestion Mode Enum"""
-    COMMON = 'common'
-    MERGE = 'merge'
+
+    COMMON = "common"
+    MERGE = "merge"
 
 
 class TaskMode(StrEnum):
-    FOREGROUND = 'foreground'
-    BACKGROUND = 'background'
+    FOREGROUND = "foreground"
+    BACKGROUND = "background"
 
 
 class TaskComponent(StrEnum):
-    FRAMEWORK = 'framework'
-    INGESTION = 'ingestion'
-    ANALYTIC = 'analytic'
+    FRAMEWORK = "framework"
+    INGESTION = "ingestion"
+    ANALYTIC = "analytic"
     UNDEFINED = UNDEFINED
 
 
 class TaskStatus(StrEnum):
-    SUCCESSFUL = 'successful'
-    FAILED = 'failed'
-    PROCESSING = 'processing'
+    SUCCESSFUL = "successful"
+    FAILED = "failed"
+    PROCESSING = "processing"
 
 
 @dataclass
@@ -98,7 +101,7 @@ class BaseResult:
     status: Status
     _message: str
     _duration: datetime = field(
-        default_factory=partial(get_run_date, date_type='datetime')
+        default_factory=partial(get_run_date, date_type="datetime")
     )
 
     @property
@@ -107,18 +110,16 @@ class BaseResult:
 
     @message.setter
     def message(self, msg: str):
-        self._message += (f'\n{msg}' if self._message else f'{msg}')
+        self._message += f"\n{msg}" if self._message else f"{msg}"
 
     def update(
-            self,
-            msg: str,
-            status: Optional[Union[Status, int]] = None,
+        self,
+        msg: str,
+        status: Optional[Union[Status, int]] = None,
     ):
         if status is not None:
             self.status: Status = (
-                status
-                if isinstance(status, Status)
-                else Status(status)
+                status if isinstance(status, Status) else Status(status)
             )
         self.message: str = reduce_text(msg)
         return self
@@ -126,7 +127,7 @@ class BaseResult:
     def duration(self) -> int:
         return round(
             (
-                    get_run_date(date_type='date_time') - self._duration
+                get_run_date(date_type="date_time") - self._duration
             ).total_seconds()
         )
 

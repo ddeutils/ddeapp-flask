@@ -46,8 +46,7 @@ conventions = {
     "pk": "pk_%(table_name)s",
 }
 metadata = MetaData(
-    naming_convention=conventions,
-    schema=env.get('AI_SCHEMA', 'ai')
+    naming_convention=conventions, schema=env.get("AI_SCHEMA", "ai")
 )
 
 
@@ -68,9 +67,9 @@ class CustomModel(Model):
 
 db = SQLAlchemy(
     metadata=metadata,
-    session_options={'autocommit': False},
+    session_options={"autocommit": False},
     query_class=GlobalQuery,
-    model_class=CustomModel
+    model_class=CustomModel,
 )
 # migrate = Migrate()
 
@@ -84,9 +83,9 @@ bcrypt = Bcrypt()
 
 # Flask-Login ==================================================================
 login_manager = LoginManager()
-login_manager.login_view = 'users.login_get'
-login_manager.login_message = 'Please log in for access that path.'
-login_manager.login_message_category = 'info'
+login_manager.login_view = "users.login_get"
+login_manager.login_message = "Please log in for access that path."
+login_manager.login_message_category = "info"
 # login_manager.user_loader is registered in main/users.
 # login_manager.refresh_view = "auth.reauth"
 login_manager.needs_refresh_message = (
@@ -116,22 +115,17 @@ csrf = CSRFProtect()
 
 # Flask-Limiter ================================================================
 swagger = Swagger(
-    config=swagger_config,
-    template=swagger_template,
-    sanitizer=NO_SANITIZER
+    config=swagger_config, template=swagger_template, sanitizer=NO_SANITIZER
 )
 
 # Flask-Limiter ================================================================
 cors = CORS(
-    resources={
-        r"/api/*": {"origins": "*"}
-    },
-
+    resources={r"/api/*": {"origins": "*"}},
     # By default, Flask-CORS does not allow cookies to be submitted across
     # sites, since it has potential security implications. If you wish to enable
     # cross-site cookies, you may wish to add some sort of CSRF protection to
     # keep you and your users safe.
-    supports_credentials=False
+    supports_credentials=False,
 )
 
 # Flask-Assets =================================================================
@@ -142,6 +136,6 @@ assets.register(bundles)
 scheduler = APScheduler()
 
 # Flask-Executor ===============================================================
-executor = Executor(name='app_custom')
+executor = Executor(name="app_custom")
 executor.add_default_done_callback(executor_callback)
 bg_mail = BackgroundMail(mail, executor)

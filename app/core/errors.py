@@ -81,6 +81,7 @@ class ControlTableNotImplement(ObjectBaseError):
 class ControlTableArgumentError(ObjectBaseError):
     """Exception raised for errors in arguments of method"""
 
+
 class ControlTableValueError(ObjectBaseError):
     """Exception raised for errors in the control framework table value"""
 
@@ -101,19 +102,21 @@ class ValidateFormsError(ObjectBaseError):
     """Exception raised for errors in value in forms"""
 
     def __init__(
-            self,
-            name: Union[str, list],
-            value: Optional[str] = None,
-            message: Optional[str] = None
+        self,
+        name: Union[str, list],
+        value: Optional[str] = None,
+        message: Optional[str] = None,
     ):
         if message is None:
             message = (
                 f"it does not develop for value {value!r}"
-                if value else "it does exists or not match"
+                if value
+                else "it does exists or not match"
             )
         _name: str = (
-            f'`{name}`' if isinstance(name, str)
-            else ', '.join(f"`{x}`" for x in name)
+            f"`{name}`"
+            if isinstance(name, str)
+            else ", ".join(f"`{x}`" for x in name)
         )
         _message = f"Please check form key {_name} because "
         super().__init__(_message + message)

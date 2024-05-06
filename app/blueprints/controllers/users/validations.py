@@ -2,7 +2,7 @@ from wtforms.validators import ValidationError
 
 
 class Unique:
-    def __init__(self, model, field, message='This element already exists.'):
+    def __init__(self, model, field, message="This element already exists."):
         self.model = model
         self.field = field
         self.message = message
@@ -14,7 +14,7 @@ class Unique:
 
 
 class NotExists:
-    def __init__(self, model, field, message='This element does not exists.'):
+    def __init__(self, model, field, message="This element does not exists."):
         self.model = model
         self.field = field
         self.message = message
@@ -26,9 +26,15 @@ class NotExists:
 
 
 class SameCurrent:
-    __field__ = ''
+    __field__ = ""
 
-    def __init__(self, model, field, field_current, message='This element is taken. Please choose a different one.'):
+    def __init__(
+        self,
+        model,
+        field,
+        field_current,
+        message="This element is taken. Please choose a different one.",
+    ):
         self.model = model
         self.field = field
         self.field_current = field_current
@@ -43,8 +49,8 @@ class SameCurrent:
 
 
 class SameCurrentUsername(SameCurrent):
-    __field__ = 'username'
+    __field__ = "username"
 
 
 class SameCurrentEmail(SameCurrent):
-    __field__ = 'email'
+    __field__ = "email"

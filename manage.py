@@ -8,39 +8,42 @@ import os
 
 import click
 
-os.environ['AI_APP_PATH'] = os.path.abspath(os.path.dirname(__file__))
+os.environ["AI_APP_PATH"] = os.path.abspath(os.path.dirname(__file__))
 
 
 @click.group()
-def cli():
-    ...
+def cli(): ...
 
 
 @click.command(
-    name='load',
-    short_help='load data from file in local to database',
+    name="load",
+    short_help="load data from file in local to database",
 )
 @click.option(
-    '-f', '--filename',
+    "-f",
+    "--filename",
     required=True,
     type=str,
-    help='source filename with path after `../data/` folder'
+    help="source filename with path after `../data/` folder",
 )
 @click.option(
-    '-t', '--target',
+    "-t",
+    "--target",
     required=True,
     type=str,
-    help='target table name short, such as `ai_article_master` -> `aam`'
+    help="target table name short, such as `ai_article_master` -> `aam`",
 )
 @click.option(
-    '--truncate', '--no-truncate',
+    "--truncate",
+    "--no-truncate",
     default=False,
 )
 @click.option(
-    '-c', '--compress',
+    "-c",
+    "--compress",
     type=str,
-    default='infer',
-    help='compress type of file such as `gzip`, `bz2`, `zip`, or `xz`'
+    default="infer",
+    help="compress type of file such as `gzip`, `bz2`, `zip`, or `xz`",
 )
 def load(filename: str, target: str, truncate: bool, compress: str):
     """Load data from local file to target database
@@ -48,6 +51,7 @@ def load(filename: str, target: str, truncate: bool, compress: str):
         >> $ python manage.py load -f "<filename>.csv" -t "<table-name>"
     """
     from app.app import load_data
+
     if target.startswith("'"):
         target: str = target.strip("'")
     if filename.startswith("'"):
@@ -61,69 +65,63 @@ def load(filename: str, target: str, truncate: bool, compress: str):
 
 
 @click.command(
-    name='migrate',
-    short_help='migrate catalog from configuration to target database',
+    name="migrate",
+    short_help="migrate catalog from configuration to target database",
 )
 @click.option(
-    '-c', '--condition',
+    "-c",
+    "--condition",
     type=str,
     help=(
-            'filter condition for get the list of table name '
-            'from control pipeline table'
-    )
+        "filter condition for get the list of table name "
+        "from control pipeline table"
+    ),
 )
 @click.option(
-    '--debug',
+    "--debug",
     type=bool,
     default=False,
-    help='migrate all tables with debug mode'
+    help="migrate all tables with debug mode",
 )
 def migrate(condition: str, debug: bool):
     """Migrate catalog table from configuration file to target database
     :usage:
         >> $ python manage.py migrate --debug=true
     """
-    os.environ['DEBUG'] = str(debug).capitalize()
+    os.environ["DEBUG"] = str(debug).capitalize()
 
     from app.app import migrate_table
+
     migrate_table()
 
 
 @click.command(
-    name='run',
-    short_help='run application server',
+    name="run",
+    short_help="run application server",
+)
+@click.option("--debug", is_flag=True, help="run application with debug mode")
+@click.option(
+    "-t", "--thread", is_flag=True, help="run application with thread mode"
 )
 @click.option(
-    '--debug',
-    is_flag=True,
-    help='run application with debug mode'
+    "--api", is_flag=True, help="run application only the API component"
 )
 @click.option(
-    '-t', '--thread',
+    "--recreated",
     is_flag=True,
-    help='run application with thread mode'
+    help="re-create control tables to target database",
 )
 @click.option(
-    '--api',
+    "--server",
     is_flag=True,
-    help='run application only the API component'
-)
-@click.option(
-    '--recreated',
-    is_flag=True,
-    help='re-create control tables to target database'
-)
-@click.option(
-    '--server',
-    is_flag=True,
-    help='run application with WSGI server',
+    help="run application with WSGI server",
 )
 def runserver(
-        debug: bool = False,
-        thread: bool = False,
-        api: bool = False,
-        recreated: bool = False,
-        server: bool = False,
+    debug: bool = False,
+    thread: bool = False,
+    api: bool = False,
+    recreated: bool = False,
+    server: bool = False,
 ):
     """Run WSGI Application or Server which implement by waitress
     :usage:
@@ -133,12 +131,13 @@ def runserver(
         - Re-loader will be True if run server in debug mode
             > app.run(use_reloader=False)
     """
-    os.environ['DEBUG'] = str(debug).capitalize()
+    os.environ["DEBUG"] = str(debug).capitalize()
 
     from flask import Flask
 
     from app.app import create_app
     from app.core.utils.logging_ import get_logger
+
     logger = get_logger(__name__)
 
     click.echo("Start Deploy the application with input argument")
@@ -151,29 +150,31 @@ def runserver(
     )
     if server:
         from waitress import serve
+
         serve(
             app=app,
-            host='0.0.0.0',
+            host="0.0.0.0",
             port=5000,
             threads=4,
-            url_scheme='http',
+            url_scheme="http",
             # The URL prefix for adding in the font of main application.
-            url_prefix='',
+            url_prefix="",
         )
     else:
-        app.run(**{
-            "debug": debug,
-            "threaded": thread,
-            "host": '0.0.0.0',
-            "port": 5000,
-            "processes": 1,
-        })
+        app.run(
+            **{
+                "debug": debug,
+                "threaded": thread,
+                "host": "0.0.0.0",
+                "port": 5000,
+                "processes": 1,
+            }
+        )
 
 
-@click.command(name='test', short_help='test application server')
+@click.command(name="test", short_help="test application server")
 def test():
-    """Test Application Server
-    """
+    """Test Application Server"""
     ...
 
 
@@ -182,5 +183,5 @@ cli.add_command(migrate)
 cli.add_command(runserver)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()

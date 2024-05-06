@@ -17,5 +17,5 @@ def main():
     print(f"time cost {end_time - start_time:0.2f}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

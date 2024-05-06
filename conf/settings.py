@@ -17,41 +17,39 @@ class BaseConfig:
     APP_INGEST_CHUCK: int = 5
 
     # Flask
-    SECRET_KEY: str = '476e90c596a2311335c553599125bf92'
-    DEBUG: bool = eval(os.environ.get('DEBUG', 'True'))
+    SECRET_KEY: str = "476e90c596a2311335c553599125bf92"
+    DEBUG: bool = eval(os.environ.get("DEBUG", "True"))
 
     # Flask Bcrypt
     BCRYPT_LOG_ROUNDS: int = 12
 
     # Flask Mail
-    MAIL_SERVER: str = os.environ.get('MAIL_SERVER', 'sandbox.smtp.mailtrap.io')
-    MAIL_PORT: int = int(os.environ.get('MAIL_PORT') or 2525)
-    MAIL_USERNAME: str = os.environ.get('MAIL_USERNAME', '4fef3ab6172e52')
-    MAIL_PASSWORD: str = os.environ.get('MAIL_PASSWORD', '3c1f9a538eada7')
+    MAIL_SERVER: str = os.environ.get("MAIL_SERVER", "sandbox.smtp.mailtrap.io")
+    MAIL_PORT: int = int(os.environ.get("MAIL_PORT") or 2525)
+    MAIL_USERNAME: str = os.environ.get("MAIL_USERNAME", "4fef3ab6172e52")
+    MAIL_PASSWORD: str = os.environ.get("MAIL_PASSWORD", "3c1f9a538eada7")
     MAIL_USE_TLS: bool = True
     MAIL_USE_SSL: bool = False
-    ADMINS = ['admin@example.com']
+    ADMINS = ["admin@example.com"]
 
     # Flask CORS
-    ALLOWED_ORIGINS: list = ['http://localhost:5000', 'https://example.com']
+    ALLOWED_ORIGINS: list = ["http://localhost:5000", "https://example.com"]
 
     # Flask WTF Form
-    WTF_CSRF_SECRET_KEY: str = '32510asdf7840b0s0v0s78fhasd'
+    WTF_CSRF_SECRET_KEY: str = "32510asdf7840b0s0v0s78fhasd"
     WTF_CSRF_ENABLED: bool = True
 
     RESET_TOKEN_EXPIRE_HOURS: int = 1
 
     # Flask SQLAlchemy
     SQLALCHEMY_ENGINE_OPTIONS: dict = {
-        'pool_size': 10,
-        'pool_recycle': 60,
-        'pool_timeout': 7,
-        'pool_pre_ping': True,
+        "pool_size": 10,
+        "pool_recycle": 60,
+        "pool_timeout": 7,
+        "pool_pre_ping": True,
     }
-    SQLALCHEMY_DATABASE_URI: str = (
-        generate_engine()
-            .url
-            .render_as_string(hide_password=False)
+    SQLALCHEMY_DATABASE_URI: str = generate_engine().url.render_as_string(
+        hide_password=False
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -72,16 +70,13 @@ class BaseConfig:
     SCHEDULER_JOBSTORES = {
         # Save jobs and checkpoint of next schedule
         "sqlite": SQLAlchemyJobStore(
-            url=f'sqlite:///{BASE_PATH}/data/schedulers.db',
+            url=f"sqlite:///{BASE_PATH}/data/schedulers.db",
             tablename="scheduler",
         )
     }
-    SCHEDULER_TIMEZONE = tz.gettz('Asia/Bangkok')
+    SCHEDULER_TIMEZONE = tz.gettz("Asia/Bangkok")
     SCHEDULER_EXECUTORS = {
-        "sqlite": {
-            "type": "threadpool",
-            "max_workers": 20
-        },
+        "sqlite": {"type": "threadpool", "max_workers": 20},
     }
     SCHEDULER_JOB_DEFAULTS = {
         "coalesce": False,
@@ -99,24 +94,24 @@ class BaseConfig:
 
     # Flask Celery Configuration
     CELERY_CONFIG = {
-        'broker_url': 'redis://localhost:6379/0',
-        'result_backend': 'redis://localhost:6379/0',
+        "broker_url": "redis://localhost:6379/0",
+        "result_backend": "redis://localhost:6379/0",
     }
 
     # Flask JWT Extension
-    JWT_SECRET_KEY = '476e90c596a2311335c553599125bf92'
+    JWT_SECRET_KEY = "476e90c596a2311335c553599125bf92"
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     JWT_COOKIE_CSRF_PROTECT = False
 
     # Flask Swagger
     SWAGGER = {
-        'title': "AI API",
-        'uiversion': 3,
+        "title": "AI API",
+        "uiversion": 3,
     }
 
     # Flask Executor
-    EXECUTOR_TYPE: str = 'thread'
+    EXECUTOR_TYPE: str = "thread"
     EXECUTOR_MAX_WORKERS: int = 4
     EXECUTOR_PROPAGATE_EXCEPTIONS: bool = True
 
@@ -143,7 +138,7 @@ def get_settings():
     config_cls_dict: dict = {
         "development": DevConfig,
         "production": PrdConfig,
-        "testing": TestingConfig
+        "testing": TestingConfig,
     }
     config_name = os.environ.get("APP_ENV", "development")
     config_cls = config_cls_dict[config_name]

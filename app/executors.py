@@ -34,6 +34,7 @@ def flask_async(f):
 
     docs: https://stackoverflow.com/questions/40989671/background-tasks-in-flask
     """
+
     @wraps(f)
     def wrapped(*args, **kwargs):
         def task(_app, environ):
@@ -41,14 +42,14 @@ def flask_async(f):
             with _app.request_context(environ):
                 try:
                     # Run the route function and record the response
-                    TASKS[task_id]['result'] = f(*args, **kwargs)
+                    TASKS[task_id]["result"] = f(*args, **kwargs)
                 except HTTPException as e:
-                    TASKS[task_id]['result'] = (
+                    TASKS[task_id]["result"] = (
                         current_app.handle_http_exception(e)
                     )
                 except AllExceptions:
                     # The function raised an exception, so we set a 500 error
-                    TASKS[task_id]['result'] = InternalServerError()
+                    TASKS[task_id]["result"] = InternalServerError()
                     if current_app.debug:
                         # We want to find out if something happened so reraise
                         raise
@@ -58,22 +59,19 @@ def flask_async(f):
 
         # Record the task, and then launch it
         TASKS[task_id] = {
-            'task': threading.Thread(
+            "task": threading.Thread(
                 target=task,
-
                 # If you need to access the underlying object that is proxied,
                 # use the `_get_current_object()` method.
                 # docs: https://flask.palletsprojects.com/en/2.2.x/reqcontext/
-                args=(
-                    current_app._get_current_object(),
-                    request.environ
-                )
+                args=(current_app._get_current_object(), request.environ),
             )
         }
-        TASKS[task_id]['task'].start()
+        TASKS[task_id]["task"].start()
         # Return a 202 response, with an id that the client can use to obtain
         # task status
-        return {'TaskId': task_id}, 202
+        return {"TaskId": task_id}, 202
+
     return wrapped
 
 
@@ -90,9 +88,7 @@ class BackgroundMail:
 
     def send_email(self, recipient, subject, content):
         msg = Message(
-            subject,
-            sender='me@oluwabukunmi.com',
-            recipients=[recipient]
+            subject, sender="me@oluwabukunmi.com", recipients=[recipient]
         )
         msg.body = content
         self.mail.send(msg)
@@ -101,11 +97,7 @@ class BackgroundMail:
         # Generate a unique task ID
         task_id = uuid.uuid4().hex
         self.executor.submit_stored(
-            task_id,
-            self.send_email,
-            recipient,
-            subject,
-            content
+            task_id, self.send_email, recipient, subject, content
         )
         return task_id
 

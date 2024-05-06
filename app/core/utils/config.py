@@ -13,32 +13,36 @@ from ..utils.reusables import (
     merge_dicts,
 )
 
-AI_APP_PATH: Path = Path(os.getenv(
-    'AI_APP_PATH',
-    str((Path(__file__).parent / '../../..').resolve())
-))
+AI_APP_PATH: Path = Path(
+    os.getenv(
+        "AI_APP_PATH", str((Path(__file__).parent / "../../..").resolve())
+    )
+)
 
-CONF_PATH: Path = AI_APP_PATH / 'conf'
+CONF_PATH: Path = AI_APP_PATH / "conf"
 
 
 class Params:
     """Parameter variables object keeping from parameters.yaml file"""
 
     def __init__(
-            self,
-            parameters: Optional[dict] = None,
-            param_name: Optional[str] = None
+        self,
+        parameters: Optional[dict] = None,
+        param_name: Optional[str] = None,
     ):
-        __param_name: str = param_name or 'parameters.yaml'
+        __param_name: str = param_name or "parameters.yaml"
         if not parameters:
-            with (CONF_PATH / __param_name).open(encoding='utf8') as f:
+            with (CONF_PATH / __param_name).open(encoding="utf8") as f:
                 parameters = yaml.load(f, Loader=yaml.Loader)
 
         if parameters:
-            self.__dict__.update(**{
-                k: v for k, v in self.__class__.__dict__.items()
-                if '__' not in k and not callable(v)
-            })
+            self.__dict__.update(
+                **{
+                    k: v
+                    for k, v in self.__class__.__dict__.items()
+                    if "__" not in k and not callable(v)
+                }
+            )
             self.__dict__.update(**parameters)
         self.__dict__ = self.__handle_inner_structures()
 
@@ -47,7 +51,7 @@ class Params:
             {
                 key: value
                 for key, value in self.__dict__.items()
-                if not key.startswith('_')
+                if not key.startswith("_")
             }
         )
 
@@ -64,35 +68,37 @@ class Params:
         return self.__dict__[item]
 
 
-_registers = Params(param_name='registers.yaml')
+_registers = Params(param_name="registers.yaml")
 
 
 class Environs:
     """Environment variables object keeping from .env file"""
 
     def __init__(self, env_name: Optional[str] = None, reload: bool = True):
-        __env_name: str = env_name or '.env'
+        __env_name: str = env_name or ".env"
         if reload:
             result: dict = {}
             __env_file: Path = AI_APP_PATH / __env_name
             if __env_file.exists():
-                with __env_file.open(encoding='utf8') as file:
+                with __env_file.open(encoding="utf8") as file:
                     # TODO: fix reading logic of .env file
                     for line in file:
-                        if line.startswith('#'):
+                        if line.startswith("#"):
                             continue
                         if (
-                            len(
-                                line_split := line.replace('\n', '').split('=')
-                            ) == 2
+                            len(line_split := line.replace("\n", "").split("="))
+                            == 2
                         ):
-                            result[line_split[0]]: str = str(eval(line_split[1]))
+                            result[line_split[0]]: str = str(
+                                eval(line_split[1])
+                            )
             _result: dict = merge_dicts(
-                result, {
+                result,
+                {
                     key: value
                     for key, value in os.environ.items()
                     if key in _registers.env_variables
-                }
+                },
             )
             self.__dict__.update(**_result)
             os.environ.update(**_result)

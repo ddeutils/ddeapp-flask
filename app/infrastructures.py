@@ -36,7 +36,9 @@ def response(*, mimetype: str = None, template_file: str = None):
                 )
 
             if template_file:
-                response_val = flask.render_template(template_file, **response_val)
+                response_val = flask.render_template(
+                    template_file, **response_val
+                )
 
             resp = flask.make_response(response_val)
             resp.model = model
@@ -44,7 +46,9 @@ def response(*, mimetype: str = None, template_file: str = None):
                 resp.mimetype = mimetype
 
             return resp
+
         return view_method
+
     return response_inner
 
 
@@ -75,7 +79,7 @@ def create(default_val=None, **route_args) -> RequestDictionary:
         **args,  # The key/value pairs in the URL query string
         **request.headers,  # Header values
         **form,  # The key/value pairs in the body, from a HTML post form
-        **route_args  # And additional arguments the method access, if they want them merged.
+        **route_args,  # And additional arguments the method access, if they want them merged.
     }
 
     return RequestDictionary(data, default_val=default_val)
@@ -89,17 +93,21 @@ docs: https://speakerdeck.com/mitsuhiko/advanced-flask-patterns-1?slide=42
 def is_safe_url(target):
     ref_url = urlparse(flask.request.host_url)
     test_url = urlparse(urljoin(flask.request.host_url, target))
-    return (test_url.scheme in {'http', 'https'}) and (ref_url.netloc == test_url.netloc)
+    return (test_url.scheme in {"http", "https"}) and (
+        ref_url.netloc == test_url.netloc
+    )
 
 
 def is_different_url(url):
     this_parts = urlparse(flask.request.url)
     other_parts = urlparse(url)
-    return (this_parts[:4] != other_parts[:4]) and (unquote(this_parts.query) != unquote(other_parts.query))
+    return (this_parts[:4] != other_parts[:4]) and (
+        unquote(this_parts.query) != unquote(other_parts.query)
+    )
 
 
 def redirect_back(fallback):
-    next_url = flask.request.args.get('next') or flask.request.referrer
+    next_url = flask.request.args.get("next") or flask.request.referrer
     if next_url and is_safe_url(next_url) and is_different_url(next_url):
         return flask.redirect(next_url)
     return flask.redirect(fallback)

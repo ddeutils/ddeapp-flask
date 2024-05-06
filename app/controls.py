@@ -36,41 +36,35 @@ from app.core.utils.config import (
 from app.core.utils.logging_ import logging
 
 logger = logging.getLogger(__name__)
-registers = Params(param_name='registers.yaml')
-params = Params(param_name='parameters.yaml')
-env = Environs(env_name='.env')
+registers = Params(param_name="registers.yaml")
+params = Params(param_name="parameters.yaml")
+env = Environs(env_name=".env")
 
 
 def push_close_ssh(force: bool = False):
     """Run close SSH function"""
     from app.core.connections.postgresql import ssh_connect
+
     server = ssh_connect()
     if server.is_alive or force:
         server.close()
 
 
-def push_func_setup(
-        task: Optional[Task] = None
-) -> None:
-    """Run Setup function in `register.yaml`
-    """
-    task: Task = task or Task.make(module='function_setup')
+def push_func_setup(task: Optional[Task] = None) -> None:
+    """Run Setup function in `register.yaml`"""
+    task: Task = task or Task.make(module="function_setup")
     functions = registers.functions
     for idx, _func_prop in enumerate(functions, start=1):
         try:
             _func: Action = Action(
-                _func_prop['name'],
-                process_id=task.id,
-                auto_create=False
+                _func_prop["name"], process_id=task.id, auto_create=False
             )
         except ObjectBaseError:
             _func: Action = Action(
-                _func_prop['name'],
-                process_id=task.id,
-                auto_create=True
+                _func_prop["name"], process_id=task.id, auto_create=True
             )
         logger.info(
-            f'START {idx:02d}: {_func.name} '
+            f"START {idx:02d}: {_func.name} "
             f'{"~" * (30 - len(_func.name) + 31)}'
         )
         logger.info(
@@ -80,26 +74,25 @@ def push_func_setup(
 
 
 def push_ctr_setup(
-        task: Optional[Task] = None,
+    task: Optional[Task] = None,
 ) -> None:
-    """Run Setup Control Framework table in `register.yaml`
-    """
-    task: Task = task or Task.make(module='control_setup')
+    """Run Setup Control Framework table in `register.yaml`"""
+    task: Task = task or Task.make(module="control_setup")
     for idx, _ctr_prop in enumerate(
-            registers.control_frameworks,
-            start=1,
+        registers.control_frameworks,
+        start=1,
     ):
         status: Status = Status.SUCCESS
         try:
             _node = Node(
-                name=_ctr_prop['name'],
+                name=_ctr_prop["name"],
                 process_id=task.id,
-                run_mode='setup',
-                auto_init='Y',
-                auto_drop='Y',
+                run_mode="setup",
+                auto_init="Y",
+                auto_drop="Y",
             )
             logger.info(
-                f'START {idx:02d}: {_node.name} '
+                f"START {idx:02d}: {_node.name} "
                 f'{"~" * (30 - len(_node.name) + 31)}'
             )
         except ObjectBaseError as err:
@@ -108,7 +101,7 @@ def push_ctr_setup(
             #   does not exist
             #   LINE 1: ...count_max, rtt_value, rtt_column, active_flg from
             #   postgres.a...
-            logger.error(f'Error ObjectBaseError: {err}')
+            logger.error(f"Error ObjectBaseError: {err}")
             status: Status = Status.FAILED
         logger.info(
             f"Success run {_ctr_prop['name']!r} "
@@ -120,26 +113,25 @@ MAP_BG_PROCESS: dict = {}
 
 
 def pull_ctr_check_process() -> tuple[int, ...]:
-    """Check process_id in `ctr_task_process` table
-    """
+    """Check process_id in `ctr_task_process` table"""
     # search process with status does not success in control table
-    if not (ctr_pull := {
-        data['process_id']: data['status']
-        for data in Control('ctr_task_process').pull(
-            pm_filter={'process_id': '*'},
-            included_cols=['process_id', 'status'],
-            condition="status <> '0'",
-            all_flag=True,
-        )
-    }):
+    if not (
+        ctr_pull := {
+            data["process_id"]: data["status"]
+            for data in Control("ctr_task_process").pull(
+                pm_filter={"process_id": "*"},
+                included_cols=["process_id", "status"],
+                condition="status <> '0'",
+                all_flag=True,
+            )
+        }
+    ):
         return 0, 0, len(MAP_BG_PROCESS)
 
     ps_filter_false: dict = dict(
-        filter(lambda x: x[1] == '1', ctr_pull.items())
+        filter(lambda x: x[1] == "1", ctr_pull.items())
     )
-    ps_filter_wait: dict = dict(
-        filter(lambda x: x[1] == '2', ctr_pull.items())
-    )
+    ps_filter_wait: dict = dict(filter(lambda x: x[1] == "2", ctr_pull.items()))
     _del_key: list = []
     append = _del_key.append
     for k, v in MAP_BG_PROCESS.items():
@@ -155,10 +147,9 @@ def pull_ctr_check_process() -> tuple[int, ...]:
 
 
 def pull_migrate_tables():
-    """Check migrate table process
-    """
+    """Check migrate table process"""
     pipe_cnt = Pipeline(
-        name='control_search',
+        name="control_search",
         auto_create=False,
         verbose=False,
     )
@@ -170,20 +161,20 @@ def push_ctr_stop_running() -> None:
     """
     Do something before server shutdown
     """
-    if eval(os.environ.get('DEBUG', 'True')):
+    if eval(os.environ.get("DEBUG", "True")):
         return
 
     try:
         logger.info("Start update message and status to in-progress tasks.")
         Action(
-            name='query:query_shutdown',
+            name="query:query_shutdown",
             external_parameters={
-                'status': 1,
-                'process_message': (
+                "status": 1,
+                "process_message": (
                     "Error: RuntimeError: Server shutdown while "
                     "process was running in background"
-                )
-            }
+                ),
+            },
         ).push_query()
     except (OperationalError, PsycopgOperationalError):
         logger.warning("... Target database does not connectable.")
@@ -191,14 +182,13 @@ def push_ctr_stop_running() -> None:
 
 
 def push_trigger_schedule() -> int:
-    """Push run data with trigger schedule
-    """
+    """Push run data with trigger schedule"""
     ps_time_all: int = 0
     for pipe_name, _pipe_props in get_catalogs(
-            config_form='pipeline',
-            key_exists=params.map_pipe.trigger,
-            key_exists_all_mode=False,
-            priority_sorted=True,
+        config_form="pipeline",
+        key_exists=params.map_pipe.trigger,
+        key_exists_all_mode=False,
+        priority_sorted=True,
     ).items():
         try:
             pipeline: Pipeline = Pipeline(pipe_name)
@@ -208,11 +198,11 @@ def push_trigger_schedule() -> int:
                     f"for data pipeline: {pipeline.name!r}"
                 )
                 result: Result = foreground_tasks(
-                    module='data',
+                    module="data",
                     external_parameters={
-                        'pipeline_name': pipeline.name,
-                        'run_mode': 'common'
-                    }
+                        "pipeline_name": pipeline.name,
+                        "run_mode": "common",
+                    },
                 )
                 logger.info(
                     f"End trigger {pipeline.name!r} "
@@ -227,30 +217,29 @@ def push_trigger_schedule() -> int:
 
 
 def push_cron_schedule(group_name: str, waiting_process: int = 300) -> int:
-    """Push run data with cron schedule
-    """
+    """Push run data with cron schedule"""
     ps_time_all: int = 0
     for pipe_name, _ in get_catalogs(
-            config_form='pipeline',
-            key_exists=params.map_pipe.schedule,
-            key_exists_all_mode=False,
-            priority_sorted=True,
+        config_form="pipeline",
+        key_exists=params.map_pipe.schedule,
+        key_exists_all_mode=False,
+        priority_sorted=True,
     ):
         try:
             pipeline: Pipeline = Pipeline(pipe_name)
             if pipeline.check_pipe_schedule(
-                    group=group_name,
-                    waiting_process=waiting_process,
+                group=group_name,
+                waiting_process=waiting_process,
             ):
                 logger.info(
                     f"Start cron jon schedule "
                     f"for data pipeline: {pipeline.name!r}"
                 )
                 result: Result = foreground_tasks(
-                    module='data',
+                    module="data",
                     external_parameters={
-                        'pipeline_name': pipeline.name,
-                        'run_mode': 'common',
+                        "pipeline_name": pipeline.name,
+                        "run_mode": "common",
                     },
                 )
                 logger.info(
@@ -274,8 +263,8 @@ def push_retention() -> int:
     )
     try:
         result: Result = foreground_tasks(
-            module='retention',
-            external_parameters={'pipeline_name': 'retention_search'},
+            module="retention",
+            external_parameters={"pipeline_name": "retention_search"},
         )
         return result.duration()
     except (ObjectBaseError, CatalogBaseError) as err:
@@ -284,24 +273,18 @@ def push_retention() -> int:
 
 
 def push_load_file_to_db(
-        filename: str,
-        target: str,
-        truncate: bool = False,
-        compress: Optional[str] = None
+    filename: str,
+    target: str,
+    truncate: bool = False,
+    compress: Optional[str] = None,
 ):
     """Push load csv file to target table with short name
     :usage:
         >> push_load_file_to_db('initial/ilticd/ilticd_20220821.csv', 'ilticd')
     """
-    task: Task = Task.make(module='load_data_from_file')
-    node: Node = Node(
-        name=Node.convert_short(target),
-        process_id=task.id
-    )
-    node.load_file(
-        filename, truncate=truncate, compress=compress
-    )
+    task: Task = Task.make(module="load_data_from_file")
+    node: Node = Node(name=Node.convert_short(target), process_id=task.id)
+    node.load_file(filename, truncate=truncate, compress=compress)
 
 
-def push_initialize_frontend():
-    ...
+def push_initialize_frontend(): ...

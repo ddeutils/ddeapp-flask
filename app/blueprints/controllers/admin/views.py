@@ -15,14 +15,14 @@ from ....extensions import db
 from .decorators import admin_required
 from .models import MODEL_VIEWS
 
-admin = Blueprint('admin', __name__, template_folder='templates')
+admin = Blueprint("admin", __name__, template_folder="templates")
 
 
-@admin.get('/')
+@admin.get("/")
 @admin_required
 def admin_view():
-    page: int = request.args.get('page', 1, type=int)
-    _model_view: str = request.args.get('model_view', 'user', type=str)
+    page: int = request.args.get("page", 1, type=int)
+    _model_view: str = request.args.get("model_view", "user", type=str)
 
     try:
         model_view = MODEL_VIEWS[_model_view.lower()]
@@ -30,7 +30,7 @@ def admin_view():
         return abort(404, {"error": str(err)})
 
     models = model_view.query.paginate(page=page, per_page=15)
-    if 'Hx-Request' in request.headers:
+    if "Hx-Request" in request.headers:
         return render_template(
             "admin/partials/models.html",
             models=models,
@@ -41,7 +41,7 @@ def admin_view():
         "admin/model_view.html",
         models=models,
         model_view=model_view,
-        model_lists=list(MODEL_VIEWS.keys())
+        model_lists=list(MODEL_VIEWS.keys()),
     )
 
 
@@ -54,18 +54,14 @@ def view_submit(model_view):
     }
 
     if any(not _ for _ in request.form.values()):
-        return ''
+        return ""
 
-    if (
-            model_exists := model_view.query.filter_by(
-                **{col: _updated_data[col] for col in model_view.__view_cols_search__}
-            ).first()
-    ):
+    if model_exists := model_view.query.filter_by(
+        **{col: _updated_data[col] for col in model_view.__view_cols_search__}
+    ).first():
         model = model_exists
     else:
-        model = model_view(
-            **_updated_data
-        )
+        model = model_view(**_updated_data)
         db.session.add(model)
         db.session.commit()
     return f"""
@@ -104,7 +100,7 @@ def view_submit(model_view):
     """
 
 
-@admin.get('/get-edit/<string:model_view>/<model_id>')
+@admin.get("/get-edit/<string:model_view>/<model_id>")
 @admin_required
 def get_edit_from_view(model_view, model_id):
     model_view = MODEL_VIEWS[model_view.lower()]
@@ -144,7 +140,7 @@ def get_edit_from_view(model_view, model_id):
     """
 
 
-@admin.get('/get-row/<string:model_view>/<model_id>')
+@admin.get("/get-row/<string:model_view>/<model_id>")
 @admin_required
 def get_row_from_view(model_view, model_id):
     model_view = MODEL_VIEWS[model_view.lower()]
@@ -195,16 +191,18 @@ def delete_row(model_view, model_id):
     return ""
 
 
-@admin.put('/update-row/<string:model_view>/<model_id>')
+@admin.put("/update-row/<string:model_view>/<model_id>")
 @admin_required
 def update_row(model_view, model_id):
     model_view = MODEL_VIEWS[model_view.lower()]
     model_obj = model_view.query.filter_by(id=model_id)
     model = model_obj.first()
-    model_obj.update({
-        value: request.form[col]
-        for col, value in model_view.__view_cols_update__.items()
-    })
+    model_obj.update(
+        {
+            value: request.form[col]
+            for col, value in model_view.__view_cols_update__.items()
+        }
+    )
     db.session.commit()
     return f"""
     <tr>
@@ -244,6 +242,6 @@ def update_row(model_view, model_id):
     """
 
 
-@admin.get('/confirmed')
+@admin.get("/confirmed")
 def confirmed():
-    return 'Confirmed'
+    return "Confirmed"

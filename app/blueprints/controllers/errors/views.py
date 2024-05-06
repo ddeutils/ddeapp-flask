@@ -17,7 +17,7 @@ from ....core.constants import (
 )
 
 logger = logging.getLogger(__name__)
-errors = Blueprint('errors', __name__, template_folder='templates')
+errors = Blueprint("errors", __name__, template_folder="templates")
 
 
 @errors.app_errorhandler(HTTP_403_FORBIDDEN)
@@ -27,9 +27,10 @@ errors = Blueprint('errors', __name__, template_folder='templates')
 @errors.app_errorhandler(HTTP_500_INTERNAL_SERVER_ERROR)
 def error_handler(error):
     """Error Handler route"""
-    if request.path.startswith('/api'):
+    if request.path.startswith("/api"):
         logger.error(str(error))
         return jsonify(error=str(error)), error.code
-    return render_template(
-        'errors/base.html', error_code=error.code
-    ), error.code
+    return (
+        render_template("errors/base.html", error_code=error.code),
+        error.code,
+    )

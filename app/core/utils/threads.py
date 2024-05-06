@@ -9,7 +9,7 @@ import typing
 from typing import Any
 
 threadList: list = []
-MAX_THREADS: int = int(os.getenv('THREAD_MAX', '5'))
+MAX_THREADS: int = int(os.getenv("THREAD_MAX", "5"))
 # TODO: research from
 #  https://stackoverflow.com/questions/62469183/multithreading-inside-multiprocessing-in-python
 
@@ -58,17 +58,19 @@ class ThreadWithControl(threading.Thread):
         >> print(_thread.join())
         4
     """
+
     # TODO: `threadLimiter` per data pipeline use case flow
     LIMITER = threading.BoundedSemaphore(MAX_THREADS)
 
     def __init__(
-            self,
-            group=None,
-            target=None,
-            name=None,
-            args=(),
-            kwargs=None, *,
-            daemon=None
+        self,
+        group=None,
+        target=None,
+        name=None,
+        args=(),
+        kwargs=None,
+        *,
+        daemon=None,
     ):
         # inherit variables from `super()` or `threading.Thread`
         self._return = None
@@ -81,7 +83,7 @@ class ThreadWithControl(threading.Thread):
             name=name,
             args=args,
             kwargs=kwargs,
-            daemon=daemon
+            daemon=daemon,
         )
         self._stop_event = threading.Event()
         self.check_count = 0
@@ -166,15 +168,7 @@ class ThreadWithControl(threading.Thread):
 class _WorkItem:
     """concurrent.futures.thread.py"""
 
-    def __init__(
-            self,
-            future,
-            fn,
-            args,
-            kwargs,
-            *,
-            debug=None
-    ):
+    def __init__(self, future, fn, args, kwargs, *, debug=None):
         self._debug = debug
         self.future = future
         self.fn = fn
@@ -207,18 +201,19 @@ class _WorkItem:
 
 
 class ExitThread:
-    """ Like a stoppable thread
+    """Like a stoppable thread
     Using coroutine for target then exit before running may cause
     RuntimeWarning.
     """
+
     def __init__(
-            self,
-            target: typing.Union[typing.Coroutine, typing.Callable] = None,
-            args=(),
-            kwargs=None,
-            *,
-            daemon=None,
-            debug=None
+        self,
+        target: typing.Union[typing.Coroutine, typing.Callable] = None,
+        args=(),
+        kwargs=None,
+        *,
+        daemon=None,
+        debug=None,
     ):
         if kwargs is None:
             kwargs = {}
@@ -226,7 +221,7 @@ class ExitThread:
         self._parent_thread = threading.Thread(
             target=self._parent_thread_run,
             name="ExitThread_parent_thread",
-            daemon=daemon
+            daemon=daemon,
         )
         self._child_daemon_thread = None
         self.result_future = concurrent.futures.Future()
@@ -247,7 +242,7 @@ class ExitThread:
         self._child_daemon_thread = threading.Thread(
             target=self._child_daemon_thread_run,
             name="ExitThread_child_daemon_thread",
-            daemon=True
+            daemon=True,
         )
         self._child_daemon_thread.start()
         # Block manager thread
@@ -299,8 +294,8 @@ class BackgroundTasks(threading.Thread):
     """
 
     def __init__(
-            self,
-            app,
+        self,
+        app,
     ):
         """Create a background tasks object that runs periodical tasks in the
         background of a flask application.
@@ -310,11 +305,9 @@ class BackgroundTasks(threading.Thread):
         super().__init__()
         self.app = app
 
-
     def run(self) -> None:
         # Use the current application context and start the timeloop service.
         with self.app.app_context():
             self.synchronize_applications()
 
-    def synchronize_applications(self) -> None:
-        ...
+    def synchronize_applications(self) -> None: ...

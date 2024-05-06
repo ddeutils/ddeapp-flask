@@ -27,14 +27,14 @@ from ..ingestion.tasks import (
     ingestion_foreground,
 )
 
-ingestion = Blueprint('ingestion', __name__)
+ingestion = Blueprint("ingestion", __name__)
 logger = logging.getLogger(__name__)
 
 
-@ingestion.route('put/', methods=['PUT'])
-@ingestion.route('del/', methods=['DELETE'])
-@ingestion.route('put/<path:tbl_name_short>', methods=['PUT'])
-@ingestion.route('del/<path:tbl_name_short>', methods=['DELETE'])
+@ingestion.route("put/", methods=["PUT"])
+@ingestion.route("del/", methods=["DELETE"])
+@ingestion.route("put/<path:tbl_name_short>", methods=["PUT"])
+@ingestion.route("del/<path:tbl_name_short>", methods=["DELETE"])
 @apikey_required
 def ingestion_json(tbl_name_short: Optional[str] = None):
     """Receive json data and insert into table with identify by short name
@@ -62,32 +62,32 @@ def ingestion_json(tbl_name_short: Optional[str] = None):
     try:
         if not tbl_name_short:
             raise ValidateFormsError(
-                'tbl_name_short',
+                "tbl_name_short",
                 message=(
                     "specific target in `/api/ai/<table_short_name>` "
                     "does not exists"
-                )
+                ),
             )
         parameters: dict = FormIngest.add(
-            value={'tbl_name_short': tbl_name_short}
+            value={"tbl_name_short": tbl_name_short}
         ).as_dict()
         status: Status = Status.SUCCESS
         optional: dict = {}
     except ValidateFormsError as error:
         logger.error(str(error))
-        resp = jsonify({'message': str(error)})
+        resp = jsonify({"message": str(error)})
         resp.status_code = HTTP_401_UNAUTHORIZED
         return resp
 
     bg_queue = queue.Queue()
-    if request.method == 'DELETE':
+    if request.method == "DELETE":
         raise NotImplementedError("`DELETE` does not implement yet")
 
-    if parameters['background'] == 'Y':
+    if parameters["background"] == "Y":
         thread = ThreadWithControl(
             target=ingestion_background,
-            args=('payload', bg_queue, parameters),
-            daemon=True
+            args=("payload", bg_queue, parameters),
+            daemon=True,
         )
         thread.start()
         process_id = bg_queue.get()
@@ -97,18 +97,12 @@ def ingestion_json(tbl_name_short: Optional[str] = None):
             f"Monitoring task cloud select from 'ctr_task_process' and filter "
             f"with `process_id`."
         )
-        optional['process_id'] = process_id
+        optional["process_id"] = process_id
     else:
-        result = ingestion_foreground('payload', parameters)
+        result = ingestion_foreground("payload", parameters)
         message: str = result.message
         status: Status = result.status
 
-    return jsonify({
-        'message': message,
-        'status': status,
-        **optional
-    }), (
-        HTTP_401_UNAUTHORIZED
-        if status != Status.SUCCESS
-        else HTTP_200_OK
+    return jsonify({"message": message, "status": status, **optional}), (
+        HTTP_401_UNAUTHORIZED if status != Status.SUCCESS else HTTP_200_OK
     )

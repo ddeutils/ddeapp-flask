@@ -33,14 +33,13 @@ from ..framework.tasks import (
 )
 
 logger = logging.getLogger(__name__)
-frameworks = Blueprint('frameworks', __name__)
+frameworks = Blueprint("frameworks", __name__)
 
 
-@frameworks.get('/')
+@frameworks.get("/")
 def start_framework():
-    """Health-Check Response route of framework component
-    """
-    run_id = get_run_date(fmt='%Y%m%d%H%M%S%f')[:-2]
+    """Health-Check Response route of framework component"""
+    run_id = get_run_date(fmt="%Y%m%d%H%M%S%f")[:-2]
     output_id = random_sting()
     bg_queue = queue.Queue()
     input_kwargs = {
@@ -49,28 +48,27 @@ def start_framework():
     }
 
     def background_tasks_demo(
-            wait: int,
-            _run_id: str,
-            _bg_queue: queue.Queue,
-            output=None,
-            *args,
-            **kwargs,
+        wait: int,
+        _run_id: str,
+        _bg_queue: queue.Queue,
+        output=None,
+        *args,
+        **kwargs,
     ):
         """
         check background task can run with simple function
         """
         import time
+
         logger.info(f"Start: Thread was running with id: {_run_id!r} ...")
         _ = args
-        _process_id = kwargs.get('process_id')
+        _process_id = kwargs.get("process_id")
         _bg_queue.put(_process_id)
         time.sleep(wait)
         _bg_queue.put(True)
         for i in range(5):
             time.sleep(wait)
-            logger.info(
-                f"run_id: {_run_id!r} send log {i} from worker"
-            )
+            logger.info(f"run_id: {_run_id!r} send log {i} from worker")
         time.sleep(0.5)
         return background_tasks_demo_return(output, _process_id)
 
@@ -84,10 +82,14 @@ def start_framework():
     # -------------------------- run with thread
     thread = ThreadWithControl(
         target=background_tasks_demo,
-        args=(1, run_id, bg_queue, ),
+        args=(
+            1,
+            run_id,
+            bg_queue,
+        ),
         kwargs=input_kwargs,
-        name='pipeline',
-        daemon=True
+        name="pipeline",
+        daemon=True,
     )
     thread.start()
     # threader.threadList.append(thread)
@@ -97,20 +99,18 @@ def start_framework():
     # )
     # process.start()
 
-    resp = jsonify({
-        'message': "Start: Background task was running ...",
-        'process_id': f"{bg_queue.get()}",
-        'process_name': f"{thread.name}"
-    })
-    resp.status_code = (
-        HTTP_200_OK
-        if bg_queue.get()
-        else HTTP_401_UNAUTHORIZED
+    resp = jsonify(
+        {
+            "message": "Start: Background task was running ...",
+            "process_id": f"{bg_queue.get()}",
+            "process_name": f"{thread.name}",
+        }
     )
+    resp.status_code = HTTP_200_OK if bg_queue.get() else HTTP_401_UNAUTHORIZED
     return resp
 
 
-@frameworks.post('/setup')
+@frameworks.post("/setup")
 @apikey_required
 def run_setup():
     """Run setup module route
@@ -147,13 +147,13 @@ def run_setup():
         optional: dict = {}
     except ValidateFormsError as error:
         logger.error(str(error))
-        return jsonify({'message': str(error)}), HTTP_401_UNAUTHORIZED
+        return jsonify({"message": str(error)}), HTTP_401_UNAUTHORIZED
 
     bg_queue = queue.Queue()
-    if parameters['background'] == 'Y':
+    if parameters["background"] == "Y":
         thread = ThreadWithControl(
             target=background_tasks,
-            args=('setup', bg_queue, parameters),
+            args=("setup", bg_queue, parameters),
             daemon=True,
         )
         thread.start()
@@ -164,23 +164,18 @@ def run_setup():
             f"Monitoring task should select table 'ctr_task_process' "
             f"where process_id = '{process_id}'."
         )
-        optional['process_id'] = process_id
+        optional["process_id"] = process_id
     else:
-        result: Result = foreground_tasks('setup', parameters)
+        result: Result = foreground_tasks("setup", parameters)
         message: str = result.message
         status: Status = result.status
 
-    return jsonify({
-        "message": message,
-        **optional
-    }), (
-        HTTP_401_UNAUTHORIZED
-        if status != Status.SUCCESS
-        else HTTP_200_OK
+    return jsonify({"message": message, **optional}), (
+        HTTP_401_UNAUTHORIZED if status != Status.SUCCESS else HTTP_200_OK
     )
 
 
-@frameworks.post('/data')
+@frameworks.post("/data")
 @apikey_required
 def run_data():
     """
@@ -204,16 +199,16 @@ def run_data():
         optional: dict = {}
     except ValidateFormsError as error:
         logger.error(str(error))
-        resp = jsonify({'message': str(error)})
+        resp = jsonify({"message": str(error)})
         resp.status_code = HTTP_401_UNAUTHORIZED
         return resp
 
     bg_queue = queue.Queue()
-    if parameters['background'] == 'Y':
+    if parameters["background"] == "Y":
         thread = ThreadWithControl(
             target=background_tasks,
-            args=('data', bg_queue, parameters),
-            daemon=True
+            args=("data", bg_queue, parameters),
+            daemon=True,
         )
         thread.start()
         process_id = bg_queue.get()
@@ -223,23 +218,18 @@ def run_data():
             f"Monitoring task should select table 'ctr_task_process' "
             f"where process_id = '{process_id}'."
         )
-        optional['process_id'] = process_id
+        optional["process_id"] = process_id
     else:
-        result: Result = foreground_tasks('data', parameters)
+        result: Result = foreground_tasks("data", parameters)
         message: str = result.message
         status: Status = result.status
 
-    return jsonify({
-        "message": message,
-        **optional
-    }), (
-        HTTP_401_UNAUTHORIZED
-        if status != Status.SUCCESS
-        else HTTP_200_OK
+    return jsonify({"message": message, **optional}), (
+        HTTP_401_UNAUTHORIZED if status != Status.SUCCESS else HTTP_200_OK
     )
 
 
-@frameworks.post('/retention')
+@frameworks.post("/retention")
 @apikey_required
 def run_rtt():
     """
@@ -261,15 +251,15 @@ def run_rtt():
         optional: dict = {}
     except ValidateFormsError as error:
         logger.error(str(error))
-        resp = jsonify({'message': str(error)})
+        resp = jsonify({"message": str(error)})
         resp.status_code = HTTP_401_UNAUTHORIZED
         return resp
 
     bg_queue = queue.Queue()
-    if parameters['background'] == 'Y':
+    if parameters["background"] == "Y":
         thread = ThreadWithControl(
             target=background_tasks,
-            args=('retention', bg_queue, parameters),
+            args=("retention", bg_queue, parameters),
             daemon=True,
         )
         thread.start()
@@ -280,17 +270,12 @@ def run_rtt():
             f"Monitoring task should select table 'ctr_task_process' "
             f"where process_id = '{process_id}'."
         )
-        optional['process_id'] = process_id
+        optional["process_id"] = process_id
     else:
-        result: Result = foreground_tasks('retention', parameters)
+        result: Result = foreground_tasks("retention", parameters)
         message: str = result.message
         status: Status = result.status
 
-    return jsonify({
-        "message": message,
-        **optional
-    }), (
-        HTTP_401_UNAUTHORIZED
-        if status != Status.SUCCESS
-        else HTTP_200_OK
+    return jsonify({"message": message, **optional}), (
+        HTTP_401_UNAUTHORIZED if status != Status.SUCCESS else HTTP_200_OK
     )

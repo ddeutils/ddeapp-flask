@@ -30,17 +30,14 @@ from ....core.utils.config import Params
 from ....core.utils.logging_ import logging
 
 logger = logging.getLogger(__name__)
-registers = Params(param_name='registers.yaml')
+registers = Params(param_name="registers.yaml")
 ObjectMap = {
-    'table': Node,
-    'pipeline': Pipeline,
+    "table": Node,
+    "pipeline": Pipeline,
 }
 
 
-def run_tbl_setup(
-        node: Node,
-        task: Task
-) -> Result:
+def run_tbl_setup(node: Node, task: Task) -> Result:
     """Run Setup process node together with task model
     This function will control write process log to Control Data Pipeline
     table.
@@ -52,7 +49,7 @@ def run_tbl_setup(
             node.push_tbl_drop(cascade=task.parameters.cascade)
             record_stm = f" with drop table in {node.process_time} sec"
         else:
-            if node.name in {'ctr_data_pipeline', 'ctr_data_parameter'}:
+            if node.name in {"ctr_data_pipeline", "ctr_data_parameter"}:
                 node.auto_init = True
             row_record: int = node.push_tbl_create(
                 force_drop=node.auto_drop,
@@ -66,17 +63,13 @@ def run_tbl_setup(
         result.message = f"Success: Setup {node.name!r}{record_stm}"
     except ObjectBaseError as err:
         result.update(
-            f"Error: {err.__class__.__name__}: {str(err)}",
-            Status.FAILED
+            f"Error: {err.__class__.__name__}: {str(err)}", Status.FAILED
         )
         logger.error(result.message)
     return result
 
 
-def run_tbl_data(
-        node: Node,
-        task: Task
-) -> Result:
+def run_tbl_data(node: Node, task: Task) -> Result:
     """Run Data process node together with task model
     This function will control write process log to Control Data Pipeline
     table.
@@ -99,17 +92,13 @@ def run_tbl_data(
             )
     except ObjectBaseError as err:
         result.update(
-            f"Error: {err.__class__.__name__}: {str(err)}",
-            Status.FAILED
+            f"Error: {err.__class__.__name__}: {str(err)}", Status.FAILED
         )
         logger.error(result.message)
     return result
 
 
-def run_tbl_retention(
-        node: Node,
-        task: Task
-) -> Result:
+def run_tbl_retention(node: Node, task: Task) -> Result:
     """Run Retention process node together with task model
     This function will control write process log to Control Data Pipeline
     table.
@@ -132,7 +121,7 @@ def run_tbl_retention(
                 "Backup process does not support for put backup scheme only"
             )
         ps_rtt_row: int = node.retention_start()
-        ps_rtt_msg: str = ''
+        ps_rtt_msg: str = ""
         if ps_rtt_row > 0:
             ps_rtt_msg = f"less than '{node.retention_date:%Y-%m-%d}' "
         msg.insert(0, ps_rtt_msg)
@@ -144,31 +133,27 @@ def run_tbl_retention(
         )
     except ObjectBaseError as err:
         result.update(
-            f"Error: {err.__class__.__name__}: {str(err)}",
-            Status.FAILED
+            f"Error: {err.__class__.__name__}: {str(err)}", Status.FAILED
         )
         logger.error(result.message)
     return result
 
 
 def run_schema_drop(
-        schema: Schema,
-        cascade: bool = False,
+    schema: Schema,
+    cascade: bool = False,
 ) -> Result:
-    """Run drop process schema
-    """
+    """Run drop process schema"""
     result: Result = CommonResult()
     try:
         if schema.exists:
             logger.warning(f"Schema {schema.name!r} was exists in database")
         result.message = (
-            f"Success: Drop schema {schema.name!r} "
-            f"with {cascade}"
+            f"Success: Drop schema {schema.name!r} " f"with {cascade}"
         )
     except ObjectBaseError as err:
         result.update(
-            f"Error: {err.__class__.__name__}: {str(err)}",
-            Status.FAILED
+            f"Error: {err.__class__.__name__}: {str(err)}", Status.FAILED
         )
         logger.error(result.message)
     return result
@@ -180,45 +165,39 @@ MAP_MODULE_FUNC: dict = {
 }
 
 
-def _task_gateway(
-        task: Task,
-        obj: ObjectType
-) -> Task:
+def _task_gateway(task: Task, obj: ObjectType) -> Task:
     """Task Gateway for running task with difference `ps_obj` type"""
     logger.info(
-        f'START {task.release.index:02d}: {obj.name} '
+        f"START {task.release.index:02d}: {obj.name} "
         f'{"~" * (30 - len(obj.name) + 31)}'
     )
     if task.parameters.type == ParameterType.TABLE:
-        task.fetch(values={
-            'process_name_get': obj.name,
-            'run_date_get': obj.run_date
-        })
-        task.receive(
-            MAP_MODULE_FUNC[task.module](node=obj, task=task)
+        task.fetch(
+            values={"process_name_get": obj.name, "run_date_get": obj.run_date}
         )
+        task.receive(MAP_MODULE_FUNC[task.module](node=obj, task=task))
         if task.status == Status.FAILED:
             raise ProcessStatusError
     else:
-        obj.update_to_ctr_schedule({'tracking': 'PROCESSING'})
+        obj.update_to_ctr_schedule({"tracking": "PROCESSING"})
         for order, node in obj.nodes():
-            task.fetch(values={
-                'process_name_get': node.name,
-                'process_number_get': order,
-                'run_date_get': obj.run_date
-            })
-            task.receive(
-                MAP_MODULE_FUNC[task.module](node=node, task=task)
+            task.fetch(
+                values={
+                    "process_name_get": node.name,
+                    "process_number_get": order,
+                    "run_date_get": obj.run_date,
+                }
             )
+            task.receive(MAP_MODULE_FUNC[task.module](node=node, task=task))
             if task.status == Status.FAILED:
-                obj.update_to_ctr_schedule({'tracking': 'FAILED'})
+                obj.update_to_ctr_schedule({"tracking": "FAILED"})
                 raise ProcessStatusError
     return task
 
 
 def foreground_tasks(
-        module: str,
-        external_parameters: dict,
+    module: str,
+    external_parameters: dict,
 ) -> Result:
     """Foreground task function for running data pipeline with module argument.
     This function will control write process log to Control Task Process table.
@@ -226,49 +205,48 @@ def foreground_tasks(
     Schedule.
     """
     result: Result = CommonResult()
-    task: Task = Task.parse_obj({
-        "module": module,
-        "parameters": external_parameters,
-        "mode": TaskMode.FOREGROUND,
-        "component": TaskComponent.FRAMEWORK,
-    })
+    task: Task = Task.parse_obj(
+        {
+            "module": module,
+            "parameters": external_parameters,
+            "mode": TaskMode.FOREGROUND,
+            "component": TaskComponent.FRAMEWORK,
+        }
+    )
     logger.info(
-        f'Start run foreground task: {task.id!r} '
-        f'at time: {task.start_time:%Y-%m-%d %H:%M:%S}'
+        f"Start run foreground task: {task.id!r} "
+        f"at time: {task.start_time:%Y-%m-%d %H:%M:%S}"
     )
 
     if task.parameters.drop_schema:
         for _, run_date in task.runner():
             logger.info(f"[ run_date: {run_date} ]{'=' * 48}")
             task.receive(
-                MAP_MODULE_FUNC['drop_schema'](
+                MAP_MODULE_FUNC["drop_schema"](
                     schema=Schema(),
                     cascade=task.parameters.cascade,
                 )
             )
             logger.info(
-                f'End foreground task: {task.id!r} '
-                f'with duration: {task.duration():.2f} sec'
+                f"End foreground task: {task.id!r} "
+                f"with duration: {task.duration():.2f} sec"
             )
 
             # Ingestion only first date
             break
 
-        return result.update(
-            task.message,
-            task.status
-        )
+        return result.update(task.message, task.status)
 
     for _, run_date in task.runner():
         logger.info(f"[ run_date: {run_date} ]{'=' * 48}")
         ps_obj: ObjectType = ObjectMap[task.parameters.type](
             name=task.parameters.name,
             process_id=task.id,
-            run_mode=task.parameters.others.get('run_mode', 'common'),
+            run_mode=task.parameters.others.get("run_mode", "common"),
             run_date=run_date,
-            auto_init=task.parameters.others.get('initial_data', 'N'),
-            auto_drop=task.parameters.others.get('drop_before_create', 'N'),
-            external_parameters=external_parameters
+            auto_init=task.parameters.others.get("initial_data", "N"),
+            auto_drop=task.parameters.others.get("drop_before_create", "N"),
+            external_parameters=external_parameters,
         )
         # TODO: add waiting process by queue
         task.start(ps_obj.process_count)
@@ -281,19 +259,16 @@ def foreground_tasks(
             break
     task.finish()
     logger.info(
-        f'End foreground task: {task.id!r} '
-        f'with duration: {task.duration():.2f} sec'
+        f"End foreground task: {task.id!r} "
+        f"with duration: {task.duration():.2f} sec"
     )
-    return result.update(
-        task.message,
-        task.status
-    )
+    return result.update(task.message, task.status)
 
 
 def background_tasks(
-        module: str,
-        bg_queue: queue.Queue,
-        external_parameters: dict,
+    module: str,
+    bg_queue: queue.Queue,
+    external_parameters: dict,
 ) -> Result:
     """Background task function for running data pipeline with module argument.
     This function will control write process log to Control Task Process table.
@@ -301,44 +276,43 @@ def background_tasks(
     Schedule.
     """
     result: Result = CommonResult()
-    task = Task.parse_obj({
-        "module": module,
-        "parameters": external_parameters,
-        "mode": TaskMode.BACKGROUND,
-        "component": TaskComponent.FRAMEWORK,
-    })
+    task = Task.parse_obj(
+        {
+            "module": module,
+            "parameters": external_parameters,
+            "mode": TaskMode.BACKGROUND,
+            "component": TaskComponent.FRAMEWORK,
+        }
+    )
     logger.info(
-        f'Start run background task: {task.id!r} '
-        f'at time: {task.start_time:%Y-%m-%d %H:%M:%S}'
+        f"Start run background task: {task.id!r} "
+        f"at time: {task.start_time:%Y-%m-%d %H:%M:%S}"
     )
     bg_queue.put(task.id)
     if task.parameters.drop_schema:
         bg_queue.put(task.parameters.name)
         task.receive(
-            MAP_MODULE_FUNC['drop_schema'](
+            MAP_MODULE_FUNC["drop_schema"](
                 schema=Schema(),
                 cascade=task.parameters.cascade,
             )
         )
         logger.info(
-            f'End background task: {task.id!r} '
-            f'with duration: {task.duration():.2f} sec'
+            f"End background task: {task.id!r} "
+            f"with duration: {task.duration():.2f} sec"
         )
-        return result.update(
-            task.message,
-            task.status
-        )
+        return result.update(task.message, task.status)
 
     for _, run_date in task.runner():
         logger.info(f"[ run_date: {run_date} ]{'=' * 48}")
         ps_obj: ObjectType = ObjectMap[task.parameters.type](
             name=task.parameters.name,
             process_id=task.id,
-            run_mode=task.parameters.others.get('run_mode', 'common'),
+            run_mode=task.parameters.others.get("run_mode", "common"),
             run_date=run_date,
-            auto_init=task.parameters.others.get('initial_data', 'N'),
-            auto_drop=task.parameters.others.get('drop_before_create', 'N'),
-            external_parameters=external_parameters
+            auto_init=task.parameters.others.get("initial_data", "N"),
+            auto_drop=task.parameters.others.get("drop_before_create", "N"),
+            external_parameters=external_parameters,
         )
         # TODO: add waiting process by queue
         task.start(ps_obj.process_count)
@@ -352,10 +326,7 @@ def background_tasks(
             break
     task.finish()
     logger.info(
-        f'End background task: {task.id!r} '
-        f'with duration: {task.duration():.2f} sec'
+        f"End background task: {task.id!r} "
+        f"with duration: {task.duration():.2f} sec"
     )
-    return result.update(
-        task.message,
-        task.status
-    )
+    return result.update(task.message, task.status)

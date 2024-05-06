@@ -19,18 +19,18 @@ from ...frontend.catalogs.models import (
 )
 
 logger = get_logger(__name__)
-__categories: dict['str', Category] = {}
+__categories: dict["str", Category] = {}
 __all_catalogs_list: list[Catalog] = []
 
 
 def load_catalogs(cache: bool = False):
     global __categories, __all_catalogs_list
 
-    filepath = Path(__file__).parent / 'cache' / 'categories.pickle'
+    filepath = Path(__file__).parent / "cache" / "categories.pickle"
 
     if cache:
         try:
-            with open(filepath, mode='rb') as f:
+            with open(filepath, mode="rb") as f:
                 __categories = pickle.load(f)
         except FileNotFoundError as err:
             print(f"Error: {err}")
@@ -40,18 +40,15 @@ def load_catalogs(cache: bool = False):
         cat_mapping = {
             # 'catalog': TableFrontend,
             # 'pipeline': PiplineFrontend,
-            'function': FunctionFrontend,
+            "function": FunctionFrontend,
         }
         for cat, obj in cat_mapping.items():
             raw_data = get_catalogs(cat)
-            data: list = [
-                obj.parse_name(name).catalog
-                for name in raw_data
-            ]
+            data: list = [obj.parse_name(name).catalog for name in raw_data]
             __categories[cat] = Category(category=cat, data=data)
 
     filepath.parent.mkdir(exist_ok=True)
-    with open(filepath, mode='wb') as f:
+    with open(filepath, mode="wb") as f:
         pickle.dump(__categories, f)
 
     logger.debug("Success load Catalogs from config.")
@@ -62,9 +59,7 @@ def rebuild_flat_file_list() -> None:
     global __all_catalogs_list
 
     flat_set = {
-        v.id: v
-        for cat_name, cat in __categories.items()
-        for v in cat.data
+        v.id: v for cat_name, cat in __categories.items() for v in cat.data
     }
     __all_catalogs_list = list(flat_set.values())
     __all_catalogs_list.sort(key=lambda vid: vid.id, reverse=True)
@@ -72,13 +67,8 @@ def rebuild_flat_file_list() -> None:
 
 
 def category_by_name(category: str) -> Optional[Category]:
-    """Get Catalog data from name.
-    """
-    if (
-            not category
-            or not category.strip()
-            or category not in CATALOGS
-    ):
+    """Get Catalog data from name."""
+    if not category or not category.strip() or category not in CATALOGS:
         return None
 
     category = category.strip().lower()
@@ -86,12 +76,14 @@ def category_by_name(category: str) -> Optional[Category]:
     return cat or None
 
 
-def all_catalogs(page: int = 1, page_size: Optional[int] = None) -> list[Catalog]:
+def all_catalogs(
+    page: int = 1, page_size: Optional[int] = None
+) -> list[Catalog]:
     catalogs = __all_catalogs_list
     if page_size:
         start = page_size * (page - 1)
         end = start + page_size
-        catalogs = catalogs[start: end]
+        catalogs = catalogs[start:end]
     return catalogs
 
 
@@ -104,14 +96,14 @@ def all_categories() -> list[Category]:
 def catalog_by_id(catalog_id: str) -> Optional[Catalog]:
     return next(
         (catalog for catalog in all_catalogs() if catalog.id == catalog_id),
-        None
+        None,
     )
 
 
 def catalog_by_name(catalog_name: str) -> Optional[Catalog]:
     return next(
         (catalog for catalog in all_catalogs() if catalog.name == catalog_name),
-        None
+        None,
     )
 
 
