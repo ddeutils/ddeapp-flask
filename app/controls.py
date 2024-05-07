@@ -15,8 +15,10 @@ from sqlalchemy.exc import OperationalError
 from app.blueprints.api.framework.tasks import foreground_tasks
 from app.core.__legacy.objects import (
     Control,
-    Node,
     Pipeline,
+)
+from app.core.__legacy.objects import (
+    Node as LegacyNode,
 )
 from app.core.base import get_catalogs
 from app.core.errors import (
@@ -86,7 +88,7 @@ def push_ctr_setup(
     """Run Setup Control Framework table in `register.yaml`"""
     from app.core.services import Node
 
-    _: Task = task or Task.make(module="control_setup")
+    task: Task = task or Task.make(module="control_setup")
     for idx, _ctr_prop in enumerate(
         registers.control_frameworks,
         start=1,
@@ -98,9 +100,24 @@ def push_ctr_setup(
         )
 
         if not _node.exists():
-            # NOTE: Create without logging.
-            _node.create()
-
+            if _node.name in (
+                "ctr_data_logging",
+                "ctr_task_process",
+            ):
+                # NOTE: Create without logging.
+                _node.create()
+            else:
+                try:
+                    _node_legacy: LegacyNode = LegacyNode(
+                        name=_ctr_prop["name"],
+                        process_id=task.id,
+                        run_mode="setup",
+                        auto_init="Y",
+                        auto_drop="Y",
+                    )
+                except ObjectBaseError as err:
+                    logger.error(f"Error ObjectBaseError: {err}")
+                    status: Status = Status.FAILED
         logger.info(
             f"Success create {_ctr_prop['name']!r} "
             f"after app start with status {status.value}"
@@ -277,7 +294,10 @@ def push_load_file_to_db(
     """Push load csv file to target table with short name :usage: >>
     push_load_file_to_db('initial/ilticd/ilticd_20220821.csv', 'ilticd')"""
     task: Task = Task.make(module="load_data_from_file")
-    node: Node = Node(name=Node.convert_short(target), process_id=task.id)
+    node: LegacyNode = LegacyNode(
+        name=LegacyNode.convert_short(target),
+        process_id=task.id,
+    )
     node.load_file(filename, truncate=truncate, compress=compress)
 
 

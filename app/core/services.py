@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 from typing import Any, Optional
 
-from pydantic import Field
+from pydantic import Field, validator
 
 from .__legacy.objects import Control as LegacyControl
 from .connections import query_execute, query_select_check
@@ -107,6 +107,10 @@ class BaseNode(TableStatement):
         default_factory=dict,
         description="Node parameters from the application framework",
     )
+
+    @validator("ext_parameters", always=True)
+    def prepare_ext_params(cls, value: dict[str, Any]):
+        return merge_dicts(LegacyControl.parameters(), value)
 
     def exists(self) -> bool:
         """Push exists statement to target database."""
@@ -262,3 +266,16 @@ class Task(BaseTask):
                 (values or {}),
             )
         )
+
+
+class Control:
+
+    @classmethod
+    def params(cls, module: Optional[str] = None) -> dict[str, Any]: ...
+
+    @classmethod
+    def tables(cls): ...
+
+    def push(self): ...
+
+    def pull(self): ...
