@@ -33,7 +33,7 @@ class ColumnStatementTestCase(unittest.TestCase):
         result: ColumnStatement = ColumnStatement.parse_obj(pre_result)
 
         respec_statement: str = (
-            "varchar( 128 ) NOT NULL UNIQUE PRIMARY KEY "
+            "column_name varchar( 128 ) NOT NULL UNIQUE PRIMARY KEY "
             "check(column_name <> 'DEMO')"
         )
         self.assertEqual(respec_statement, result.statement())
