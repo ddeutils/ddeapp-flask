@@ -6,7 +6,6 @@
 import re
 from typing import (
     Optional,
-    Union,
 )
 
 from pydantic import Field
@@ -66,7 +65,7 @@ class ColumnStatement(Column):
             else ""
         )
         return (
-            f"{self.datatype} "
+            f"{self.name} {self.datatype} "
             f"{'NULL' if self.nullable else 'NOT NULL'} "
             f"{'UNIQUE' if self.unique else ''}"
             f"{pk_stm}"
@@ -118,8 +117,9 @@ class ProfileStatement(Profile):
     features: list[ColumnStatement] = Field(
         ..., description="Mapping Column features with position order"
     )
-    partition: Union[PartitionStatement, dict] = Field(
-        default_factory=dict, description="Partition properties"
+    partition: PartitionStatement = Field(
+        default_factory=PartitionStatement,
+        description="Partition properties",
     )
 
     def statement_features(self) -> str:
@@ -390,7 +390,7 @@ class SchemaStatement(Schema):
         """Generate check schema statement."""
         return reduce_stm(
             f"SELECT CASE WHEN EXISTS("
-            f"SELECT FROM {{database_name}}.information_schema.schemata"
+            f"SELECT FROM {{database_name}}.information_schema.schemata "
             f"WHERE schema_name = '{self.name}'"
             f") THEN 'True' ELSE 'False' END AS check_exists"
         )

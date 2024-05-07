@@ -64,7 +64,7 @@ class Schema(SchemaStatement):
 
     def exists(self) -> bool:
         """Push exists statement to target database."""
-        return query_select_check(self.statement_check())
+        return query_select_check(self.statement_check(), parameters=True)
 
     def create(self) -> "Schema":
         """Push create statement to target database."""
@@ -101,7 +101,7 @@ class ActionQuery(QueryStatement):
 
 
 class BaseNode(TableStatement):
-    """Node Service Model."""
+    """Base Node Service Model."""
 
     ext_parameters: dict = Field(
         default_factory=dict,
@@ -124,7 +124,9 @@ class BaseNode(TableStatement):
 class Node(BaseNode):
     """"""
 
-    def create(self): ...
+    def create(self) -> "Node":
+        query_execute(self.statement_create(), parameters=True)
+        return self
 
     def drop(self): ...
 

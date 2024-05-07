@@ -663,8 +663,12 @@ class TblCatalog:
         """
         if self.tbl_partition_type == "partition_by_range":
             _tbl_name_partition = f"{{table_name}}_{start_period}_{end_period}"
-            _stm: str = """create table if not exists {{database_name}}.{{ai_schema_name}}.{table_name_partition}
-                partition of {{table_name}} for values from ('{start_period}') to ('{end_period}')"""
+            _stm: str = (
+                """create table if not exists 
+                {{database_name}}.{{ai_schema_name}}.{table_name_partition}
+                partition of {{table_name}} for values from ('{start_period}') 
+                to ('{end_period}')"""
+            )
             return reduce_stm(
                 _stm.format(
                     table_name_partition=_tbl_name_partition,
@@ -1009,7 +1013,8 @@ class TblCatalog:
                 ps_type := ps_details.get("type", self.tbl_type)
             ) not in params.list_tbl_types:
                 raise TableNotImplement(
-                    f"AI framework does not support for process type {ps_type!r} that set in {self.tbl_name!r}"
+                    f"AI framework does not support for process type "
+                    f"{ps_type!r} that set in {self.tbl_name!r}"
                 )
             _processes[ps_name] = {
                 "parameter": list(

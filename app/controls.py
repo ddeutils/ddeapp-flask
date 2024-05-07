@@ -57,60 +57,52 @@ def push_close_ssh(force: bool = False):
 def push_schema_setup() -> None:
     """Run Set up the main schema."""
     _schema: Schema = Schema()
-    if not _schema.exists:
+    if not _schema.exists():
         _schema.create()
         logger.info("Success: Create Schema to target database.")
 
 
 def push_func_setup(task: Optional[Task] = None) -> None:
     """Run Setup function in `register.yaml`"""
-    _: Task = task or Task.make(module="function_setup")
+    task: Task = task or Task.make(module="function_setup")
     for idx, _func_prop in enumerate(registers.functions, start=1):
         _func: Action = Action.parse_name(fullname=_func_prop["name"])
-        if not _func.exists():
-            _func.create()
         logger.info(
             f"START {idx:02d}: {_func.name} "
             f'{"~" * (30 - len(_func.name) + 31)}'
         )
-        logger.info(
-            f"Success: Setup {_func.name} "
-            f"with logging value {_func.tag.ts:%Y-%m-%d %H-%M-%S} sec"
-        )
+
+        if not _func.exists():
+            _func.create()
+            logger.info(
+                f"Success: Setup {_func.name} "
+                f"with logging value {task.duration()} sec"
+            )
 
 
 def push_ctr_setup(
     task: Optional[Task] = None,
 ) -> None:
     """Run Setup Control Framework table in `register.yaml`"""
-    task: Task = task or Task.make(module="control_setup")
+    from app.core.services import Node
+
+    _: Task = task or Task.make(module="control_setup")
     for idx, _ctr_prop in enumerate(
         registers.control_frameworks,
         start=1,
     ):
         status: Status = Status.SUCCESS
-        try:
-            _node = Node(
-                name=_ctr_prop["name"],
-                process_id=task.id,
-                run_mode="setup",
-                auto_init="Y",
-                auto_drop="Y",
-            )
-            logger.info(
-                f"START {idx:02d}: {_node.name} "
-                f'{"~" * (30 - len(_node.name) + 31)}'
-            )
-        except ObjectBaseError as err:
-            # TODO: Bug of create control table
-            #   sqlalchemy.exc:ProgrammingError: relation "ai.ctr_data_pipeline"
-            #   does not exist
-            #   LINE 1: ...count_max, rtt_value, rtt_column, active_flg from
-            #   postgres.a...
-            logger.error(f"Error ObjectBaseError: {err}")
-            status: Status = Status.FAILED
+        _node = Node.parse_name(fullname=_ctr_prop["name"])
         logger.info(
-            f"Success run {_ctr_prop['name']!r} "
+            f"START {idx:02d}: {_node.name} {'~' * (30 - len(_node.name) + 31)}"
+        )
+
+        if not _node.exists():
+            # NOTE: Create without logging.
+            _node.create()
+
+        logger.info(
+            f"Success create {_ctr_prop['name']!r} "
             f"after app start with status {status.value}"
         )
 
@@ -303,4 +295,5 @@ def push_testing() -> None:
         start=1,
     ):
         node = Node.parse_name(fullname=_ctr_prop["name"])
-        logger.info(node.exists())
+        if not node.exists():
+            node.create()

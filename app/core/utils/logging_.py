@@ -23,7 +23,7 @@ if not os.getenv("DEBUG"):
     os.environ["DEBUG"]: str = "True"
 
 ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), os.pardir, os.pardir)
+    os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir)
 )
 LOG_DIR = os.path.join(ROOT, "logs")
 DEBUG: bool = must_bool(os.getenv("DEBUG", "False"))
