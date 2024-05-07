@@ -1736,6 +1736,7 @@ def check_run_mode(obj: str, run_mode: Optional[str] = None):
         )
 
 
+# [x] Migrate to Action services
 class Action(FuncProcess):
     """Action object for control process of function object."""
 
@@ -2129,6 +2130,7 @@ class Node(TblProcess):
         )
         return _row_record
 
+    # [x] Migrate to NodeLocal services
     def load_file(
         self,
         filename: str,

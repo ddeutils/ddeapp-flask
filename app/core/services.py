@@ -8,7 +8,12 @@ from typing import Any, Optional
 from pydantic import Field, validator
 
 from .__legacy.objects import Control as LegacyControl
-from .connections import query_execute, query_select_check
+from .base import get_plural, registers
+from .connections import (
+    query_execute,
+    query_insert_from_csv,
+    query_select_check,
+)
 from .errors import ControlProcessNotExists
 from .models import (
     ParameterMode,
@@ -25,8 +30,10 @@ from .statements import (
     TableStatement,
 )
 from .utils.config import (
+    AI_APP_PATH,
     Environs,
 )
+from .utils.logging_ import logging
 from .utils.reusables import (
     merge_dicts,
     must_list,
@@ -42,12 +49,14 @@ from .validators import (
 )
 
 env = Environs(env_name=".env")
+logger = logging.getLogger(__name__)
 
 __all__ = (
     "Schema",
     "Action",
     "ActionQuery",
     "Node",
+    "NodeLocal",
     "Pipeline",
     "Task",
 )
@@ -139,6 +148,40 @@ class Node(BaseNode):
     def retention(self): ...
 
     def init(self): ...
+
+
+class NodeLocal(BaseNode):
+    """Node for Local File loading."""
+
+    def load(
+        self,
+        filename: str,
+        chuck: int = 10_000,
+        truncate: bool = False,
+        compress: Optional[str] = None,
+    ) -> int:
+        file_props: dict[str, Any] = {
+            "filepath": AI_APP_PATH / f"{registers.path.data}/{filename}",
+            "table": self.name,
+            "props": {
+                "delimiter": "|",
+                "encoding": "utf-8",
+                "engine": "python",
+            },
+        }
+        rows: int = 0
+        for chunk, row in query_insert_from_csv(
+            file_props,
+            chunk_size=chuck,
+            truncate=truncate,
+            compress=compress,
+        ):
+            logger.info(
+                f"Success with first chuck size {chunk} "
+                f"with {row} row{get_plural(row)}"
+            )
+            rows += row
+        return rows
 
 
 class NodeIngest(BaseNode):

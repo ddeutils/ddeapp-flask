@@ -62,7 +62,7 @@ def ingestion_foreground(module: str, external_parameters: dict) -> Result:
     Control Task Schedule.
     """
     result: Result = CommonResult()
-    task: Task = Task.parse_obj(
+    task = Task.parse_obj(
         {
             "module": module,
             "parameters": external_parameters,
@@ -116,7 +116,7 @@ def ingestion_background(
     Control Task Schedule.
     """
     result: Result = CommonResult()
-    task: Task = Task.parse_obj(
+    task = Task.parse_obj(
         {
             "module": module,
             "parameters": external_parameters,

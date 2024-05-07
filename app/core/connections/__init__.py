@@ -5,6 +5,7 @@ from typing import (
 from .postgresql import (
     query_execute,
     query_execute_row,
+    query_insert_from_csv,
     query_select_one,
 )
 

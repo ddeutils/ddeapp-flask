@@ -17,9 +17,6 @@ from app.core.__legacy.objects import (
     Control,
     Pipeline,
 )
-from app.core.__legacy.objects import (
-    Node as LegacyNode,
-)
 from app.core.base import get_catalogs
 from app.core.errors import (
     CatalogBaseError,
@@ -32,6 +29,8 @@ from app.core.models import (
 from app.core.services import (
     Action,
     ActionQuery,
+    Node,
+    NodeLocal,
     Schema,
     Task,
 )
@@ -86,7 +85,7 @@ def push_ctr_setup(
     task: Optional[Task] = None,
 ) -> None:
     """Run Setup Control Framework table in `register.yaml`"""
-    from app.core.services import Node
+    from app.core.__legacy.objects import Node as LegacyNode
 
     task: Task = task or Task.make(module="control_setup")
     for idx, _ctr_prop in enumerate(
@@ -291,22 +290,23 @@ def push_load_file_to_db(
     truncate: bool = False,
     compress: Optional[str] = None,
 ):
-    """Push load csv file to target table with short name :usage: >>
-    push_load_file_to_db('initial/ilticd/ilticd_20220821.csv', 'ilticd')"""
-    task: Task = Task.make(module="load_data_from_file")
-    node: LegacyNode = LegacyNode(
-        name=LegacyNode.convert_short(target),
-        process_id=task.id,
+    """Push load csv file to target table with short name.
+
+    Examples:
+        >> push_load_file_to_db('initial/ilticd/ilticd_20220821.csv', 'ilticd')
+        ...
+    """
+    _: Task = Task.make(module="load_data_from_file")
+    rs: int = NodeLocal.parse_shortname(target).load(
+        filename, truncate=truncate, compress=compress
     )
-    node.load_file(filename, truncate=truncate, compress=compress)
+    return rs
 
 
 def push_initialize_frontend(): ...
 
 
 def push_testing() -> None:
-    from app.core.services import Node, Schema
-
     Schema().create()
 
     logger.info("Start Testing ...")

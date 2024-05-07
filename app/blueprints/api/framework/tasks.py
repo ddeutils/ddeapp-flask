@@ -142,9 +142,7 @@ def run_schema_drop(
     try:
         if schema.exists:
             logger.warning(f"Schema {schema.name!r} was exists in database")
-        result.message = (
-            f"Success: Drop schema {schema.name!r} " f"with {cascade}"
-        )
+        result.message = f"Success: Drop schema {schema.name!r} with {cascade}"
     except ObjectBaseError as err:
         result.update(
             f"Error: {err.__class__.__name__}: {str(err)}", Status.FAILED

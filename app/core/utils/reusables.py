@@ -179,8 +179,8 @@ def merge_dicts(*dict_args) -> dict:
     dict, precedence goes to key-value pairs in latter dictionaries.
 
     usage:
-            >> merge_dicts({1: 'one',2: 'two',3: 'three'}, {3: 'Three',4: 'Four'})
-            {1: 'one', 2: 'two', 3: 'Three', 4: 'Four'}
+        >> merge_dicts({1: 'one',2: 'two',3: 'three'}, {3: 'Three',4: 'Four'})
+        {1: 'one', 2: 'two', 3: 'Three', 4: 'Four'}
     """
     result: dict = {}
     for dictionary in dict_args:
