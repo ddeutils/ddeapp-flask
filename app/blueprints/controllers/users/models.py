@@ -54,7 +54,7 @@ user_role = Table(
 
 
 class UserRole(db.Model):
-    """User and Role mapping Model"""
+    """User and Role mapping Model."""
 
     __table__ = user_role
 
@@ -239,7 +239,7 @@ role_policy = Table(
 
 
 class RolePolicy(db.Model):
-    """Role and Policy mapping Model"""
+    """Role and Policy mapping Model."""
 
     __table__ = role_policy
 
@@ -516,7 +516,7 @@ class Group(db.Model):
 
 
 def initial_data():
-    """Initialize Data to target database with any Model classes"""
+    """Initialize Data to target database with any Model classes."""
     # Create Demo Users
 
     for t in db.metadata.sorted_tables:

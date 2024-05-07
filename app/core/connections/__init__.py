@@ -12,14 +12,14 @@ from .postgresql import (
 def query_select_check(
     statement: str, parameters: Optional[dict] = None
 ) -> bool:
-    """Enhance query function to get `check_exists` value from result"""
+    """Enhance query function to get `check_exists` value from result."""
     return eval(
         query_select_one(statement, parameters=parameters)["check_exists"]
     )
 
 
 def query_select_row(statement: str, parameters: Optional[dict] = None) -> int:
-    """Enhance query function to get `row_number` value from result"""
+    """Enhance query function to get `row_number` value from result."""
     if any(
         _ in statement
         for _ in {

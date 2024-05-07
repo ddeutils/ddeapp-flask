@@ -7,27 +7,27 @@ from typing import Optional, Union
 
 
 class BaseError(Exception):
-    """Base Exception class"""
+    """Base Exception class."""
 
 
 class AllExceptions(BaseError):
-    """Raise All Exceptions"""
+    """Raise All Exceptions."""
 
 
 class CatalogBaseError(BaseError):
-    """Catalog Base Exception"""
+    """Catalog Base Exception."""
 
 
 class CatalogNotFound(CatalogBaseError):
-    """Exception raised for errors in key of yaml config file"""
+    """Exception raised for errors in key of yaml config file."""
 
 
 class CatalogArgumentError(CatalogBaseError):
-    """Exception raised for errors in arguments of yaml config file"""
+    """Exception raised for errors in arguments of yaml config file."""
 
 
 class ObjectBaseError(BaseError):
-    """Object Base Exception"""
+    """Object Base Exception."""
 
 
 class TableNotFound(ObjectBaseError):
@@ -35,15 +35,15 @@ class TableNotFound(ObjectBaseError):
 
 
 class TableNotImplement(ObjectBaseError):
-    """Exception raised for errors in any non-implemented functional"""
+    """Exception raised for errors in any non-implemented functional."""
 
 
 class TableValidatorError(ObjectBaseError):
-    """Exception raised for errors in table validation"""
+    """Exception raised for errors in table validation."""
 
 
 class TableArgumentError(ObjectBaseError):
-    """Exception raised for errors in arguments of method"""
+    """Exception raised for errors in arguments of method."""
 
 
 class FuncNotFound(ObjectBaseError):
@@ -51,55 +51,55 @@ class FuncNotFound(ObjectBaseError):
 
 
 class FuncRaiseError(ObjectBaseError):
-    """Exception raised for errors in function process"""
+    """Exception raised for errors in function process."""
 
 
 class FuncArgumentError(ObjectBaseError):
-    """Exception raised for errors in arguments of method"""
+    """Exception raised for errors in arguments of method."""
 
 
 class PipelineTypeError(ObjectBaseError):
-    """Exception raised for errors in type of nodes"""
+    """Exception raised for errors in type of nodes."""
 
 
 class ProcessValueError(ObjectBaseError):
-    """Exception raised for errors in value of process"""
+    """Exception raised for errors in value of process."""
 
 
 class DatabaseProcessError(ObjectBaseError):
-    """Exception raised for errors in database"""
+    """Exception raised for errors in database."""
 
 
 class DatabaseSchemaNotExists(ObjectBaseError):
-    """Exception raised for errors in schema does not exist"""
+    """Exception raised for errors in schema does not exist."""
 
 
 class ControlTableNotImplement(ObjectBaseError):
-    """Exception raised for errors in any non-implemented functional"""
+    """Exception raised for errors in any non-implemented functional."""
 
 
 class ControlTableArgumentError(ObjectBaseError):
-    """Exception raised for errors in arguments of method"""
+    """Exception raised for errors in arguments of method."""
 
 
 class ControlTableValueError(ObjectBaseError):
-    """Exception raised for errors in the control framework table value"""
+    """Exception raised for errors in the control framework table value."""
 
 
 class ControlTableNotExists(ObjectBaseError):
-    """Exception raised for errors in the table not exists"""
+    """Exception raised for errors in the table not exists."""
 
 
 class ControlPipelineNotExists(ObjectBaseError):
-    """Exception raised for errors in the pipeline not exists"""
+    """Exception raised for errors in the pipeline not exists."""
 
 
 class ControlProcessNotExists(ObjectBaseError):
-    """Exception raised for errors in the process not exists"""
+    """Exception raised for errors in the process not exists."""
 
 
 class ValidateFormsError(ObjectBaseError):
-    """Exception raised for errors in value in forms"""
+    """Exception raised for errors in value in forms."""
 
     def __init__(
         self,
@@ -123,40 +123,40 @@ class ValidateFormsError(ObjectBaseError):
 
 
 class ColumnsNotEqualError(ObjectBaseError):
-    """Exception raised for errors in column difference"""
+    """Exception raised for errors in column difference."""
 
 
 class DuplicateColumnError(ObjectBaseError):
-    """Exception raised for errors in column duplication"""
+    """Exception raised for errors in column duplication."""
 
 
 class NullableColumnError(ObjectBaseError):
-    """Exception raised for errors in column nullable"""
+    """Exception raised for errors in column nullable."""
 
 
 class PrimaryKeyNotExists(ObjectBaseError):
-    """Exception raised for errors in primary column not exists"""
+    """Exception raised for errors in primary column not exists."""
 
 
 class SQLInjection(ObjectBaseError):
-    """Exception raised for errors in sql injection"""
+    """Exception raised for errors in sql injection."""
 
 
 class OuterColumnError(ObjectBaseError):
-    """Exception raised for errors in outer column exists"""
+    """Exception raised for errors in outer column exists."""
 
 
 class ProcessBaseError(BaseError):
-    """Process Base Exception"""
+    """Process Base Exception."""
 
 
 class ProcessStatusError(ProcessBaseError):
-    """Exception raised for errors in status process"""
+    """Exception raised for errors in status process."""
 
 
 class IOBaseError(BaseError):
-    """I/O Base Exception"""
+    """I/O Base Exception."""
 
 
 class WriteCSVError(IOBaseError):
-    """Exception raised for errors in writing csv file engine"""
+    """Exception raised for errors in writing csv file engine."""

@@ -86,7 +86,7 @@ def zip_(folder: str, filename: str, filter_: callable):
 
 
 def prepare_data(row: str, delimiter: str) -> list:
-    """Prepare data logic with row by row"""
+    """Prepare data logic with row by row."""
     data: list = []
     append = data.append
     for col in iter(row.split(delimiter)):
@@ -104,11 +104,11 @@ def prepare_csv(
     chunk_size: int = 1024,
     compress: Optional[str] = None,
 ):
-    """Prepare csv file form landing folder and move to success folder
+    """Prepare csv file form landing folder and move to success folder.
 
-    :other (writer):
-        writer = csv.writer(write_file, delimiter="|", quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
-        writer = csv.writer(write_file, delimiter="|", quoting=csv.QUOTE_ALL)
+    :other (writer):     writer = csv.writer(write_file, delimiter="|",
+    quotechar='"', quoting=csv.QUOTE_NONNUMERIC)     writer =
+    csv.writer(write_file, delimiter="|", quoting=csv.QUOTE_ALL)
     """
     with (
         open(

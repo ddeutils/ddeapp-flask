@@ -46,7 +46,7 @@ env = Environs(env_name=".env")
 
 
 def push_close_ssh(force: bool = False):
-    """Run close SSH function"""
+    """Run close SSH function."""
     from app.core.connections.postgresql import ssh_connect
 
     server = ssh_connect()
@@ -55,7 +55,7 @@ def push_close_ssh(force: bool = False):
 
 
 def push_schema_setup() -> None:
-    """Run Set up the main schema"""
+    """Run Set up the main schema."""
     _schema: Schema = Schema()
     if not _schema.exists:
         _schema.create()
@@ -119,7 +119,7 @@ MAP_BG_PROCESS: dict = {}
 
 
 def pull_ctr_check_process() -> tuple[int, ...]:
-    """Check process_id in `ctr_task_process` table"""
+    """Check process_id in `ctr_task_process` table."""
     # search process with status does not success in control table
     if not (
         ctr_pull := {
@@ -153,7 +153,7 @@ def pull_ctr_check_process() -> tuple[int, ...]:
 
 
 def pull_migrate_tables():
-    """Check migrate table process"""
+    """Check migrate table process."""
     pipe_cnt = Pipeline(
         name="control_search",
         auto_create=False,
@@ -164,9 +164,7 @@ def pull_migrate_tables():
 
 
 def push_ctr_stop_running() -> None:
-    """
-    Do something before server shutdown
-    """
+    """Do something before server shutdown."""
     if eval(os.environ.get("DEBUG", "True")):
         return
 
@@ -189,7 +187,7 @@ def push_ctr_stop_running() -> None:
 
 
 def push_trigger_schedule() -> int:
-    """Push run data with trigger schedule"""
+    """Push run data with trigger schedule."""
     ps_time_all: int = 0
     for pipe_name, _pipe_props in get_catalogs(
         config_form="pipeline",
@@ -224,7 +222,7 @@ def push_trigger_schedule() -> int:
 
 
 def push_cron_schedule(group_name: str, waiting_process: int = 300) -> int:
-    """Push run data with cron schedule"""
+    """Push run data with cron schedule."""
     ps_time_all: int = 0
     for pipe_name, _ in get_catalogs(
         config_form="pipeline",
@@ -263,8 +261,7 @@ def push_cron_schedule(group_name: str, waiting_process: int = 300) -> int:
 
 def push_retention() -> int:
     """Push run retention with `retention_search` pipeline which auto generate
-    by framework engine
-    """
+    by framework engine."""
     logger.info(
         "Start run retention process with `retention_search` pipeline ..."
     )
@@ -285,10 +282,8 @@ def push_load_file_to_db(
     truncate: bool = False,
     compress: Optional[str] = None,
 ):
-    """Push load csv file to target table with short name
-    :usage:
-        >> push_load_file_to_db('initial/ilticd/ilticd_20220821.csv', 'ilticd')
-    """
+    """Push load csv file to target table with short name :usage: >>
+    push_load_file_to_db('initial/ilticd/ilticd_20220821.csv', 'ilticd')"""
     task: Task = Task.make(module="load_data_from_file")
     node: Node = Node(name=Node.convert_short(target), process_id=task.id)
     node.load_file(filename, truncate=truncate, compress=compress)

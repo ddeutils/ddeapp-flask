@@ -32,7 +32,9 @@ class FormIngest(ContentValidate):
     def validate_run_date(cls, run_date):
         if validate_run_date(run_date):
             raise ValidateFormsError(
-                "run_date", run_date, "it does not ISO date format: YYYY-mm-dd'"
+                "run_date",
+                run_date,
+                "it does not ISO date format: YYYY-mm-dd'",
             )
 
     @classmethod

@@ -38,7 +38,7 @@ frameworks = Blueprint("frameworks", __name__)
 
 @frameworks.get("/")
 def start_framework():
-    """Health-Check Response route of framework component"""
+    """Health-Check Response route of framework component."""
     run_id = get_run_date(fmt="%Y%m%d%H%M%S%f")[:-2]
     output_id = random_sting()
     bg_queue = queue.Queue()
@@ -55,9 +55,7 @@ def start_framework():
         *args,
         **kwargs,
     ):
-        """
-        check background task can run with simple function
-        """
+        """Check background task can run with simple function."""
         import time
 
         logger.info(f"Start: Thread was running with id: {_run_id!r} ...")

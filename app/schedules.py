@@ -27,9 +27,8 @@ def default_job(x, y) -> None:
 
 
 def schedule_check_process() -> None:
-    """Check process in `ctr_task_process` table and alert
-    if exists 2 status longtime
-    """
+    """Check process in `ctr_task_process` table and alert if exists 2 status
+    longtime."""
     ps_false, ps_wait, ps_thread = pull_ctr_check_process()
     logger.info(
         f"Check process false: {ps_false} "
@@ -38,9 +37,7 @@ def schedule_check_process() -> None:
 
 
 def schedule_retention_data() -> None:
-    """
-    Run retention module with schedule
-    """
+    """Run retention module with schedule."""
     ps_time: int = push_retention()
     logger.info(f"Success run retention data by schedule with {ps_time} sec.")
 
@@ -54,7 +51,7 @@ def schedule_trigger() -> None:
 
 
 def schedule_cron_every_sunday() -> None:
-    """Run data pipeline cron job every sunday at 00.05 AM"""
+    """Run data pipeline cron job every sunday at 00.05 AM."""
     ps_time: int = push_cron_schedule(group_name="every_sunday_at_00_05")
     logger.info(
         f"End Schedule `every_sunday_at_00_05` for run data pipeline "
@@ -63,9 +60,7 @@ def schedule_cron_every_sunday() -> None:
 
 
 def schedule_cron_everyday() -> None:
-    """
-    Run data pipeline cron job everyday at 08.05 PM
-    """
+    """Run data pipeline cron job everyday at 08.05 PM."""
     ps_time: int = push_cron_schedule(group_name="everyday_at_08_05")
     logger.info(
         f"End Schedule `everyday_at_08_05` for run data pipeline "
@@ -74,9 +69,7 @@ def schedule_cron_everyday() -> None:
 
 
 def schedule_cron_every_quarter() -> None:
-    """
-    Run data pipeline cron job every quarter at 19th and 00.10 AM
-    """
+    """Run data pipeline cron job every quarter at 19th and 00.10 AM."""
     ps_time: int = push_cron_schedule(group_name="every_quarter_at_19th_00_10")
     logger.info(
         f"End Schedule `every_quarter_at_19th_00_10` "
@@ -85,7 +78,7 @@ def schedule_cron_every_quarter() -> None:
 
 
 def schedule_close_ssh() -> None:
-    """Close SSH session"""
+    """Close SSH session."""
     import time
 
     time.sleep(10)
@@ -93,7 +86,7 @@ def schedule_close_ssh() -> None:
 
 
 def listener_log(event):
-    """Listener"""
+    """Listener."""
     if event.exception:
         logger.warning("The job crashed :(")
     else:
@@ -101,7 +94,7 @@ def listener_log(event):
 
 
 def add_schedules(scheduler: APScheduler):
-    """Add job schedules without decorator functions"""
+    """Add job schedules without decorator functions."""
 
     # scheduler.add_job(
     #     'retention_data',

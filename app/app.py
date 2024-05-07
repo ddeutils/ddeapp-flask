@@ -193,7 +193,8 @@ def create_app(
         @app.get("/apikey")
         @apikey_required
         def apikey():
-            """API Key endpoint returning a JSON message
+            """API Key endpoint returning a JSON message.
+
             This is using docstrings for specifications.
             ---
             parameters:
@@ -262,7 +263,7 @@ def create_app(
         @app.route("/opr/shutdown", methods=["GET"])
         @apikey_required
         def shutdown():
-            """shutdown server"""
+            """Shutdown server."""
 
             def shutdown_server():
                 func = request.environ.get("werkzeug.server.shutdown")
@@ -297,7 +298,7 @@ def create_app(
 
 
 def events(app: Flask) -> None:
-    """Add events"""
+    """Add events."""
 
     warp_app: Flask = app
 
@@ -367,7 +368,7 @@ def events(app: Flask) -> None:
 
 
 def filters(app: Flask) -> None:
-    """Register 0 or more custom Jinja filters on an element
+    """Register 0 or more custom Jinja filters on an element.
 
     :param app: Flask application instance
     :return: None
@@ -499,8 +500,7 @@ def extensions(app: Flask) -> None:
 
 
 def middleware(app: Flask):
-    """
-    Register 0 or more middleware (mutates the app passed in).
+    """Register 0 or more middleware (mutates the app passed in).
 
     :param app: Flask application instance
     :return: None
@@ -521,7 +521,7 @@ def load_data(
     truncate: bool = False,
     compress: Optional[str] = None,
 ) -> None:
-    """Load data from local to target database
+    """Load data from local to target database.
 
     :return: None
     """

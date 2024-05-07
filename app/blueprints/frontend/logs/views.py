@@ -65,7 +65,7 @@ def log_data_chart():
 
 @logs.get("/logs/data")
 def log_data():
-    """Generate Task Log data"""
+    """Generate Task Log data."""
     if search := request.args.get("search", "", type=str):
         searched_task_log = TaskLog.search_all(search)
     elif search := request.args.get("searchText", "", type=str):

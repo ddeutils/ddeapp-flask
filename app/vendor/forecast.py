@@ -71,9 +71,8 @@ def resample(df, id_value, data_date):
 
 
 def get_fcst_date_idx(series_y, period):
-    """
-    Generates the forecast date index based on the resampled DateTime
-    indexed series
+    """Generates the forecast date index based on the resampled DateTime
+    indexed series.
 
     Parameters
     ----------
@@ -149,7 +148,11 @@ def gr_to_val(series_y, series_gr, periods=12):
     series_gr_shift.index = series_gr_shift.index.shift(-periods)
 
     df_val = pd.merge(
-        series_gr_shift, series_y, how="left", left_index=True, right_index=True
+        series_gr_shift,
+        series_y,
+        how="left",
+        left_index=True,
+        right_index=True,
     )
     series_val = df_val["y"] + df_val["y"] * df_val["growth"]
     series_val.index = series_val.index.shift(periods)
@@ -699,9 +702,7 @@ def run_tbl_forecast(
     model: list,
     date_range_sla_month_forecast: int,
 ):
-    """
-    forecast data
-    """
+    """Forecast data."""
     upload_datetime = get_run_date(date_type="date_time").isoformat()
     if date_range_sla_month_forecast > 0:
         run_date = (

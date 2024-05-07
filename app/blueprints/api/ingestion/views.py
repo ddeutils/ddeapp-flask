@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 @ingestion.route("del/<path:tbl_name_short>", methods=["DELETE"])
 @apikey_required
 def ingestion_json(tbl_name_short: Optional[str] = None):
-    """Receive json data and insert into table with identify by short name
+    """Receive json data and insert into table with identify by short name.
 
     :path:
         tbl_name_short: path: "The short name of target table that want to

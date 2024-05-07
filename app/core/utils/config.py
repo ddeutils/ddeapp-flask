@@ -23,7 +23,7 @@ CONF_PATH: Path = AI_APP_PATH / "conf"
 
 
 class Params:
-    """Parameter variables object keeping from parameters.yaml file"""
+    """Parameter variables object keeping from parameters.yaml file."""
 
     def __init__(
         self,
@@ -72,7 +72,7 @@ _registers = Params(param_name="registers.yaml")
 
 
 class Environs:
-    """Environment variables object keeping from .env file"""
+    """Environment variables object keeping from .env file."""
 
     def __init__(self, env_name: Optional[str] = None, reload: bool = True):
         __env_name: str = env_name or ".env"

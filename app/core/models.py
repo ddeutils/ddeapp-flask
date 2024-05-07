@@ -22,7 +22,7 @@ UNDEFINED: str = "undefined"
 
 
 def reduce_text(text: str, newline: Optional[str] = None) -> str:
-    """Reduce text before insert to Database"""
+    """Reduce text before insert to Database."""
     return text.replace("'", "''").replace("\n", (newline or "|"))
 
 
@@ -59,14 +59,14 @@ class ParameterType(StrEnum):
 
 
 class ParameterMode(StrEnum):
-    """Parameter Mode Enum"""
+    """Parameter Mode Enum."""
 
     COMMON = "common"
     RERUN = "rerun"
 
 
 class ParameterIngestMode(StrEnum):
-    """Parameter Ingestion Mode Enum"""
+    """Parameter Ingestion Mode Enum."""
 
     COMMON = "common"
     MERGE = "merge"

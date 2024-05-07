@@ -10,7 +10,7 @@ from app.core.connections.postgresql import generate_engine
 
 
 class BaseConfig:
-    """Base configuration"""
+    """Base configuration."""
 
     # Main configuration
     BASE_PATH: Path = Path(__file__).parent.parent
@@ -117,19 +117,19 @@ class BaseConfig:
 
 
 class DevConfig(BaseConfig):
-    """Development environment configuration"""
+    """Development environment configuration."""
 
 
 class SitConfig(BaseConfig):
-    """SIT environment configuration"""
+    """SIT environment configuration."""
 
 
 class PrdConfig(BaseConfig):
-    """Production environment configuration"""
+    """Production environment configuration."""
 
 
 class TestingConfig(BaseConfig):
-    """Test environment configuration"""
+    """Test environment configuration."""
 
 
 @lru_cache

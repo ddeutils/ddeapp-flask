@@ -29,8 +29,7 @@ from app.core.utils.reusables import merge_dicts
 
 def reduce_stm(stm: str, add_row_number: bool = False) -> str:
     """Reduce statement and prepare statement if it wants to catch number of
-    result
-    """
+    result."""
     _reduce_stm: str = " ".join(stm.replace("\t", " ").split()).strip()
     if add_row_number:
         _split_stm: list = _reduce_stm.split(";")
@@ -46,7 +45,7 @@ def reduce_stm(stm: str, add_row_number: bool = False) -> str:
 
 
 def reduce_text(text: str, newline: Optional[str] = None) -> str:
-    """Reduce text before insert to Database"""
+    """Reduce text before insert to Database."""
     return text.replace("'", "''").replace("\n", (newline or "|"))
 
 
@@ -68,34 +67,33 @@ def reduce_value_pairs(value_pairs: dict) -> dict:
 
 
 class Query:
-    """Query Transformation for split all component of SQL statement"""
+    """Query Transformation for split all component of SQL statement."""
 
     def __init__(self, ps_query: str):
         self.ps_query = ps_query
 
 
 class Value:
-    """Generate values from dictionary or value of key `values`
-    :structure:
+    """Generate values from dictionary or value of key `values` :structure:
 
-        (i)     values:
-                    -   class_a: 0.96
-                        class_b: 0.91
-                        class_c: 0.86
-                    -   ...
+    (i)     values:
+                -   class_a: 0.96
+                    class_b: 0.91
+                    class_c: 0.86
+                -   ...
 
-        (ii)    values:
-                    dc_code: "8910",
-                    dc_name: "DC Korat",
-                    data_merge:
-                        -   rdc_code: "8910",
-                            rdc_name: "RDC Korat",
-                            lead_time_rdc: 7,
-                            inventory_cap_value_rdc: 500000
-                        -   rdc_code: "8920",
-                            rdc_name: "RDC BKK",
-                            lead_time_rdc: 10,
-                            inventory_cap_value_rdc: 100000
+    (ii)    values:
+                dc_code: "8910",
+                dc_name: "DC Korat",
+                data_merge:
+                    -   rdc_code: "8910",
+                        rdc_name: "RDC Korat",
+                        lead_time_rdc: 7,
+                        inventory_cap_value_rdc: 500000
+                    -   rdc_code: "8920",
+                        rdc_name: "RDC BKK",
+                        lead_time_rdc: 10,
+                        inventory_cap_value_rdc: 100000
     """
 
     def __init__(
@@ -191,7 +189,8 @@ class Value:
             )
 
     def _generate_common(self, values: Union[dict, list]) -> tuple:
-        """Ingest with common mode and insert mode
+        """Ingest with common mode and insert mode.
+
         CASE I
         ------
         {
@@ -310,7 +309,8 @@ class Value:
                     )
                 ):
                     raise ColumnsNotEqualError(
-                        "Columns in payload does not equal when use 'update' mode"
+                        "Columns in payload does not equal when use 'update' "
+                        "mode"
                     )
                 _col_previous: list = _cols
                 _values_list.append(_values)
@@ -347,7 +347,8 @@ class Value:
         return result_columns, result_values
 
     def _generate_merge(self, values: Union[dict, list]) -> tuple:
-        """Ingest with merge mode
+        """Ingest with merge mode.
+
         CASE I
         ------
         {
@@ -547,8 +548,13 @@ class Statement:
                         update ...
                         "
 
-    If statement input has string type, it will convert to dictionary type, {'common_query': <stm-string>}.
-    :warning: If you set some statement after with_row_table, the result of row will be that set statement
+        If statement input has string type, it will convert to dictionary type,
+    {'common_query': <stm-string>}.
+
+    :warning:
+
+        If you set some statement after with_row_table, the result of row will
+    be that set statement.
     """
 
     target_list: list = ["insert into", "update", "delete from"]
@@ -631,7 +637,7 @@ class Statement:
         )
 
     def _generate(self) -> str:
-        """Generate statement from string type"""
+        """Generate statement from string type."""
         for _stm_name, _stm_sub_stm in self.stm_statement.items():
             if not isinstance(_stm_sub_stm, str):
                 raise TableArgumentError(
@@ -666,7 +672,10 @@ class Statement:
     def target(self) -> set:
         return set(
             re.findall(
-                r"(insert into|update|delete from) {database_name}\.{ai_schema_name}\.(\w+)",
+                (
+                    r"(insert into|update|delete from) "
+                    r"{database_name}\.{ai_schema_name}\.(\w+)"
+                ),
                 self.generate(),
             )
         )
@@ -674,15 +683,21 @@ class Statement:
     def source(self) -> set:
         return set(
             re.findall(
-                r"(from|join|left join|right join|cross join|full join) {database_name}\.{ai_schema_name}\.(\w+)",
+                (
+                    r"(from|join|left join|right join|cross join|full join) "
+                    r"{database_name}\.{ai_schema_name}\.(\w+)"
+                ),
                 self.generate(),
             )
         )
 
     def mapping(self) -> dict[int, tuple[str]]:
         find_list: list = re.findall(
-            r"(insert into|update|delete from|from|join|left join|right join|cross join|full join) "
-            r"{database_name}\.{ai_schema_name}\.(\w+)",
+            (
+                r"(insert into|update|delete from|from|join|left join"
+                r"|right join|cross join|full join) "
+                r"{database_name}\.{ai_schema_name}\.(\w+)"
+            ),
             self.generate(),
         )
         _mapping: dict = {}

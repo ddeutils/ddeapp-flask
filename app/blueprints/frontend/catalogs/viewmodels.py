@@ -18,7 +18,7 @@ from .services import (
 
 
 class ViewModelBase:
-    """Base of View Model class"""
+    """Base of View Model class."""
 
     def __init__(self):
         self.request: Request = request

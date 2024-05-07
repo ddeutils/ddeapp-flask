@@ -58,21 +58,21 @@ def null_or_str(value: str) -> Optional[str]:
 
 
 class Schema(SchemaStatement):
-    """Schema Service Model"""
+    """Schema Service Model."""
 
     name: str = Field(default=env.AI_SCHEMA, description="Schema name")
 
     def exists(self) -> bool:
-        """Push exists statement to target database"""
+        """Push exists statement to target database."""
         return query_select_check(self.statement_check())
 
     def create(self) -> "Schema":
-        """Push create statement to target database"""
+        """Push create statement to target database."""
         query_execute(self.statement_create())
         return self
 
     def drop(self, cascade: bool = False) -> "Schema":
-        """Push drop statement to target database"""
+        """Push drop statement to target database."""
         query_execute(self.statement_drop(cascade=cascade))
         return self
 
@@ -80,11 +80,11 @@ class Schema(SchemaStatement):
 class Action(FunctionStatement):
 
     def exists(self) -> bool:
-        """Push exists statement to target database"""
+        """Push exists statement to target database."""
         return query_select_check(self.statement_check())
 
     def create(self) -> None:
-        """Push create statement to target database"""
+        """Push create statement to target database."""
         query_execute(self.statement_create(), parameters=True)
 
 
@@ -101,7 +101,7 @@ class ActionQuery(QueryStatement):
 
 
 class BaseNode(TableStatement):
-    """Node Service Model"""
+    """Node Service Model."""
 
     ext_parameters: dict = Field(
         default_factory=dict,
@@ -109,7 +109,7 @@ class BaseNode(TableStatement):
     )
 
     def exists(self) -> bool:
-        """Push exists statement to target database"""
+        """Push exists statement to target database."""
         return query_select_check(self.statement_check(), parameters=True)
 
     def log_push(self): ...
@@ -136,7 +136,7 @@ class Node(BaseNode):
 
 
 class NodeIngest(BaseNode):
-    """Node for Ingestion"""
+    """Node for Ingestion."""
 
     def delete(self): ...
 
@@ -148,7 +148,7 @@ class NodeIngest(BaseNode):
 
 
 class Pipeline(PipelineCatalog):
-    """Pipeline Service Model"""
+    """Pipeline Service Model."""
 
     def nodes(self): ...
 
@@ -164,11 +164,11 @@ class Pipeline(PipelineCatalog):
 
 
 class Task(BaseTask):
-    """Task Service Model"""
+    """Task Service Model."""
 
     @classmethod
     def pull(cls, task_id: str):
-        """Pull Task from target database with Task ID"""
+        """Pull Task from target database with Task ID."""
         if ctr_process := (
             LegacyControl("ctr_task_process").pull(pm_filter=[task_id])
         ):
@@ -204,7 +204,7 @@ class Task(BaseTask):
         )
 
     def start(self, task_total: Optional[int] = 1) -> int:
-        """Start Task"""
+        """Start Task."""
         return (
             0
             if self.release.pushed
@@ -212,7 +212,7 @@ class Task(BaseTask):
         )
 
     def finish(self) -> int:
-        """Finish Task"""
+        """Finish Task."""
         return self.fetch(
             values=(
                 {
@@ -225,7 +225,7 @@ class Task(BaseTask):
         )
 
     def push(self, values: Optional[dict] = None) -> int:
-        """Push information to the Control Data Logging"""
+        """Push information to the Control Data Logging."""
         return LegacyControl("ctr_task_process").push(
             push_values=merge_dicts(
                 {
@@ -248,7 +248,7 @@ class Task(BaseTask):
         )
 
     def fetch(self, values: Optional[dict] = None) -> int:
-        """Fetch information to the Control Data Logging"""
+        """Fetch information to the Control Data Logging."""
         return LegacyControl("ctr_task_process").update(
             update_values=merge_dicts(
                 {

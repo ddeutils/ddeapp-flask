@@ -15,10 +15,10 @@ from app.core.validators import (
 
 
 class ColumnValidatorTestCase(unittest.TestCase):
-    """Test Case for Column object from validators file"""
+    """Test Case for Column object from validators file."""
 
     def setUp(self) -> None:
-        """Set up input attributes for parsing to the Column model"""
+        """Set up input attributes for parsing to the Column model."""
         self.maxDiff = None
         self.input_01: dict = {
             "name": "column_name",
@@ -95,7 +95,7 @@ class ColumnValidatorTestCase(unittest.TestCase):
 
 
 class ProfileValidatorTestCase(unittest.TestCase):
-    """Test Case for Column object from validators file"""
+    """Test Case for Column object from validators file."""
 
     def setUp(self) -> None:
         self.maxDiff = None
@@ -260,7 +260,7 @@ class ProfileValidatorTestCase(unittest.TestCase):
 
 
 class TableValidatorTestCase(unittest.TestCase):
-    """Test Case for Table object from validators file"""
+    """Test Case for Table object from validators file."""
 
     def setUp(self) -> None:
         self.maxDiff = None
@@ -545,7 +545,7 @@ class TableValidatorTestCase(unittest.TestCase):
 
 
 class TableFrontendValidatorTestCase(unittest.TestCase):
-    """Test Case for Table object from validators file"""
+    """Test Case for Table object from validators file."""
 
     def setUp(self) -> None:
         self.maxDiff = None
@@ -674,7 +674,7 @@ class TableFrontendValidatorTestCase(unittest.TestCase):
 
 
 class FunctionValidatorTestCase(unittest.TestCase):
-    """Test Case for Function object from validators file"""
+    """Test Case for Function object from validators file."""
 
     def setUp(self) -> None: ...
 
@@ -682,7 +682,7 @@ class FunctionValidatorTestCase(unittest.TestCase):
 
 
 class PipelineValidatorTestCase(unittest.TestCase):
-    """Test Case for Pipeline object from validators file"""
+    """Test Case for Pipeline object from validators file."""
 
     def setUp(self) -> None: ...
 
@@ -690,10 +690,10 @@ class PipelineValidatorTestCase(unittest.TestCase):
 
 
 class TaskValidatorTestCase(unittest.TestCase):
-    """Test Case for Task model from validators file"""
+    """Test Case for Task model from validators file."""
 
     def setUp(self) -> None:
-        """Set up input attributes for parsing to the Task model"""
+        """Set up input attributes for parsing to the Task model."""
         self.maxDiff = None
         self.input_01: dict = {
             "module": "data",
@@ -717,7 +717,11 @@ class TaskValidatorTestCase(unittest.TestCase):
                 "ingest_action": "update",
                 "ingest_mode": "common",
                 "background": "N",
-                "payloads": {"class_a": 0.96, "class_b": 0.91, "class_c": 0.86},
+                "payloads": {
+                    "class_a": 0.96,
+                    "class_b": 0.91,
+                    "class_c": 0.86,
+                },
             },
             "mode": TaskMode.FOREGROUND,
             "component": TaskComponent.INGESTION,

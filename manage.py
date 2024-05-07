@@ -47,9 +47,10 @@ def cli(): ...
     help="compress type of file such as `gzip`, `bz2`, `zip`, or `xz`",
 )
 def load(filename: str, target: str, truncate: bool, compress: str):
-    """Load data from local file to target database
-    :usage:
-        >> $ python manage.py load -f "<filename>.csv" -t "<table-name>"
+    """Load data from local file to target database.
+
+    :usage:     ..> $ python manage.py load -f "<filename>.csv" -t
+    "<table-name>"
     """
     from app.app import load_data
 
@@ -85,9 +86,10 @@ def load(filename: str, target: str, truncate: bool, compress: str):
     help="migrate all tables with debug mode",
 )
 def migrate(condition: str, debug: bool):
-    """Migrate catalog table from configuration file to target database
-    :usage:
-        >> $ python manage.py migrate --debug=true
+    """Migrate catalog table from configuration file to target database.
+
+    Example:
+    >> $ python manage.py migrate --debug=true.
     """
     os.environ["DEBUG"] = str(debug).capitalize()
 
@@ -124,8 +126,10 @@ def runserver(
     recreated: bool = False,
     server: bool = False,
 ):
-    """Run WSGI Application or Server which implement by waitress
-    :usage:
+    """Run WSGI Application or Server which implement by waitress.
+
+    Example:
+
         ..> $ python manage.py run --debug=true --server=True
 
     Note:
@@ -175,7 +179,7 @@ def runserver(
 
 @click.command(name="test", short_help="test application server")
 def test():
-    """Test Application Server"""
+    """Test Application Server."""
     from app.controls import push_testing
 
     push_testing()

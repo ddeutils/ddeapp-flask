@@ -75,12 +75,12 @@ __all__ = (
 
 
 def sorted_set(values):
-    """Return Sorted List after parsing Set"""
+    """Return Sorted List after parsing Set."""
     return sorted(set(values))
 
 
 def split_datatype(datatype_full: str) -> tuple[str, str]:
-    """Split the datatype value from long string by null string"""
+    """Split the datatype value from long string by null string."""
     _nullable: str = "null"
     for null_str in ["not null", "null"]:
         if re.search(null_str, datatype_full):
@@ -90,7 +90,7 @@ def split_datatype(datatype_full: str) -> tuple[str, str]:
 
 
 def split_fk(value: str) -> tuple[str, Optional[str]]:
-    """Split the key value from dot or bracket"""
+    """Split the key value from dot or bracket."""
     if "." in value:
         prefix, sub_value = value.rsplit(".", maxsplit=1)
         return prefix, sub_value
@@ -109,7 +109,7 @@ def split_fk(value: str) -> tuple[str, Optional[str]]:
 def catch_from_string(
     value: str, key: str, replace: Optional = None, flag: bool = True
 ):
-    """Catch keyword from string value and return True if exits"""
+    """Catch keyword from string value and return True if exits."""
     if key in value:
         return " ".join(value.replace(key, (replace or "")).split()), (
             True if flag else key
@@ -118,11 +118,10 @@ def catch_from_string(
 
 
 def get_function(func_string: str) -> callable:
-    """Get function from imported string
-    :usage:
-        ..> get_function(
-        ...     'app.vendor.replenishment.run_prod_cls_criteria'
-        ... )
+    """Get function from imported string :usage: ..> get_function( ...
+
+    'app.vendor.replenishment.run_prod_cls_criteria'
+    ... )
     """
     module, _function = func_string.rsplit(sep=".", maxsplit=1)
     mod = importlib.import_module(module)
@@ -130,7 +129,7 @@ def get_function(func_string: str) -> callable:
 
 
 def convert_str_to_dict(key: str, value: Union[str, dict]) -> dict:
-    """Convert value from string or not to dictionary with input key"""
+    """Convert value from string or not to dictionary with input key."""
     return {key: value} if isinstance(value, str) else value
 
 
@@ -163,7 +162,7 @@ class BaseUpdatableModel(BaseModel):
 
     @classmethod
     def get_properties(cls) -> list:
-        """Return list of properties of this model"""
+        """Return list of properties of this model."""
         return [
             prop
             for prop in cls.__dict__
@@ -208,6 +207,7 @@ class BaseUpdatableModel(BaseModel):
 
     def update(self, data: dict):
         """Updatable method for update data to existing model data.
+
         docs: https://github.com/pydantic/pydantic/discussions/3139
         """
         update = self.dict()
@@ -242,18 +242,18 @@ class Tag(BaseUpdatableModel):
 
     @validator("ts", pre=True, always=True)
     def set_ts(cls, value):
-        """Pre initialize the `ts` value that parsing from default"""
+        """Pre initialize the `ts` value that parsing from default."""
         return value or datetime.now()
 
     @validator("version", pre=True, always=True)
     def set_version(cls, value):
-        """Pre initialize the `version` value that parsing from default"""
+        """Pre initialize the `version` value that parsing from default."""
         _dt = datetime.strptime(value, "%Y-%m-%d") if value else datetime.now()
         return _dt.date()
 
 
 class CommonType(BaseUpdatableModel):
-    """Data Type model"""
+    """Data Type model."""
 
     type: str = Field(
         ..., description="Type of data that implement with target database"
@@ -267,7 +267,7 @@ class CommonType(BaseUpdatableModel):
 
 
 class CharType(CommonType):
-    """Character Type model"""
+    """Character Type model."""
 
     max_length: Optional[int] = Field(default=None)
 
@@ -290,7 +290,7 @@ DataType = Union[CommonType, CharType, NumericType, TimeType]
 
 
 class Column(BaseUpdatableModel):
-    """Column model"""
+    """Column model."""
 
     # Necessary value
     name: str = Field(
@@ -401,12 +401,12 @@ class Column(BaseUpdatableModel):
 
     @validator("name", pre=True)
     def prepare_name(cls, value) -> str:
-        """Prepare name"""
+        """Prepare name."""
         return "".join(value.strip().split())
 
     @root_validator()
     def validate_and_check_logic_values(cls, values):
-        """Validate and check logic of values"""
+        """Validate and check logic of values."""
         pk: bool = values.get("pk", False)
         nullable: bool = values.get("nullable", True)
 
@@ -417,7 +417,7 @@ class Column(BaseUpdatableModel):
 
 
 class Partition(BaseModel):
-    """Partition model"""
+    """Partition model."""
 
     type: Optional[str] = Field(default=None)
     columns: list[str] = Field(default_factory=list)
@@ -443,7 +443,7 @@ ValueListOrDict = Union[
 
 
 class Profile(BaseUpdatableModel):
-    """Profile Model
+    """Profile Model.
 
     note: If data parsing with empty value, it will return default of mapping
     """
@@ -472,7 +472,7 @@ class Profile(BaseUpdatableModel):
 
     @validator("features", pre=True)
     def prepare_features(cls, value: ValueListOrDict):
-        """Prepare features before features type validation occurs"""
+        """Prepare features before features type validation occurs."""
         logger.debug("Profile: ... Start pre-validate features")
         # This filter will prepare features value from the format,
         # [{ 'name': NAME, 'datatype': DATATYPE, ...  }, ...]
@@ -510,6 +510,7 @@ class Profile(BaseUpdatableModel):
     @validator("primary_key", each_item=True)
     def validate_for_each_primary_key(cls, value, values):
         """Validate for each data in the list of primary key.
+
         Note: If the list does not contain any data, this process will skip.
         """
         logger.debug(
@@ -532,7 +533,8 @@ class Profile(BaseUpdatableModel):
     def prepare_foreign_key(
         cls, value: Union[list[dict], dict[str, dict[str, str]]]
     ):
-        """Prepare foreign key value before foreign key type validation occurs."""
+        """Prepare foreign key value before foreign key type validation
+        occurs."""
         logger.debug("Profile: ... Start pre-validate foreign_key")
         if isinstance(value, list):
             return value
@@ -563,8 +565,7 @@ class Profile(BaseUpdatableModel):
     @validator("foreign_key", pre=True, each_item=True)
     def prepare_for_each_foreign_key(cls, value):
         """Prepare for each foreign key value in list before type validation
-        occurs
-        """
+        occurs."""
         logger.debug("Profile: ... ... Start pre-validate for each foreign_key")
         if not isinstance(value, dict):
             raise TypeError(
@@ -580,8 +581,9 @@ class Profile(BaseUpdatableModel):
     @validator("foreign_key", each_item=True)
     def validate_for_each_foreign_key(cls, value, values):
         """Validate for each foreign key in list after type validation.
-        This step will check and update fk value to the foreign key column in
-        features.
+
+        This step will check and update fk value to the foreign key
+        column in features.
         """
         logger.debug("Profile: ... ... Start validate for each foreign_key")
         features: list[Column] = values.get("features")
@@ -592,7 +594,12 @@ class Profile(BaseUpdatableModel):
             )
         _index: int = _columns_exist.index(value["name"])
         features[_index] = features[_index].update(
-            {"fk": {"table": value["ref_table"], "column": value["ref_column"]}}
+            {
+                "fk": {
+                    "table": value["ref_table"],
+                    "column": value["ref_column"],
+                }
+            }
         )
         return value
 
@@ -609,12 +616,12 @@ class Profile(BaseUpdatableModel):
 
     @root_validator(skip_on_failure=True)
     def check_values(cls, values):
-        """Check"""
+        """Check."""
         logger.debug("Profile: Start validate root ...")
         return values
 
     def conflict(self, update: bool = False) -> str:
-        """Property return conflict statement which map with primary key"""
+        """Property return conflict statement which map with primary key."""
         doing_statement: str = "UPDATE" if update else "NOTING"
         return (
             f" ON CONFLICT ( {primary} ) DO {doing_statement}"
@@ -623,7 +630,7 @@ class Profile(BaseUpdatableModel):
         )
 
     def columns(self, pk_included: bool = False) -> list[str]:
-        """Return list of column name"""
+        """Return list of column name."""
         _columns: list[str] = [feature.name for feature in self.features]
         return (
             _columns
@@ -633,7 +640,7 @@ class Profile(BaseUpdatableModel):
 
 
 class BaseProcess(BaseUpdatableModel):
-    """Process model"""
+    """Process model."""
 
     name: str = Field(..., description="Process name")
     parameter: list[str] = Field(
@@ -643,7 +650,7 @@ class BaseProcess(BaseUpdatableModel):
 
     @root_validator(pre=True)
     def prepare_base_values(cls, values):
-        """Prepare value before"""
+        """Prepare value before."""
         logger.debug("Base Process: Start validate pre-root ...")
         if not (name := values.pop("name", None)):
             raise ValueError("name does not contain")
@@ -657,7 +664,7 @@ class BaseProcess(BaseUpdatableModel):
 
 
 class SQLProcess(BaseProcess):
-    """SQL Process"""
+    """SQL Process."""
 
     statement: Union[str, dict]
 
@@ -668,12 +675,12 @@ class SQLProcess(BaseProcess):
 
     @validator("statement")
     def validate_statement(cls, value):
-        """Validate and convert string statement"""
+        """Validate and convert string statement."""
         return Statement(value).generate()
 
 
 class PYProcess(BaseProcess):
-    """Python process"""
+    """Python process."""
 
     function: Callable
     load: SQLProcess
@@ -686,7 +693,7 @@ class PYProcess(BaseProcess):
 
     @validator("function", pre=True)
     def prepare_function(cls, value) -> Callable:
-        """Prepare function value"""
+        """Prepare function value."""
         return get_function(value)
 
 
@@ -697,13 +704,12 @@ class Table(BaseUpdatableModel):
     """Table/Catalog Model that receive data from yaml file and validate all
     values to standard format for core engine that processable.
 
-        The Object of this model that why I choose Pydantic,
+    The Object of this model that why I choose Pydantic,
 
-            ..> with open('<filename>.yaml) as f:
-            ...     model = CatalogModel.parse_obj(yaml.load(f))
+        ..> with open('<filename>.yaml) as f:
+        ...     model = CatalogModel.parse_obj(yaml.load(f))
 
-        This class include the statement generator methods
-
+    This class include the statement generator methods
     """
 
     # Metadata of catalog model
@@ -730,7 +736,7 @@ class Table(BaseUpdatableModel):
 
     @classmethod
     def parse_shortname(cls, shortname: str):
-        """Parse shortname to Table Model"""
+        """Parse shortname to Table Model."""
         return cls.parse_obj(
             LoadCatalog.from_shortname(
                 name=shortname,
@@ -742,7 +748,7 @@ class Table(BaseUpdatableModel):
 
     @classmethod
     def parse_name(cls, fullname: str):
-        """Parse name to Table Model"""
+        """Parse name to Table Model."""
         _type, name = filter_ps_type(fullname)
         obj = LoadCatalog(
             name=name,
@@ -897,7 +903,7 @@ class Table(BaseUpdatableModel):
 
     @validator("initial")
     def set_initial(cls, value, values):
-        """Post prepare initial value"""
+        """Post prepare initial value."""
         logger.debug("Table: ... Start validate initial")
         _initial: dict = {
             "parameter": sorted_set(
@@ -946,7 +952,7 @@ class Table(BaseUpdatableModel):
         return _initial
 
     def validate_name_flag(self, flag: Optional[Union[str, bool]]) -> bool:
-        """Validate flag of name"""
+        """Validate flag of name."""
         try:
             return must_bool(flag, force_raise=True)
         except ValueError:
@@ -957,7 +963,7 @@ class Table(BaseUpdatableModel):
     def validate_columns(
         self, columns: Union[list, dict], raise_error: bool = False
     ) -> list:
-        """Validate column of features"""
+        """Validate column of features."""
         _filter: list = list(
             filter(lambda c: c in self.profile.columns(), columns)
         )
@@ -974,7 +980,7 @@ class Table(BaseUpdatableModel):
         )
 
     def dependency(self) -> dict[str, dict[int, tuple[str]]]:
-        """Return dependencies mapping"""
+        """Return dependencies mapping."""
         _result: dict = {}
         # FIXME: this method does not support for process type "py"
         for ps, attrs in sorted(
@@ -988,9 +994,8 @@ class Table(BaseUpdatableModel):
 
 
 class Function(BaseUpdatableModel):
-    """Function/Catalog Model that receive data from yaml file and validate
-    all values to standard format for core engine that processable.
-    """
+    """Function/Catalog Model that receive data from yaml file and validate all
+    values to standard format for core engine that processable."""
 
     # Metadata of pipeline model
     name: str = Field(..., description="Function name", alias="FunctionName")
@@ -1010,7 +1015,7 @@ class Function(BaseUpdatableModel):
 
     @classmethod
     def parse_name(cls, fullname: str):
-        """Parse name to Function Model"""
+        """Parse name to Function Model."""
         _type, name = filter_ps_type(
             fullname, default=params.list_func_types[0]
         )
@@ -1086,7 +1091,7 @@ class Function(BaseUpdatableModel):
 
 
 class Pipeline(BaseUpdatableModel):
-    """Pipeline model"""
+    """Pipeline model."""
 
     # Metadata of pipeline model
     name: str = Field(..., description="Pipeline name", alias="PipelineName")
@@ -1157,15 +1162,14 @@ class Pipeline(BaseUpdatableModel):
 
     @validator("trigger", pre=True)
     def prepare_trigger(cls, value, config):
-        """Prepare trigger value
-        :structure:
-            (i)     trigger: [ 'pipe-id-01', ... ]
+        """Prepare trigger value :structure: (i)     trigger: [ 'pipe-id-01',
+        ... ]
 
-            (ii)    trigger: 'pipe-id-01 & (pipe-id-02 | pipe-id-03)'
+        (ii)    trigger: 'pipe-id-01 & (pipe-id-02 | pipe-id-03)'
         """
 
         def __prepare_trigger(trigger: str) -> list:
-            """Prepare trigger string value to list value"""
+            """Prepare trigger string value to list value."""
             _trigger: str = "".join(trigger.strip().split())
             for _ in re.findall(r"(\([A-Za-z0-9_&|]+\))", _trigger):
                 if (
@@ -1252,30 +1256,29 @@ class Pipeline(BaseUpdatableModel):
 
     @validator("nodes", pre=True)
     def prepare_nodes(cls, value):
-        """Prepare nodes value
-        :structure:
+        """Prepare nodes value :structure:
 
-            (i)     <node_name>:
-                        priority: 1
-                        type: "<node_type>"
-                        choose: ['choose_process', ...]
+        (i)     <node_name>:
+                    priority: 1
+                    type: "<node_type>"
+                    choose: ['choose_process', ...]
 
-            (i.a)   <node_name_full: `node_type:node_name`>:
-                        priority: 1
-                        choose: ['choose_process', ...]
+        (i.a)   <node_name_full: `node_type:node_name`>:
+                    priority: 1
+                    choose: ['choose_process', ...]
 
-            (ii)    <node_name_full: `node_type:node_name`>:
-                        - 'choose_process'
-                        - ...
+        (ii)    <node_name_full: `node_type:node_name`>:
+                    - 'choose_process'
+                    - ...
 
-            (iii)   - name: <node_name_full: `node_type:node_name`>
-                      choose: []
-                    - name: <node_name_full: `node_type:node_name`>
-                    ...
+        (iii)   - name: <node_name_full: `node_type:node_name`>
+                  choose: []
+                - name: <node_name_full: `node_type:node_name`>
+                ...
 
-            (iv)    - "<node_name_full: `node_type:node_name`>"
-                    - "<node_name_full: `node_type:node_name`>"
-                    ...
+        (iv)    - "<node_name_full: `node_type:node_name`>"
+                - "<node_name_full: `node_type:node_name`>"
+                ...
         """
         _nodes: dict = {}
         if isinstance(value, list):
@@ -1304,7 +1307,8 @@ class Pipeline(BaseUpdatableModel):
         node_props: Union[list, dict],
         node_name: Optional[str] = None,
     ):
-        """Generate node properties with different type of node input argument."""
+        """Generate node properties with different type of node input
+        argument."""
         if isinstance(node_props, list):
             _priority: float = round(priority, 2)
             _node_choose: list = node_props
@@ -1340,7 +1344,7 @@ class Pipeline(BaseUpdatableModel):
 
     @validator("nodes")
     def validate_nodes(cls, value, values):
-        """Validate nodes value"""
+        """Validate nodes value."""
         name = values["name"]
         for _priority, v in value.items():
             try:
@@ -1357,13 +1361,13 @@ class Pipeline(BaseUpdatableModel):
 
 
 class Schema(BaseUpdatableModel):
-    """Schema model"""
+    """Schema model."""
 
     name: str = Field(..., description="Schema name", alias="SchemaName")
 
 
 class Parameter(BaseUpdatableModel):
-    """Parameter Model that receive data from interface of framework"""
+    """Parameter Model that receive data from interface of framework."""
 
     others: dict = Field(
         default_factory=dict,
@@ -1390,7 +1394,7 @@ class Parameter(BaseUpdatableModel):
 
     @root_validator(pre=True)
     def prepare_values(cls, values):
-        """Prepare values after parsing to validators"""
+        """Prepare values after parsing to validators."""
         logger.debug("Parameter: Start validate pre-root ...")
         if _name := values.pop("table_name", None):
             values["type"] = ParameterType.TABLE
@@ -1424,7 +1428,7 @@ class Parameter(BaseUpdatableModel):
 
 
 class ReleaseDate(BaseModel):
-    """Release Date Model"""
+    """Release Date Model."""
 
     date: Optional[str] = Field(default=None, description="")
     index: Optional[int] = Field(default=None, description="")
@@ -1432,7 +1436,7 @@ class ReleaseDate(BaseModel):
 
 
 class Task(BaseUpdatableModel):
-    """Task Model that generate or receive task from the framework data"""
+    """Task Model that generate or receive task from the framework data."""
 
     module: str = Field(..., description="Task module")
     parameters: Parameter = Field(
@@ -1472,7 +1476,7 @@ class Task(BaseUpdatableModel):
 
     @validator("parameters", always=True)
     def prepare_parameters(cls, value: Parameter, values) -> Parameter:
-        """Prepare parameter value"""
+        """Prepare parameter value."""
         logger.info("Task: Start validate always parameters")
         if value.type == ParameterType.UNDEFINED:
             value = value.copy(update={"name": values["module"]})
@@ -1480,7 +1484,7 @@ class Task(BaseUpdatableModel):
 
     @validator("id", always=True)
     def generate_id(cls, value, values) -> str:
-        """Generate Task ID"""
+        """Generate Task ID."""
         logger.info("Task: Start validate always id")
         return value or get_process_id(
             values["module"]
@@ -1489,7 +1493,7 @@ class Task(BaseUpdatableModel):
         )
 
     def duration(self) -> int:
-        """Generate duration since this model start initialize data"""
+        """Generate duration since this model start initialize data."""
         return round(
             (
                 get_run_date(date_type="date_time") - self.start_time
@@ -1500,7 +1504,7 @@ class Task(BaseUpdatableModel):
         self,
         start: int = 0,
     ) -> Generator[tuple[int, str], None, None]:
-        """Yield index and date values from enumerate of dates"""
+        """Yield index and date values from enumerate of dates."""
         for idx, dt in enumerate(self.parameters.dates, start=0):
             if idx < start:
                 continue
@@ -1516,7 +1520,7 @@ class Task(BaseUpdatableModel):
         self.release = ReleaseDate()
 
     def receive(self, result: Result) -> "Task":
-        """Receive result dataclass and merge status and message to self"""
+        """Receive result dataclass and merge status and message to self."""
         logger.debug("Task: Start Receive data from Result")
         self.status = result.status
         self.message += self.__add_newline(
@@ -1527,12 +1531,12 @@ class Task(BaseUpdatableModel):
 
     @staticmethod
     def __add_newline(msg: str, checker: str) -> str:
-        """Return added newline message for empty string"""
+        """Return added newline message for empty string."""
         return f"\n{msg}" if checker else msg
 
 
 class TableFrontend(Table):
-    """Table Catalog for Frontend component"""
+    """Table Catalog for Frontend component."""
 
     @property
     def catalog(self):
@@ -1546,7 +1550,7 @@ class TableFrontend(Table):
 
 
 class FunctionFrontend(Function):
-    """Function Catalog for Frontend component"""
+    """Function Catalog for Frontend component."""
 
     @property
     def catalog(self):
@@ -1557,7 +1561,7 @@ class FunctionFrontend(Function):
 
 
 class PiplineFrontend(Pipeline):
-    """Pipeline Catalog for Frontend component"""
+    """Pipeline Catalog for Frontend component."""
 
     @property
     def catalog(self):
@@ -1570,17 +1574,17 @@ class PiplineFrontend(Pipeline):
 
 @singledispatch
 def process(model):
-    """Default processing definition"""
+    """Default processing definition."""
     raise NotImplementedError(f"I don't know how to process {type(model)}")
 
 
 @process.register
 def _(model: Pipeline):
-    """Handle pipeline model"""
+    """Handle pipeline model."""
     print(f"Pipeline: {model}")
 
 
 @process.register
 def _(model: Table):
-    """Handle table model"""
+    """Handle table model."""
     print(f"Table: {model}")

@@ -24,14 +24,14 @@ from conf import settings
 
 
 def is_valid(api_key: str):
-    """Check the value of `api_key` that must equal APIKEY, setup in .env file"""
+    """Check the value of `api_key` that must equal APIKEY, setup in .env
+    file."""
     return api_key == os.environ.get("APIKEY", "NULL")
 
 
 def apikey_required(func):
     """Required APIKEY decorator function for header of request checking before
-    do everything with this application framework.
-    """
+    do everything with this application framework."""
 
     @functools.wraps(func)
     def decorator(*args, **kwargs):

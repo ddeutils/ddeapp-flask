@@ -53,7 +53,7 @@ class StyleAdapter(logging.LoggerAdapter):
 
 
 class UTCFormatter(logging.Formatter):
-    """override logging.Formatter to use an aware datetime object"""
+    """Override logging.Formatter to use an aware datetime object."""
 
     # converter = time.gmtime
 
@@ -76,9 +76,7 @@ class UTCFormatter(logging.Formatter):
 
 
 class HTTPSlackHandler(logging.Handler):
-    """
-    Send logging to slack application
-    """
+    """Send logging to slack application."""
 
     def emit(self, record):
         log_entry = self.format(record)
@@ -100,9 +98,7 @@ class NoConsoleFilter(logging.Filter):
 
 
 class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
-    """
-    change time-rotating file format
-    """
+    """Change time-rotating file format."""
 
     def __init__(self, *args, **kwargs):
         self.baseFilename = None
@@ -112,8 +108,9 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
         self.extMatch = re.compile(r"^\d{4}\d{2}\d{2}$")
 
     def getFilesToDelete(self):
-        """
-        CUT, PASTE AND .... HACK
+        """CUT, PASTE AND ....
+
+        HACK
         """
         _dirname, basename = os.path.split(self.baseFilename)
         file_names = os.listdir(_dirname)
@@ -133,9 +130,8 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
         )
 
     def doRollover(self):
-        """
-        CUT AND PAST FROM TimedRotatingFileHandler
-        customize file name by prefix instead suffix
+        """CUT AND PAST FROM TimedRotatingFileHandler customize file name by
+        prefix instead suffix.
 
         scenarios
         ---------
@@ -188,12 +184,12 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
 
 
 class RefmtTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
-    """
-    change time-rotating file format
-        - fileName.log
-        - fileName.20211101_110010.log
-        - fileName.20211101_110012.log
-        - fileName.20211101_110013.log
+    """Change time-rotating file format.
+
+    - fileName.log
+    - fileName.20211101_110010.log
+    - fileName.20211101_110012.log
+    - fileName.20211101_110013.log
     """
 
     def __init__(self, maxBytes=0, *args, **kwargs):
@@ -205,20 +201,19 @@ class RefmtTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
 
     @staticmethod
     def re_namer(default_name):
-        """This will be called when doing the log rotation
-        default_name is the default filename that would be assigned, e.g. Rotate_Test.log.YYYY-MM-DD
-        Do any manipulations to that name here, for example this changes the name to Rotate_Test.YYYY-MM-DD.log
-        """
+        """This will be called when doing the log rotation default_name is the
+        default filename that would be assigned, e.g. Rotate_Test.log.YYYY-MM-
+        DD Do any manipulations to that name here, for example this changes the
+        name to Rotate_Test.YYYY-MM-DD.log."""
         default_dir_name, default_file_name = os.path.split(default_name)
         base_filename, ext, date = default_file_name.split(".")
         return os.path.join(default_dir_name, f"{base_filename}.{date}.{ext}")
 
     def shouldRollover(self, record):
-        """
-        Determine if rollover should occur.
+        """Determine if rollover should occur.
 
-        Basically, see if the supplied record would cause the file to exceed
-        the size limit we have.
+        Basically, see if the supplied record would cause the file to
+        exceed the size limit we have.
         """
         if self.stream is None:
             self.stream = self._open()
@@ -231,13 +226,15 @@ class RefmtTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
         return 1 if int(time.time()) >= self.rolloverAt else 0
 
     def getFilesToDelete(self):
-        """
-        rewrite get file name logic for delete if list of files more than backupCount
-        """
+        """Rewrite get file name logic for delete if list of files more than
+        backupCount."""
         _dirname, _base_name = os.path.split(self.baseFilename)
         file_names = os.listdir(_dirname)
         result: list = []
-        starts, ends = _base_name.split(".")[0], f'.{_base_name.split(".")[-1]}'
+        starts, ends = (
+            _base_name.split(".")[0],
+            f'.{_base_name.split(".")[-1]}',
+        )
         start_len, end_len = len(starts), len(ends)
         for file_name in file_names:
             if file_name[-end_len:] == ends and file_name[:start_len] == starts:
@@ -254,14 +251,14 @@ class RefmtTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
 
 
 class DailyRotatingFileHandler(logging.handlers.RotatingFileHandler):
-    """
-    change rotating pattern
-        - 2016-10-05.log.alias
-        - 2016-10-05.log.alias.1
-        - 2016-10-05.log.alias.2
-        - 2016-10-06.log.alias
-        - 2016-10-06.log.alias.1
-        - 2016-10-07.log.alias.1
+    """Change rotating pattern.
+
+    - 2016-10-05.log.alias
+    - 2016-10-05.log.alias.1
+    - 2016-10-05.log.alias.2
+    - 2016-10-06.log.alias
+    - 2016-10-06.log.alias.1
+    - 2016-10-07.log.alias.1
     """
 
     def __init__(
@@ -330,17 +327,14 @@ class DailyRotatingFileHandler(logging.handlers.RotatingFileHandler):
 
 
 class PickableLoggerAdapter:
-    """
-    pickle module
-    """
+    """Pickle module."""
 
     def __init__(self, name):
         self.name = name
         self.logger = _create_logger(name)
 
     def __getstate__(self):
-        """
-        Method is called when pickle dumps an object.
+        """Method is called when pickle dumps an object.
 
         Returns
         -------
@@ -350,14 +344,12 @@ class PickableLoggerAdapter:
         return {"name": self.name}
 
     def __setstate__(self, state):
-        """
-        Method is called when pickle loads an object. Retrieves the name and
+        """Method is called when pickle loads an object. Retrieves the name and
         creates a logger.
 
         Parameters
         ----------
         state - dictionary, containing the logger name.
-
         """
         self.name = state["name"]
         self.logger = _create_logger(self.name)

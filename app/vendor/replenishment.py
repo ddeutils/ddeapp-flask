@@ -13,9 +13,7 @@ logger = get_logger(__name__)
 def run_min_max_service_level(
     input_df: pd.DataFrame, service_level_type: str, service_level_round: int
 ):
-    """
-    run min max service level from config table
-    """
+    """Run min max service level from config table."""
     values: list = []
     update_datetime = get_run_date(fmt="%Y-%m-%d %H:%M:%S")
     service_level_divide = 1 if service_level_type == "percent" else 100
@@ -54,9 +52,7 @@ def run_min_max_service_level(
 
 # module function ------------------------------------------------------------------------
 def run_prod_cls_criteria(input_df: pd.DataFrame):
-    """
-    run validate product class criteria value from config table
-    """
+    """Run validate product class criteria value from config table."""
     values: list = []
     update_datetime: str = get_run_date(fmt="%Y-%m-%d %H:%M:%S")
     input_values: list = [

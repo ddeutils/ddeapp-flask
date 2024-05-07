@@ -99,7 +99,7 @@ logger = logging.getLogger(__name__)
 
 # [x] Migrate to modern style by `connections`
 def query_select_row(statement: str, parameters: Optional[dict] = None) -> int:
-    """Enhance query function to get `row_number` value from result"""
+    """Enhance query function to get `row_number` value from result."""
     if any(
         _ in statement
         for _ in {
@@ -117,14 +117,14 @@ def query_select_row(statement: str, parameters: Optional[dict] = None) -> int:
 def query_select_check(
     statement: str, parameters: Optional[dict] = None
 ) -> bool:
-    """Enhance query function to get `check_exists` value from result"""
+    """Enhance query function to get `check_exists` value from result."""
     return eval(
         query_select_one(statement, parameters=parameters)["check_exists"]
     )
 
 
 def query_explain(statement: str, parameters: ParamType = True) -> dict:
-    """Enhance query function for explain analytic"""
+    """Enhance query function for explain analytic."""
     stm = Statement(statement)
     query: str = stm.generate().strip()
     if query.count(";") > 1:
@@ -158,7 +158,7 @@ def query_explain(statement: str, parameters: ParamType = True) -> dict:
 
 # [x] Migrate to modern style by `Schema` Model
 def push_schema_create(schema_name: str):
-    """Push create schema"""
+    """Push create schema."""
     query_execute(
         reduce_stm(params.bs_stm.create.schema),
         parameters={"schema_name": schema_name},
@@ -167,7 +167,7 @@ def push_schema_create(schema_name: str):
 
 # [x] Migrate to modern style by `Schema` Model
 def push_schema_drop(schema_name: str, cascade: bool = False):
-    """Push drop schema"""
+    """Push drop schema."""
     query_execute(
         reduce_stm(params.bs_stm.drop.schema),
         parameters={
@@ -179,7 +179,7 @@ def push_schema_drop(schema_name: str, cascade: bool = False):
 
 # [x] Migrate to modern style by `Schema` Model
 def check_schema_exists(schema_name: str) -> bool:
-    """Check schema exists in database"""
+    """Check schema exists in database."""
     return query_select_check(
         params.ps_stm.exists.schema, parameters={"schema_name": schema_name}
     )
@@ -226,6 +226,7 @@ def _cal_ctr_params(parameters: dict) -> dict:
 
 class Control:
     """Control Object for get all control framework data from target database.
+
     The main class methods for this object are,
         - parameters
         - tables
@@ -242,11 +243,13 @@ class Control:
     @classmethod
     def parameters(cls, module: Optional[str] = None) -> dict:
         """Get all parameters with `module` argument from `ctr_data_parameter`
-        in target database and convert to python dictionary type.
-        """
+        in target database and convert to python dictionary type."""
         verbose_log(
             VerboseDummy,
-            "[Start] loading parameters in `ctr_data_parameter` that deploy in target database",
+            (
+                "[Start] loading parameters in `ctr_data_parameter` that "
+                "deploy in target database"
+            ),
         )
         try:
             _results: dict = {
@@ -266,7 +269,10 @@ class Control:
             }
             verbose_log(
                 VerboseDummy,
-                "[Success] loading parameters in `ctr_data_parameter` that deploy in target database",
+                (
+                    "[Success] loading parameters in `ctr_data_parameter` that "
+                    "deploy in target database"
+                ),
                 end="-",
             )
 
@@ -292,8 +298,7 @@ class Control:
     @classmethod
     def tables(cls, condition: Optional[str] = None) -> list[dict]:
         """Get all tables with `condition` argument from `ctr_data_pipeline` in
-        target database and convert to python list of dictionary type.
-        """
+        target database and convert to python list of dictionary type."""
         verbose_log(
             VerboseDummy,
             (
@@ -324,14 +329,15 @@ class Control:
 
     @classmethod
     def catalogs(cls) -> list[dict]:
-        """Get all catalogs from all configuration file at `./conf/catalog` path"""
+        """Get all catalogs from all configuration file at `./conf/catalog`
+        path."""
         _result: list = list(
             get_catalogs(config_form="catalog", priority_sorted=True).keys()
         )
         return [{"catalog_name": _} for _ in _result]
 
     def __init__(self, ctr: Union[TblCatalog, str]):
-        """Main Initialization of Control object"""
+        """Main Initialization of Control object."""
         if isinstance(ctr, TblCatalog):
             self.ctr: TblCatalog = ctr
         elif isinstance(ctr, str):
@@ -376,7 +382,7 @@ class Control:
         active_flag: Optional[str] = None,
         all_flag: Optional[bool] = False,
     ) -> dict:
-        """Pull data from the Control Framework table in database"""
+        """Pull data from the Control Framework table in database."""
         if len(self.ctr_pk) > 1 and isinstance(pm_filter, list):
             raise TableNotImplement(
                 f"Pull control does not support `pm_filter` with `list` type "
@@ -421,7 +427,8 @@ class Control:
         )
 
     def push(self, push_values: dict, condition: Optional[str] = None) -> int:
-        """Push New data to the Control Framework tables, such as
+        """Push New data to the Control Framework tables, such as.
+
         - `ctr_data_logging`
         - `ctr_task_process`
         """
@@ -477,7 +484,8 @@ class Control:
     def update(
         self, update_values: dict, condition: Optional[str] = None
     ) -> int:
-        """Push Updated data to the Control Framework tables, such as
+        """Push Updated data to the Control Framework tables, such as.
+
         - `ctr_data_pipeline`
         - `ctr_data_parameter`
         - `ctr_task_schedule`
@@ -517,8 +525,7 @@ class Control:
 
 class TblProcess(TblCatalog):
     """Table process object for sync configuration from base config to target
-    database and log to Control data logging.
-    """
+    database and log to Control data logging."""
 
     __slots__ = (
         "tbl_run_date",
@@ -670,7 +677,7 @@ class TblProcess(TblCatalog):
 
     @property
     def check_tbl_exists(self) -> bool:
-        """Check table exists"""
+        """Check table exists."""
         return query_select_check(
             params.ps_stm.exists.tbl,
             parameters={"table_name": self.tbl_name},
@@ -693,7 +700,7 @@ class TblProcess(TblCatalog):
         )
 
     def pull_tbl_max_data_date(self, default: bool = True) -> Optional[dt.date]:
-        """Pull max data date that use the retention column for sorting"""
+        """Pull max data date that use the retention column for sorting."""
         _default_value: Optional[dt.date] = (
             dt.datetime.strptime("1990-01-01", "%Y-%m-%d").date()
             if default
@@ -737,7 +744,7 @@ class TblProcess(TblCatalog):
         )
 
     def pull_tbl_columns_datatype(self) -> dict:
-        """Pull name and data type of all columns of table in database"""
+        """Pull name and data type of all columns of table in database."""
         return {
             rows["column_name"]: {
                 "order": int(rows["ordinal_position"]),
@@ -751,7 +758,7 @@ class TblProcess(TblCatalog):
         }
 
     def pull_tbl_from_ctr_pipeline(self) -> dict:
-        """Pull configuration data from the Control Data Pipeline"""
+        """Pull configuration data from the Control Data Pipeline."""
         try:
             return Control("ctr_data_pipeline").pull(pm_filter=[self.tbl_name])
         except ProgrammingError:
@@ -761,7 +768,7 @@ class TblProcess(TblCatalog):
     def pull_tbl_from_ctr_logging(
         self, action_type: str, all_flag: bool = False
     ):
-        """Pull logging data from the Control Data Logging"""
+        """Pull logging data from the Control Data Logging."""
         return Control("ctr_data_logging").pull(
             pm_filter={
                 "table_name": self.tbl_name,
@@ -796,7 +803,7 @@ class TblProcess(TblCatalog):
         force_drop: bool = False,
         cascade: bool = False,
     ) -> int:
-        """Push create table"""
+        """Push create table."""
         if self.tbl_just_create:
             self.tbl_just_create: bool = False
             return self.tbl_just_init
@@ -858,9 +865,8 @@ class TblProcess(TblCatalog):
     def push_tbl_create_partition(self): ...
 
     def push_tbl_insert(self, columns: list, value: str) -> int:
-        """Push Insert values to target table
-        :warning: columns must have primary key
-        """
+        """Push Insert values to target table :warning: columns must have
+        primary key."""
         return query_execute_row(
             self.get_tbl_stm_ingest(),
             parameters={
@@ -870,9 +876,8 @@ class TblProcess(TblCatalog):
         )
 
     def push_tbl_update(self, columns: list, value: str) -> int:
-        """Push Update values to target table
-        :warning: columns must have primary key
-        """
+        """Push Update values to target table :warning: columns must have
+        primary key."""
         _map_columns_type: dict = {
             col: attrs["datatype"]
             for col, attrs in self.get_tbl_columns(
@@ -1006,8 +1011,10 @@ class TblProcess(TblCatalog):
         TODO: ALTER [ COLUMN ] column { SET | DROP } NOT NULL
         """
         logger.info(
-            f"Update column properties or add new column{get_plural(len(not_exists_cols))}, "
-            f"{', '.join([repr(_) for _ in not_exists_cols])} of table {self.tbl_name!r} in database"
+            f"Update column properties or add new column"
+            f"{get_plural(len(not_exists_cols))}, "
+            f"{', '.join([repr(_) for _ in not_exists_cols])} of table "
+            f"{self.tbl_name!r} in database"
         )
         add_col_list = [
             (name, props["datatype"])
@@ -1019,14 +1026,19 @@ class TblProcess(TblCatalog):
         )
         # query_execute(statement=params.ps_stm.alter, parameters={
         #     'table_name': self.tbl_name,
-        #     'action': ', '.join(f'add column {col[0]} {col[1]}' for col in add_col_list)
+        #     'action': ', '.join(
+        #         f'add column {col[0]} {col[1]}'
+        #         for col in add_col_list
+        #     )
         # })
 
     def push_tbl_diff_delete(self, exists_cols: set):
-        """Delete column in target table with not exists from configuration data"""
+        """Delete column in target table with not exists from configuration
+        data."""
         logger.info(
             f"Drop column{get_plural(len(exists_cols))}, "
-            f"{', '.join([repr(_) for _ in exists_cols])} of table {self.tbl_name!r} in database"
+            f"{', '.join([repr(_) for _ in exists_cols])} of table "
+            f"{self.tbl_name!r} in database"
         )
         print(", ".join(f"drop column {col}" for col in exists_cols))
         # query_execute(statement=params.ps_stm.alter, parameters={
@@ -1035,7 +1047,8 @@ class TblProcess(TblCatalog):
         # })
 
     def push_tbl_diff_merge(self, merge_cols: dict):
-        """Transfer full data from old table to new created table from merge columns"""
+        """Transfer full data from old table to new created table from merge
+        columns."""
         mapping_col_insert: list = []
         mapping_col_select: list = []
         for col_name, col_attrs in merge_cols.items():
@@ -1065,10 +1078,11 @@ class TblProcess(TblCatalog):
             mapping_col_select.append(col_name)
 
         logger.info(
-            f"insert into {{database_name}}.{{ai_schema_name}}.{self.tbl_name} \n"
-            f"\t\t ( {', '.join(mapping_col_insert)} ) \n"
+            f"insert into {{database_name}}.{{ai_schema_name}}.{self.tbl_name} "
+            f"\n\t\t ( {', '.join(mapping_col_insert)} ) \n"
             f"\t\t select {', '.join(mapping_col_select)} \n"
-            f"\t\t from {{database_name}}.{{ai_schema_name}}.{self.tbl_name}_old;"
+            f"\t\t from {{database_name}}.{{ai_schema_name}}."
+            f"{self.tbl_name}_old;"
         )
         # query_execute(statement=params.ps_stm.push_merge, parameters={
         #     'table_name': self.tbl_name,
@@ -1203,7 +1217,7 @@ class TblProcess(TblCatalog):
         ps_params: Optional[dict] = None,
         raise_if_error: bool = True,
     ) -> dict:
-        """Push all table processes to target database"""
+        """Push all table processes to target database."""
         _row_record: dict = {1: 0}
         _start_time: dt.datetime = get_time_checkpoint()
         self.push_tbl_to_ctr_logging(
@@ -1237,14 +1251,16 @@ class TblProcess(TblCatalog):
                 _row_record[index] = 0
                 continue
             logger.info(
-                f"Priority {index:02d}: {self.tbl_type.upper()} process name: {ps_name!r}"
+                f"Priority {index:02d}: {self.tbl_type.upper()} process name: "
+                f"{ps_name!r}"
             )
             try:
                 _row_record[index] = self.push_tbl_process(
                     ps_props, additional=ps_params
                 )
                 logger.info(
-                    f"Success with running process with {_row_record[index]} row{get_plural(_row_record[index])}"
+                    f"Success with running process with {_row_record[index]} "
+                    f"row{get_plural(_row_record[index])}"
                 )
                 self.update_tbl_to_ctr_logging(
                     update_values={
@@ -1394,7 +1410,7 @@ class TblProcess(TblCatalog):
         return _rtt_row
 
     def push_tbl_to_ctr_logging(self, push_values: Optional[dict] = None):
-        """Push data information to the Control Data Logging"""
+        """Push data information to the Control Data Logging."""
         _push_values: dict = merge_dicts(
             {
                 "table_name": self.tbl_name,
@@ -1409,7 +1425,7 @@ class TblProcess(TblCatalog):
         return Control("ctr_data_logging").push(push_values=_push_values)
 
     def update_tbl_to_ctr_logging(self, update_values: Optional[dict] = None):
-        """Update data information to the Control Data Logging"""
+        """Update data information to the Control Data Logging."""
         _update_values: dict = merge_dicts(
             {
                 "table_name": self.tbl_name,
@@ -1421,7 +1437,7 @@ class TblProcess(TblCatalog):
         return Control("ctr_data_logging").update(update_values=_update_values)
 
     def push_tbl_to_ctr_pipeline(self, push_values: Optional[dict] = None):
-        """Push data information to the Control Data Logging"""
+        """Push data information to the Control Data Logging."""
         _push_values: dict = merge_dicts(
             {
                 "system_type": params.map_tbl_sys.get(
@@ -1445,7 +1461,7 @@ class TblProcess(TblCatalog):
         self,
         update_values: Optional[dict] = None,
     ) -> int:
-        """Update data information to the Control Data Pipeline"""
+        """Update data information to the Control Data Pipeline."""
         _update_values: dict = merge_dicts(
             # Default value if does not parsing updated values.
             {
@@ -1469,8 +1485,7 @@ class TblProcess(TblCatalog):
         self, parameters: list, additional: Optional[dict] = None
     ) -> dict:
         """Generate parameters which filter `tbl_parameters` with list of
-        config parameters
-        """
+        config parameters."""
         _full_parameters: dict = merge_dicts(
             self.tbl_parameters, (additional or {})
         )
@@ -1518,7 +1533,7 @@ class TblProcess(TblCatalog):
     def _generate_tbl_column_diff_map(
         self, _get_cols: dict, _pull_cols: dict
     ) -> dict:
-        """Generate mapping of different matrix of column properties"""
+        """Generate mapping of different matrix of column properties."""
         results: dict = {}
 
         if self.tbl_col_not_equal:
@@ -1550,9 +1565,8 @@ class TblProcess(TblCatalog):
 
 
 class FuncProcess(FuncCatalog):
-    """Function process object for sync configuration from base config to target
-    database
-    """
+    """Function process object for sync configuration from base config to
+    target database."""
 
     __slots__ = (
         "func_run_date",
@@ -1617,7 +1631,7 @@ class FuncProcess(FuncCatalog):
 
     @property
     def check_func_exists(self) -> bool:
-        """Check function exists in database"""
+        """Check function exists in database."""
         if self.func_type in {
             "func",
             "view",
@@ -1693,7 +1707,8 @@ class FuncProcess(FuncCatalog):
             }
         else:
             raise FuncArgumentError(
-                f"Function {self.func_name!r} does not support `push_query` with statement type {stm.stm_type!r}"
+                f"Function {self.func_name!r} does not support `push_query` "
+                f"with statement type {stm.stm_type!r}"
             )
 
     def _generate_params(
@@ -1711,7 +1726,8 @@ class FuncProcess(FuncCatalog):
 
 
 def check_run_mode(obj: str, run_mode: Optional[str] = None):
-    """Checking function of `run_mode` argument that correct with it mapping"""
+    """Checking function of `run_mode` argument that correct with it
+    mapping."""
     if not run_mode:
         return params.list_run_mode[obj][0]
     if run_mode not in params.list_run_mode[obj]:
@@ -1721,7 +1737,7 @@ def check_run_mode(obj: str, run_mode: Optional[str] = None):
 
 
 class Action(FuncProcess):
-    """Action object for control process of function object"""
+    """Action object for control process of function object."""
 
     __slots__ = (
         "act_func_type",
@@ -1772,7 +1788,7 @@ class Action(FuncProcess):
 
 class Node(TblProcess):
     """Node object for control process of table object and log to Control task
-    process"""
+    process."""
 
     @classmethod
     def convert_short(cls, name_short: str) -> str:
@@ -2145,9 +2161,8 @@ class Node(TblProcess):
 
 
 class PipeProcess(PipeCatalog):
-    """Pipeline process object for sync configuration from base config to target
-    database and log to Control task schedule
-    """
+    """Pipeline process object for sync configuration from base config to
+    target database and log to Control task schedule."""
 
     __slots__ = (
         "pipe_run_date",
@@ -2169,7 +2184,9 @@ class PipeProcess(PipeCatalog):
         node_auto_init: Union[bool, str] = True,
         verbose: bool = False,
     ):
-        """Main Pipeline process object initialization. If argument of pipeline
+        """Main Pipeline process object initialization.
+
+        If argument of pipeline
         name match the name like `retention_search` or `control_search`, the
         engine will auto generate all table name that active in
         `ctr_data_pipeline`.
@@ -2220,12 +2237,18 @@ class PipeProcess(PipeCatalog):
         elif self.pipe_node_auto_create:
             verbose_log(
                 self,
-                f"Push auto create schema name: {env.AI_SCHEMA} in target database ...",
+                (
+                    f"Push auto create schema name: {env.AI_SCHEMA} in target "
+                    f"database ..."
+                ),
             )
             push_schema_create(schema_name=env.AI_SCHEMA)
         verbose_log(
             self,
-            "Mapping parameter from the control table and external parameter argument together ...",
+            (
+                "Mapping parameter from the control table and external "
+                "parameter argument together ..."
+            ),
         )
 
         self.pipe_params: dict = merge_dicts(
@@ -2249,7 +2272,10 @@ class PipeProcess(PipeCatalog):
             )
         verbose_log(
             self,
-            f"[Success] initialize the pipeline process object name {self.pipe_name!r}",
+            (
+                f"[Success] initialize the pipeline process object name "
+                f"{self.pipe_name!r}"
+            ),
             end="=",
         )
 
@@ -2269,8 +2295,7 @@ class PipeProcess(PipeCatalog):
         self, node_props: Optional[dict] = None, auto_update: bool = True
     ) -> Iterator[tuple[int, Node]]:
         """Pull all nodes that the pipeline contains in configuration file and
-        passing node's properties.
-        """
+        passing node's properties."""
         for order, nodes in self.pipe_nodes.items():
             yield order, Node(**(node_props or {}), **nodes)
         if auto_update and not self.pipe_node_generator:
@@ -2363,7 +2388,7 @@ class PipeProcess(PipeCatalog):
         included_cols: Optional[list] = None,
         all_flag: bool = False,
     ):
-        """Pull tacking data from the Control Task Schedule"""
+        """Pull tacking data from the Control Task Schedule."""
         _pipe_id: str = pipe_id or self.pipe_id
         return Control("ctr_task_schedule").pull(
             pm_filter={"pipeline_id": ("*" if all_flag else _pipe_id)},
@@ -2372,7 +2397,7 @@ class PipeProcess(PipeCatalog):
         )
 
     def push_pipe_to_ctr_schedule(self, push_values: Optional[dict] = None):
-        """Push data information to the Control Data Logging"""
+        """Push data information to the Control Data Logging."""
         _push_values: dict = merge_dicts(
             {
                 "pipeline_id": self.pipe_id,
@@ -2386,7 +2411,7 @@ class PipeProcess(PipeCatalog):
         return Control("ctr_task_schedule").push(push_values=_push_values)
 
     def update_pipe_to_ctr_schedule(self, update_values: Optional[dict] = None):
-        """Update tacking information to the Control Task Schedule"""
+        """Update tacking information to the Control Task Schedule."""
         _update_values: dict = merge_dicts(
             {"pipeline_id": self.pipe_id, "tracking": "SUCCESS"},
             (update_values or {}),
@@ -2395,9 +2420,8 @@ class PipeProcess(PipeCatalog):
 
 
 class Pipeline(PipeProcess):
-    """Pipeline object for orchestrate nodes of table process and log to Control
-    task process
-    """
+    """Pipeline object for orchestrate nodes of table process and log to
+    Control task process."""
 
     __slots__ = ("pipe_start_datetime", "pipe_run_mode", "pipe_ps_id")
 
@@ -2433,7 +2457,8 @@ class Pipeline(PipeProcess):
 
     @property
     def name(self):
-        """The pipeline name which change attribute name from pipe_name to name"""
+        """The pipeline name which change attribute name from pipe_name to
+        name."""
         return self.pipe_name
 
     @property
@@ -2452,8 +2477,7 @@ class Pipeline(PipeProcess):
 
     def nodes(self, auto_update: bool = True):
         """Node method for passing pipeline parameters to all node in the
-        pipeline
-        """
+        pipeline."""
         return self.pull_pipe_nodes(
             node_props={
                 "process_id": self.pipe_ps_id,
@@ -2478,6 +2502,7 @@ class Pipeline(PipeProcess):
 # [x] Migrate to modern style by `Task` Service Model
 class Process:
     """Process Object for control task functions.
+
     This object will connect data from the control task process.
     """
 
@@ -2699,7 +2724,7 @@ class Process:
 
     # [x] Migrate to modern style by `Task` Service Model
     def push_task(self, push_values: Optional[dict] = None):
-        """Push data information to the Control Data Logging"""
+        """Push data information to the Control Data Logging."""
         _push_values: dict = merge_dicts(
             {
                 "process_id": self.ps_id,
@@ -2722,7 +2747,7 @@ class Process:
 
     # [x] Migrate to modern style by `Task` Service Model
     def update_task(self, update_values: Optional[dict] = None):
-        """Update data information to the Control Data Pipeline"""
+        """Update data information to the Control Data Pipeline."""
         _update_values: dict = merge_dicts(
             {
                 "process_id": self.ps_id,

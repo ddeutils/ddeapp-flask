@@ -4,9 +4,8 @@
 # license information.
 # ------------------------------------------------------------------------------
 
-"""
-This is the legacy base file for generate validator object with pure python code
-without any validate class package.
+"""This is the legacy base file for generate validator object with pure python
+code without any validate class package.
 
 The modern we will migrate the validator and statement generator to the Pydantic
 package with split to two files, validators.py and statements.py.
@@ -73,8 +72,7 @@ def verbose_log(
     end: Optional[str] = None,
 ) -> None:
     """Verbose logging function that control the logging message with DEBUG
-    level of any object instance processes.
-    """
+    level of any object instance processes."""
     if obj.verbose:
         prefix_level: str = (
             f"{gen} " if (gen := " ".join(["..."] * lvl)) else ""
@@ -87,7 +85,7 @@ def verbose_log(
 def sort_by_priority(
     values: Union[list, dict], priority_lists: Optional[list] = None
 ):
-    """Sorted list by string prefix priority"""
+    """Sorted list by string prefix priority."""
     _priority_lists: list = priority_lists or params.list_tbl_priority
     priority_dict: dict = {k: i for i, k in enumerate(_priority_lists)}
 
@@ -112,12 +110,10 @@ def sort_by_priority(
 def get_run_date(
     date_type: str = "str", fmt: str = "%Y-%m-%d"
 ) -> Union[str, dt.datetime, dt.date]:
-    """Get run_date value from now datetime
-    :usage:
-        >> get_run_date(date_type='datetime', fmt='%Y%m%d')
+    """Get run_date value from now datetime :usage: >>
+    get_run_date(date_type='datetime', fmt='%Y%m%d')
 
-        >> get_run_date(fmt='%Y/%m/%d')
-        '2022/01/01'
+    >> get_run_date(fmt='%Y/%m/%d') '2022/01/01'
     """
     run_date: dt.datetime = dt.datetime.now(tz.gettz("Asia/Bangkok"))
     if date_type == "str":
@@ -130,10 +126,8 @@ def get_plural(
     word_change: Optional[str] = None,
     word_start: Optional[str] = None,
 ) -> str:
-    """Get plural word for dynamic `num` number if more than 1 or not
-    :usage:
-        >>> get_plural(100)
-        's'
+    """Get plural word for dynamic `num` number if more than 1 or not :usage:
+    >>> get_plural(100) 's'.
 
         >>> get_plural(1, word_change='ies', word_start='y')
         'y'
@@ -146,8 +140,7 @@ def get_plural(
 
 def get_process_id(process: str, fmt: str = "%Y%m%d%H%M%S%f") -> str:
     """Get process ID from input string that combine timestamp and hashing of
-    argument process together.
-    """
+    argument process together."""
     return get_run_date(fmt=fmt)[:-2] + hash_string(process)
 
 
@@ -159,11 +152,9 @@ def get_process_date(
     date_type: str = "str",
     fmt: str = "%Y-%m-%d",
 ) -> Union[str, dt.date]:
-    """Get process_date value that convert by `run_type` value
-    like 'daily', 'weekly', etc.
-    :usage:
-        >>> get_process_date('2022-01-20', 'monthly')
-        '2022-01-01'
+    """Get process_date value that convert by `run_type` value like 'daily',
+    'weekly', etc. :usage: >>> get_process_date('2022-01-20', 'monthly')
+    '2022-01-01'.
 
         >>> get_process_date('2022-01-20', 'monthly', invert=True)
         '2022-01-31'
@@ -219,7 +210,7 @@ def get_cal_date(
     date_type: str = "str",
     fmt: str = "%Y-%m-%d",
 ) -> Union[str, dt.date]:
-    """Get date with internal calculation logic"""
+    """Get date with internal calculation logic."""
     if mode not in {
         "add",
         "sub",
@@ -235,11 +226,10 @@ def get_cal_date(
 
 
 def get_function(func_string: str) -> callable:
-    """Get function from imported string
-    :usage:
-        ..> get_function(
-        ...     func_string='vendor.replenishment.run_prod_cls_criteria'
-        ... )
+    """Get function from imported string :usage: ..> get_function( ...
+
+    func_string='vendor.replenishment.run_prod_cls_criteria'
+    ... )
     """
     module, _function = func_string.rsplit(sep=".", maxsplit=1)
     mod = importlib.import_module(module)
@@ -252,7 +242,7 @@ def _get_config_filter_path(
     config_prefix: Optional[str] = None,
     config_prefix_file: Optional[str] = None,
 ) -> bool:
-    """Path filtering gateway of configuration directory"""
+    """Path filtering gateway of configuration directory."""
     if config_dir == "catalog":
         _conf_pre: str = config_prefix or ""
         _conf_pre_file: str = config_prefix_file or "catalog"
@@ -266,7 +256,7 @@ def _get_config_filter_path(
 
 
 def _get_config_filter_key(keys, conf, all_mode: bool = True) -> bool:
-    """Key filtering gateway of configuration"""
+    """Key filtering gateway of configuration."""
     return (
         set(keys).issubset(set(conf))
         if all_mode
@@ -281,7 +271,8 @@ def get_config_sht(
     folder_config: str,
     config_prefix_file: str,
 ) -> dict:
-    """Get raw configuration from .yaml file with shortname searching engine"""
+    """Get raw configuration from .yaml file with shortname searching
+    engine."""
     prefix: str = f"{config_prefix}_" if config_prefix else ""
     conf_path = os.path.join(AI_APP_PATH, registers.path.conf, folder_config)
     _results: list = []
@@ -324,8 +315,7 @@ def get_config(
     config_prefix_file: str,
 ) -> dict:
     """Get the latest raw configuration from .yaml file which sorting by
-    `version` key in configuration data descending.
-    """
+    `version` key in configuration data descending."""
     prefix: str = f"{config_prefix}_" if config_prefix else ""
     conf_path = os.path.join(AI_APP_PATH, registers.path.conf, folder_config)
     _results: list = []
@@ -360,7 +350,7 @@ def get_catalog_all(
     key_exists_all_mode: bool = True,
     priority_sorted: bool = False,
 ):
-    """Get all raw configuration from .yaml file"""
+    """Get all raw configuration from .yaml file."""
     _key_exists: list = must_list(key_exists)
     _folder_config: list = must_list(
         folder_config or ["catalog", "pipeline", "function"]
@@ -408,12 +398,12 @@ def filter_ps_type(ps_name_full: str) -> tuple[str, str]:
 
 
 def filter_sys_auto(datatype: str) -> bool:
-    """Return True if datatype is not System auto generate column"""
+    """Return True if datatype is not System auto generate column."""
     return all(not re.search(word, datatype) for word in ["default", "serial"])
 
 
 class TblCatalog:
-    """Table Catalog for generate all configuration from .yaml file"""
+    """Table Catalog for generate all configuration from .yaml file."""
 
     __slots__ = (
         "tbl_name",
@@ -692,16 +682,16 @@ class TblCatalog:
         """Generate insert statement for receive data from values string
         :statement:
 
-            INSERT INTO DATABASE.SCHEMA.TABLE_NAME AS TN
-            (
-                COLUMN1, COLUMN2, ...
-            )
-            VALUES ('01', '02', ... )
-            ON CONFLICT ( PRIMARY KEY ) DO UPDATE
-                SET COLUMN1 = EXCLUDED.COLUMN1
-                ,   COLUMN1 = EXCLUDED.COLUMN1
-                ,   ...
-            WHERE   TN.UPDATE <= EXCLUDED.UPDATE
+        INSERT INTO DATABASE.SCHEMA.TABLE_NAME AS TN
+        (
+            COLUMN1, COLUMN2, ...
+        )
+        VALUES ('01', '02', ... )
+        ON CONFLICT ( PRIMARY KEY ) DO UPDATE
+            SET COLUMN1 = EXCLUDED.COLUMN1
+            ,   COLUMN1 = EXCLUDED.COLUMN1
+            ,   ...
+        WHERE   TN.UPDATE <= EXCLUDED.UPDATE
         """
         conflict: str = ""
         if primary := ", ".join(self.tbl_primary_key):
@@ -731,13 +721,12 @@ class TblCatalog:
         """Generate update statement for receive data from values string
         :statement:
 
-            UPDATE DATABASE.SCHEMA.TABLE_NAME AS TN
-                SET COLUMN1 = TN_UD.COLUMN1
-                ,   COLUMN1 = TN_UD.COLUMN1
-                ,   ...
-            FROM ( VALUES ('01', '02', ... ), ... ) AS TN_UD( COLUMN1, COLUMN2, ... )
-            WHERE TN.PRIMARY_KEY = TN_UD.PRIMARY_KEY
-
+        UPDATE DATABASE.SCHEMA.TABLE_NAME AS TN
+            SET COLUMN1 = TN_UD.COLUMN1
+            ,   COLUMN1 = TN_UD.COLUMN1
+            ,   ...
+        FROM ( VALUES ('01', '02', ... ), ... ) AS TN_UD( COLUMN1, COLUMN2, ... )
+        WHERE TN.PRIMARY_KEY = TN_UD.PRIMARY_KEY
         """
         primary_key_columns = self.get_tbl_conflict_set(
             included=self.tbl_primary_key,
@@ -771,8 +760,8 @@ class TblCatalog:
         sep: Optional[str] = None,
         cast_type: bool = False,
     ):
-        """Generate set statement for ingestion component in
-        update and ingest mode.
+        """Generate set statement for ingestion component in update and ingest
+        mode.
 
         :ingest:
                 SET
@@ -915,7 +904,7 @@ class TblCatalog:
         self,
         properties: dict,
     ):
-        """Generate property from configuration to standard mapping"""
+        """Generate property from configuration to standard mapping."""
         pass
 
     # [x] Migrate to modern style
@@ -924,7 +913,7 @@ class TblCatalog:
         profiles: dict,
         excluded: Optional[list] = None,
     ) -> dict:
-        """Generate profile from configuration to standard mapping"""
+        """Generate profile from configuration to standard mapping."""
         _excluded: list = excluded or []
         _columns: dict = self._loop_profile(profiles, _excluded)
         _prim_key: list = profiles.get(
@@ -954,7 +943,7 @@ class TblCatalog:
     # [x] Migrate to modern style
     @staticmethod
     def _loop_profile(profiles: dict, excluded: list):
-        """Loop Filter for data in profile key"""
+        """Loop Filter for data in profile key."""
         _columns: dict = {}
 
         for index, _feature in enumerate(
@@ -1008,7 +997,7 @@ class TblCatalog:
 
     # [x] Migrate to modern style
     def _generate_process(self, processes: dict):
-        """Generate processes from configuration to standard mapping"""
+        """Generate processes from configuration to standard mapping."""
         _processes: dict = {}
         _ps_count: int = 0
         for ps_name, ps_details in sorted(
@@ -1026,7 +1015,8 @@ class TblCatalog:
                 "parameter": list(
                     set(
                         ps_details.get(
-                            only_one(list(ps_details), params.map_tbl.param), []
+                            only_one(list(ps_details), params.map_tbl.param),
+                            [],
                         )
                     )
                 ),
@@ -1161,7 +1151,7 @@ class TblCatalog:
 
 
 class FuncCatalog:
-    """Function Catalog for generate all configuration from .yaml file"""
+    """Function Catalog for generate all configuration from .yaml file."""
 
     __slots__ = (
         "func_name",
@@ -1225,14 +1215,12 @@ class FuncCatalog:
 
     # [x] Migrate to modern style
     def get_func_catalog(self, config: Optional[dict] = None):
-        """Get merge configuration from any properties of function
-        :structure:
+        """Get merge configuration from any properties of function :structure:
 
-            <catalog_name: `{body_...}`>:
-                version: <iso-format: [`%Y-%m-%d`, `%Y-%m-%d %H:%M:%S`]>
-                description: ""
-                <create/statement/function>: ""
-
+        <catalog_name: `{body_...}`>:
+            version: <iso-format: [`%Y-%m-%d`, `%Y-%m-%d %H:%M:%S`]>
+            description: ""
+            <create/statement/function>: ""
         """
         _config: dict = config or get_config(
             config_name=self.func_name,
@@ -1290,7 +1278,7 @@ class FuncCatalog:
 
 
 class PipeCatalog:
-    """Pipeline Catalog for generate all configuration from .yaml file"""
+    """Pipeline Catalog for generate all configuration from .yaml file."""
 
     __slots__ = (
         "pipe_name",
@@ -1387,21 +1375,19 @@ class PipeCatalog:
         return self.pipe_catalog["nodes"]
 
     def get_pipe_catalog(self, config: Optional[dict] = None) -> dict:
-        """Get merge configuration from any properties of pipeline
-        :structure:
+        """Get merge configuration from any properties of pipeline :structure:
 
-            <catalog_name: `pipeline_{body}`>:
-                version: <iso-format: [`%Y-%m-%d`, `%Y-%m-%d %H:%M:%S`]>
-                description: ""
-                id: ""
+        <catalog_name: `pipeline_{body}`>:
+            version: <iso-format: [`%Y-%m-%d`, `%Y-%m-%d %H:%M:%S`]>
+            description: ""
+            id: ""
 
-                run_option: ""
-                trigger: [""]
-                schedule: [""]
+            run_option: ""
+            trigger: [""]
+            schedule: [""]
 
-                nodes:
-                    <node_name>: <node_type>
-
+            nodes:
+                <node_name>: <node_type>
         """
         verbose_log(
             self,
@@ -1503,11 +1489,10 @@ class PipeCatalog:
 
     # [x] Migrate to modern style
     def _generate_trigger(self, triggers: Union[str, list]):
-        """
-        :structure:
-            (i)     trigger: [ 'pipeline-id-01', ... ]
+        """:structure: (i)     trigger: [ 'pipeline-id-01', ... ]
 
-            (ii)    trigger: 'pipeline-id-01 & (pipeline-id-02 | pipeline-id-03)'
+        (ii)    trigger: 'pipeline-id-01 & (pipeline-id-02 | pipeline-
+        id-03)'
         """
         verbose_log(
             self,
@@ -1552,29 +1537,27 @@ class PipeCatalog:
 
     # [x] Migrate to modern style
     def _generate_nodes(self, nodes: Union[dict, list]):
-        """Generate node from configuration catalog
-        :structure:
+        """Generate node from configuration catalog :structure:
 
-            (i)     <node_name>:
-                        priority: 1
-                        type: "<node_type>"
-                        choose: ['choose_process', ...]
+        (i)     <node_name>:
+                    priority: 1
+                    type: "<node_type>"
+                    choose: ['choose_process', ...]
 
-            (i.a)   <node_name_full: `node_type:node_name`>:
-                        priority: 1
-                        choose: ['choose_process', ...]
+        (i.a)   <node_name_full: `node_type:node_name`>:
+                    priority: 1
+                    choose: ['choose_process', ...]
 
-            (ii)    <node_name_full: `node_type:node_name`>: ['choose_process', ...]
+        (ii)    <node_name_full: `node_type:node_name`>: ['choose_process', ...]
 
-            (iii)   - name: <node_name_full: `node_type:node_name`>
-                      choose: []
-                    - name: <node_name_full: `node_type:node_name`>
-                    ...
+        (iii)   - name: <node_name_full: `node_type:node_name`>
+                  choose: []
+                - name: <node_name_full: `node_type:node_name`>
+                ...
 
-            (iv)    - "<node_name_full: `node_type:node_name`>"
-                    - "<node_name_full: `node_type:node_name`>"
-                    ...
-
+        (iv)    - "<node_name_full: `node_type:node_name`>"
+                - "<node_name_full: `node_type:node_name`>"
+                ...
         """
         verbose_log(
             self,
@@ -1599,7 +1582,10 @@ class PipeCatalog:
                     raise CatalogNotFound(
                         f"From catalog_name: {self.pipe_name}, {filter_error}"
                     ) from error
-                _nodes[_priority] = {"name": _node_name, "choose": _node_choose}
+                _nodes[_priority] = {
+                    "name": _node_name,
+                    "choose": _node_choose,
+                }
         elif isinstance(nodes, dict):
             _default_priority: float = 1
             for node_name, node_props in sorted(
@@ -1624,7 +1610,10 @@ class PipeCatalog:
                     raise CatalogNotFound(
                         f"From catalog_name: {self.pipe_name}, {filter_error}"
                     ) from error
-                _nodes[_priority] = {"name": _node_name, "choose": _node_choose}
+                _nodes[_priority] = {
+                    "name": _node_name,
+                    "choose": _node_choose,
+                }
                 _default_priority: float = _priority + 0.1
         self.pipe_nodes_count: int = len(_nodes)
         verbose_log(
@@ -1645,7 +1634,8 @@ class PipeCatalog:
         node_props: Union[list, dict],
         node_name: Optional[str] = None,
     ):
-        """Generate node properties with different type of node input argument."""
+        """Generate node properties with different type of node input
+        argument."""
         if isinstance(node_props, list):
             _priority: float = round(priority, 2)
             _node_choose: list = node_props

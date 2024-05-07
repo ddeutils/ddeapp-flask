@@ -72,12 +72,10 @@ def split_str(strings, sep: str = r"\s+"):
 
 # utility function -------------------------------------------------------------
 def isplit(source, sep=None, regex=False):
-    """generator version of str.split()
-    :param source: source string (unicode or bytes)
-    :param sep: separator to split on.
-    :param regex: if True, will treat sep as regular expression.
-    :returns:
-        generator yielding elements of string.
+    """Generator version of str.split() :param source: source string (unicode
+    or bytes) :param sep: separator to split on. :param regex: if True, will
+    treat sep as regular expression. :returns: generator yielding elements of
+    string.
 
     usage:
         >> print list(isplit("abcb","b"))
@@ -177,9 +175,9 @@ def rows(f, chunk_size=1024, sep="|"):
 
 # utility function -------------------------------------------------------------
 def merge_dicts(*dict_args) -> dict:
-    """
-    Given any number of dictionaries, shallow copy and merge into a new dict,
-    precedence goes to key-value pairs in latter dictionaries.
+    """Given any number of dictionaries, shallow copy and merge into a new
+    dict, precedence goes to key-value pairs in latter dictionaries.
+
     usage:
             >> merge_dicts({1: 'one',2: 'two',3: 'three'}, {3: 'Three',4: 'Four'})
             {1: 'one', 2: 'two', 3: 'Three', 4: 'Four'}
@@ -205,9 +203,7 @@ def merge_lists(*list_args) -> list:
 
 # utility function -------------------------------------------------------------
 def hash_string(input_value: str, num_length: int = 8) -> str:
-    """
-    hash str input to number with SHA256 algorithm
-    """
+    """Hash str input to number with SHA256 algorithm."""
     return str(
         int(hashlib.sha256(input_value.encode("utf-8")).hexdigest(), 16)
     )[-num_length:]
@@ -215,9 +211,7 @@ def hash_string(input_value: str, num_length: int = 8) -> str:
 
 # utility function -------------------------------------------------------------
 def random_sting(num_length: int = 8) -> str:
-    """
-    random string from uppercase ASCII and number 0-9
-    """
+    """Random string from uppercase ASCII and number 0-9."""
     return "".join(
         random.choices(string.ascii_uppercase + string.digits, k=num_length)
     )
@@ -225,9 +219,8 @@ def random_sting(num_length: int = 8) -> str:
 
 # utility function -------------------------------------------------------------
 def path_join(full_path: AnyStr, full_join_path: str) -> AnyStr:
-    """
-    join path with multi pardir value if set `full_join_path` be '../../<path>'
-    """
+    """Join path with multi pardir value if set `full_join_path` be
+    '../../<path>'."""
     _abspath: AnyStr = full_path
     _join_split: list = os.path.normpath(full_join_path).split(os.sep)
     for path in _join_split:
@@ -241,8 +234,8 @@ def path_join(full_path: AnyStr, full_join_path: str) -> AnyStr:
 
 # utility function -------------------------------------------------------------
 def convert_str_list(str_list: str) -> list:
-    """
-    Get list of run_date from list string of run_date
+    """Get list of run_date from list string of run_date.
+
     usage
     -----
         >> print(convert_str_list("['2021-01-02', '2021-01-03']"))
@@ -259,8 +252,8 @@ def convert_str_list(str_list: str) -> list:
 
 # utility function -------------------------------------------------------------
 def convert_str_dict(str_dict: str) -> dict:
-    """
-    Get list of run_date from list string of run_date
+    """Get list of run_date from list string of run_date.
+
     usage
     -----
         >>> print(convert_str_dict("{'1': '2021-01-02', '2':'2021-01-03'}"))
@@ -277,9 +270,7 @@ def convert_str_dict(str_dict: str) -> dict:
 
 # utility function -------------------------------------------------------------
 def convert_str_bool(str_bool: str, force_raise: bool = False) -> bool:
-    """
-    Get boolean of input string
-    """
+    """Get boolean of input string."""
     if str_bool.lower() in {"yes", "true", "t", "1", "y", "1.0"}:
         return True
     elif str_bool.lower() in {"no", "false", "f", "0", "n", "0.0"}:
@@ -291,8 +282,8 @@ def convert_str_bool(str_bool: str, force_raise: bool = False) -> bool:
 
 # utility function -------------------------------------------------------------
 def sort_by_priority_list(values: Iterable, priority: list) -> list:
-    """
-    Sorts an iterable according to a list of priority items.
+    """Sorts an iterable according to a list of priority items.
+
     Usage
     -----
         >> sort_by_priority_list(values=[1,2,2,3], priority=[2,3,1])

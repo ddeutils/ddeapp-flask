@@ -149,7 +149,11 @@ def node_log_data(name: str, selected: Optional[str] = None):
         },
     )
     fig.update_layout(
-        font={"family": "Courier New, monospace", "color": "black", "size": 13},
+        font={
+            "family": "Courier New, monospace",
+            "color": "black",
+            "size": 13,
+        },
         legend_title="Metric Measures",
         dragmode="pan",
         yaxis={
@@ -204,7 +208,8 @@ def node_run():
 
 @nodes.get("/pipeline")
 def pipeline():
-    """Pipeline route for searching and filtering pipeline
+    """Pipeline route for searching and filtering pipeline.
+
     Arguments
     ---
         - page

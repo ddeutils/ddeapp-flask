@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_dependency_data(tbl_name_sht: str) -> Result:
-    """Get dependency tables of target table"""
+    """Get dependency tables of target table."""
     result: Result = DependencyResult()
     tbl: Table = Table.parse_shortname(tbl_name_sht)
     result.mapping = tbl.dependency()
@@ -33,7 +33,7 @@ def get_dependency_data(tbl_name_sht: str) -> Result:
 
 
 def get_operation_process(process_id: str) -> Result:
-    """Get data in control process table"""
+    """Get data in control process table."""
     result: Result = AnalyticResult()
     try:
         process: Task = Task.pull(task_id=process_id)
@@ -64,7 +64,7 @@ def _extracted_get_operation_framework(
     process: Task,
     update_date,
 ) -> Result:
-    """Extracted result from Framework component"""
+    """Extracted result from Framework component."""
     result: Result = AnalyticResult(logging=process.message)
     if process.status == Status.SUCCESS:
         result.percent = 1.00

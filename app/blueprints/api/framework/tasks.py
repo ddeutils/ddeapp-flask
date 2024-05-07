@@ -38,10 +38,8 @@ ObjectMap = {
 
 
 def run_tbl_setup(node: Node, task: Task) -> Result:
-    """Run Setup process node together with task model
-    This function will control write process log to Control Data Pipeline
-    table.
-    """
+    """Run Setup process node together with task model This function will
+    control write process log to Control Data Pipeline table."""
     result: Result = CommonResult()
     try:
         record_stm: str = ""
@@ -70,10 +68,8 @@ def run_tbl_setup(node: Node, task: Task) -> Result:
 
 
 def run_tbl_data(node: Node, task: Task) -> Result:
-    """Run Data process node together with task model
-    This function will control write process log to Control Data Pipeline
-    table.
-    """
+    """Run Data process node together with task model This function will
+    control write process log to Control Data Pipeline table."""
     result: Result = CommonResult()
     try:
         if node.quota:
@@ -99,10 +95,8 @@ def run_tbl_data(node: Node, task: Task) -> Result:
 
 
 def run_tbl_retention(node: Node, task: Task) -> Result:
-    """Run Retention process node together with task model
-    This function will control write process log to Control Data Pipeline
-    table.
-    """
+    """Run Retention process node together with task model This function will
+    control write process log to Control Data Pipeline table."""
     _ = task
     result: Result = CommonResult()
     try:
@@ -143,7 +137,7 @@ def run_schema_drop(
     schema: Schema,
     cascade: bool = False,
 ) -> Result:
-    """Run drop process schema"""
+    """Run drop process schema."""
     result: Result = CommonResult()
     try:
         if schema.exists:
@@ -166,7 +160,7 @@ MAP_MODULE_FUNC: dict = {
 
 
 def _task_gateway(task: Task, obj: ObjectType) -> Task:
-    """Task Gateway for running task with difference `ps_obj` type"""
+    """Task Gateway for running task with difference `ps_obj` type."""
     logger.info(
         f"START {task.release.index:02d}: {obj.name} "
         f'{"~" * (30 - len(obj.name) + 31)}'
@@ -200,9 +194,10 @@ def foreground_tasks(
     external_parameters: dict,
 ) -> Result:
     """Foreground task function for running data pipeline with module argument.
-    This function will control write process log to Control Task Process table.
-    If process input is pipeline, this function will log to Control Task
-    Schedule.
+
+    This function will control write process log to Control Task Process
+    table. If process input is pipeline, this function will log to
+    Control Task Schedule.
     """
     result: Result = CommonResult()
     task: Task = Task.parse_obj(
@@ -271,9 +266,10 @@ def background_tasks(
     external_parameters: dict,
 ) -> Result:
     """Background task function for running data pipeline with module argument.
-    This function will control write process log to Control Task Process table.
-    If process input is pipeline, this function will log to Control Task
-    Schedule.
+
+    This function will control write process log to Control Task Process
+    table. If process input is pipeline, this function will log to
+    Control Task Schedule.
     """
     result: Result = CommonResult()
     task = Task.parse_obj(

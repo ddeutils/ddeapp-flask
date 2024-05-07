@@ -51,14 +51,14 @@ metadata = MetaData(
 
 
 class GlobalQuery(flask_sqlalchemy.query.Query):
-    """Custom Query Class for all model in this application"""
+    """Custom Query Class for all model in this application."""
 
     def get_or(self, identity, default=None):
         return self.get(identity) or default
 
 
 class CustomModel(Model):
-    """Custom Model Class for all model in this application"""
+    """Custom Model Class for all model in this application."""
 
     @classmethod
     def get_column(cls, column):

@@ -51,12 +51,12 @@ class DependencyStatus(BaseStatus):
 
 
 class VerboseObject(Protocol):
-    """Verbose Object protocol should have verbose property"""
+    """Verbose Object protocol should have verbose property."""
 
     verbose: bool
 
 
 class VerboseDummy:
-    """Verbose Object dummy"""
+    """Verbose Object dummy."""
 
     verbose: bool = must_bool(os.getenv("DEBUG", "False"))

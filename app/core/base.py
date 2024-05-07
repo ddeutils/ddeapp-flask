@@ -45,7 +45,7 @@ CATALOGS: list = ["catalog", "pipeline", "function"]
 def sort_by_priority(
     values: Union[list, dict], priority_lists: Optional[list] = None
 ):
-    """Sorted list by string prefix priority"""
+    """Sorted list by string prefix priority."""
     _priority_lists: list = priority_lists or params.list_tbl_priority
     priority_dict: dict = {k: i for i, k in enumerate(_priority_lists)}
 
@@ -70,12 +70,10 @@ def sort_by_priority(
 def get_run_date(
     date_type: str = "str", fmt: str = "%Y-%m-%d"
 ) -> Union[str, datetime, date]:
-    """Get run_date value from now datetime
-    :usage:
-        >> get_run_date(date_type='datetime', fmt='%Y%m%d')
+    """Get run_date value from now datetime :usage: >>
+    get_run_date(date_type='datetime', fmt='%Y%m%d')
 
-        >> get_run_date(fmt='%Y/%m/%d')
-        '2022/01/01'
+    >> get_run_date(fmt='%Y/%m/%d') '2022/01/01'
     """
     run_date: datetime = datetime.now(tz.gettz("Asia/Bangkok"))
     if date_type == "str":
@@ -88,10 +86,8 @@ def get_plural(
     word_change: Optional[str] = None,
     word_start: Optional[str] = None,
 ) -> str:
-    """Get plural word for dynamic `num` number if more than 1 or not
-    :usage:
-        >>> get_plural(100)
-        's'
+    """Get plural word for dynamic `num` number if more than 1 or not :usage:
+    >>> get_plural(100) 's'.
 
         >>> get_plural(1, word_change='ies', word_start='y')
         'y'
@@ -104,8 +100,7 @@ def get_plural(
 
 def get_process_id(process: str, fmt: str = "%Y%m%d%H%M%S%f") -> str:
     """Get process ID from input string that combine timestamp and hashing of
-    argument process together.
-    """
+    argument process together."""
     return get_run_date(fmt=fmt)[:-2] + hash_string(process)
 
 
@@ -117,11 +112,9 @@ def get_process_date(
     date_type: str = "str",
     fmt: str = "%Y-%m-%d",
 ) -> Union[str, date]:
-    """Get process_date value that convert by `run_type` value
-    like 'daily', 'weekly', etc.
-    :usage:
-        >>> get_process_date('2022-01-20', 'monthly')
-        '2022-01-01'
+    """Get process_date value that convert by `run_type` value like 'daily',
+    'weekly', etc. :usage: >>> get_process_date('2022-01-20', 'monthly')
+    '2022-01-01'.
 
         >>> get_process_date('2022-01-20', 'monthly', invert=True)
         '2022-01-31'
@@ -175,7 +168,7 @@ def get_cal_date(
     date_type: str = "str",
     fmt: str = "%Y-%m-%d",
 ) -> Union[str, date]:
-    """Get date with internal calculation logic"""
+    """Get date with internal calculation logic."""
     if mode not in {
         "add",
         "sub",
@@ -191,11 +184,10 @@ def get_cal_date(
 
 
 def get_function(func_string: str) -> callable:
-    """Get function from imported string
-    :usage:
-        ..> get_function(
-        ...     func_string='vendor.replenishment.run_prod_cls_criteria'
-        ... )
+    """Get function from imported string :usage: ..> get_function( ...
+
+    func_string='vendor.replenishment.run_prod_cls_criteria'
+    ... )
     """
     module, _function = func_string.rsplit(sep=".", maxsplit=1)
     mod = importlib.import_module(module)
@@ -208,7 +200,7 @@ def _get_config_filter_path(
     config_prefix: Optional[str] = None,
     config_prefix_file: Optional[str] = None,
 ) -> bool:
-    """Path filtering gateway of configuration directory"""
+    """Path filtering gateway of configuration directory."""
     if config_dir == "catalog":
         _conf_pre: str = config_prefix or ""
         _conf_pre_file: str = config_prefix_file or "catalog"
@@ -222,7 +214,7 @@ def _get_config_filter_path(
 
 
 def _get_config_filter_key(keys, conf, all_mode: bool = True) -> bool:
-    """Key filtering gateway of configuration"""
+    """Key filtering gateway of configuration."""
     return (
         set(keys).issubset(set(conf))
         if all_mode
@@ -231,7 +223,7 @@ def _get_config_filter_key(keys, conf, all_mode: bool = True) -> bool:
 
 
 class LoadCatalog:
-    """Loading catalog data object"""
+    """Loading catalog data object."""
 
     @classmethod
     def from_shortname(
@@ -251,7 +243,7 @@ class LoadCatalog:
         prefix_file: str,
         shortname: bool = False,
     ):
-        """Main initialization of loading catalog object"""
+        """Main initialization of loading catalog object."""
         self.name: str = name
         self.prefix: str = f"{prefix}_" if prefix else ""
         self.folder: str = folder
@@ -275,7 +267,7 @@ class LoadCatalog:
 
     @staticmethod
     def sorted(results):
-        """Sorting version value method"""
+        """Sorting version value method."""
         return sorted(
             results,
             key=lambda x: datetime.fromisoformat(
@@ -315,7 +307,7 @@ def get_catalogs(
     key_exists_all_mode: bool = True,
     priority_sorted: bool = False,
 ) -> dict:
-    """Get all raw configuration from .yaml file"""
+    """Get all raw configuration from .yaml file."""
     _key_exists: list = must_list(key_exists)
     _folder_config: list = must_list(config_form or CATALOGS)
     conf_paths = (

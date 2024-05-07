@@ -63,7 +63,10 @@ class Node(db.Model):
             "update_date": self.update_date.strftime("%Y/%m/%d"),
             "run_date": self.run_date.strftime("%Y/%m/%d"),
             "run_type": self.run_type,
-            "run_count": {"now": self.run_count_now, "max": self.run_count_max},
+            "run_count": {
+                "now": self.run_count_now,
+                "max": self.run_count_max,
+            },
             "retention": {"value": self.rtt_value, "column": self.rtt_column},
             "active": self.active,
         }
@@ -123,7 +126,7 @@ class Pipeline(db.Model):
 
     @property
     def catalog(self) -> Optional[PipelineCatalog]:
-        """Return the Pipeline catalog data from the .yaml file"""
+        """Return the Pipeline catalog data from the .yaml file."""
         try:
             if self.cache_flag:
                 with open(self.cache_filename, mode="rb") as f:
@@ -139,7 +142,7 @@ class Pipeline(db.Model):
 
     @property
     def nodes(self) -> list:
-        """Return any Node that this pipeline contain"""
+        """Return any Node that this pipeline contain."""
         return (
             [v["name"].split(":")[-1] for v in self.catalog.nodes.values()]
             if self.catalog
@@ -207,7 +210,7 @@ class NodeLog(db.Model):
 
 @dataclass
 class Catalog:
-    """Catalog Model"""
+    """Catalog Model."""
 
     version: str
     description: str

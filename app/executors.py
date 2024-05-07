@@ -20,8 +20,8 @@ TASKS: dict = {}
 
 
 def flask_async(f):
-    """This decorator transforms a sync route to asynchronous by running it
-    in a background thread.
+    """This decorator transforms a sync route to asynchronous by running it in
+    a background thread.
 
     :example:
 
@@ -80,7 +80,7 @@ def executor_callback(future):
 
 
 class BackgroundMail:
-    """Background Task for Mail Sender"""
+    """Background Task for Mail Sender."""
 
     def __init__(self, mail, executor):
         self.mail = mail

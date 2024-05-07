@@ -15,7 +15,7 @@ MAX_THREADS: int = int(os.getenv("THREAD_MAX", "5"))
 
 
 def worker(_id, sleep: int):
-    """Worker function for test background task"""
+    """Worker function for test background task."""
     print(f"The background process was started with id {_id!r} ...")
     for _ in range(sleep):
         print(f"Sleep with step {_}")
@@ -24,9 +24,7 @@ def worker(_id, sleep: int):
 
 
 def _async_raise(tid, exc_type):
-    """
-    Raises an exception in the threads with id tid
-    """
+    """Raises an exception in the threads with id tid."""
     if not inspect.isclass(exc_type):
         raise TypeError("Only types can be raised (not instances)")
     res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
@@ -36,17 +34,16 @@ def _async_raise(tid, exc_type):
     if res == 0:
         raise ValueError("invalid thread id")
     elif res != 1:
-        """
-        if it returns a number greater than one, you're in trouble,
-        and you should call it again with exc=NULL to revert the effect
-            >> ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), 0)
-        """
+        """If it returns a number greater than one, you're in trouble, and you
+        should call it again with exc=NULL to revert the effect >>
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), 0)"""
         ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), None)
         raise SystemError("PyThreadState_SetAsyncExc failed")
 
 
 class ThreadWithControl(threading.Thread):
-    """We want to create threading class that can control maximum background
+    """We want to create threading class that can control maximum background.
+
     agent and result after complete
     - Get return output from threading function
     - A thread class that supports raising an exception in the thread from
@@ -109,8 +106,7 @@ class ThreadWithControl(threading.Thread):
         return self._stop_event.is_set()
 
     def _get_my_tid(self):
-        """
-        determines this (self's) thread id
+        """Determines this (self's) thread id.
 
         CAREFUL: this function is executed in the context of the caller
         thread, to get the identity of the thread represented by this
@@ -132,8 +128,7 @@ class ThreadWithControl(threading.Thread):
         raise AssertionError("could not determine the thread's id")
 
     def raise_exc(self, exc_type):
-        """
-        Raises the given exception type in the context of this thread.
+        """Raises the given exception type in the context of this thread.
 
         If the thread is busy in a system call (time.sleep(),
         socket.accept(), ...), the exception is simply ignored.
@@ -158,15 +153,13 @@ class ThreadWithControl(threading.Thread):
         _async_raise(self._get_my_tid(), exc_type)
 
     def terminate(self):
-        """
-        must raise the SystemExit type, instead of a SystemExit() instance
-        due to a bug in PyThreadState_SetAsyncExc
-        """
+        """Must raise the SystemExit type, instead of a SystemExit() instance
+        due to a bug in PyThreadState_SetAsyncExc."""
         self.raise_exc(SystemExit)
 
 
 class _WorkItem:
-    """concurrent.futures.thread.py"""
+    """concurrent.futures.thread.py."""
 
     def __init__(self, future, fn, args, kwargs, *, debug=None):
         self._debug = debug
@@ -201,10 +194,8 @@ class _WorkItem:
 
 
 class ExitThread:
-    """Like a stoppable thread
-    Using coroutine for target then exit before running may cause
-    RuntimeWarning.
-    """
+    """Like a stoppable thread Using coroutine for target then exit before
+    running may cause RuntimeWarning."""
 
     def __init__(
         self,
@@ -289,6 +280,7 @@ class ExitThread:
 
 class BackgroundTasks(threading.Thread):
     """Class that runs background tasks for a flask application.
+
     Args:
         threading.Thread: Creates a new thread.
     """
@@ -299,6 +291,7 @@ class BackgroundTasks(threading.Thread):
     ):
         """Create a background tasks object that runs periodical tasks in the
         background of a flask application.
+
         Args:
             app: Flask application object.
         """

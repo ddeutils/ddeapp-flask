@@ -50,7 +50,7 @@ def generate_url(
     conf_replace: Optional[dict] = None,
     driver: Optional[str] = None,
 ):
-    """Generate Database URI"""
+    """Generate Database URI."""
     driver: str = driver or DRIVER
     _db_conf: dict = {
         "drivername": env.DB_DRIVER or driver,
@@ -102,9 +102,11 @@ def ssh_connect():
 
 
 def convert_local(function: callable) -> callable:
-    """Connect private AWS RDS. Make sure the inbound security group rules
-    of the private database instance allow access from the EC2 instance OR
-    from subnet of the EC2 instance.
+    """Connect private AWS RDS.
+
+    Make sure the inbound security group rules of the private database
+    instance allow access from the EC2 instance OR from subnet of the
+    EC2 instance.
     """
 
     @functools.wraps(function)
@@ -131,7 +133,7 @@ def generate_engine(
     conf_replace: Optional[dict] = None,
     parameters: Optional[dict] = None,
 ):
-    """Generate database engine"""
+    """Generate database engine."""
     return create_engine(
         generate_url(conf_replace=conf_replace),
         pool_pre_ping=True,

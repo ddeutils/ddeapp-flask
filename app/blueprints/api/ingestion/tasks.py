@@ -28,7 +28,7 @@ registers = Params(param_name="registers.yaml")
 
 
 def ingest_payload(node: Node, task: Task) -> Result:
-    """Run Ingest process node together with process object"""
+    """Run Ingest process node together with process object."""
     result: CommonResult = CommonResult()
     try:
         ps_row_success, ps_row_failed = node.ingest_start()
@@ -55,8 +55,10 @@ MAP_MODULE_FUNC: dict[str, Callable] = {
 
 def ingestion_foreground(module: str, external_parameters: dict) -> Result:
     """Foreground ingestion function for running data pipeline with module
-    argument. This function will control write process log to Control Task
-    Process table. If process input is pipeline, this function will log to
+    argument.
+
+    This function will control write process log to Control Task Process
+    table. If process input is pipeline, this function will log to
     Control Task Schedule.
     """
     result: Result = CommonResult()
@@ -107,8 +109,10 @@ def ingestion_background(
     external_parameters: dict,
 ) -> Result:
     """Background ingestion function for running data pipeline with module
-    argument. This function will control write process log to Control Task
-    Process table. If process input is pipeline, this function will log to
+    argument.
+
+    This function will control write process log to Control Task Process
+    table. If process input is pipeline, this function will log to
     Control Task Schedule.
     """
     result: Result = CommonResult()

@@ -23,8 +23,7 @@ from .validators import (
 
 def reduce_stm(stm: str, add_row_number: bool = False) -> str:
     """Reduce statement and prepare statement if it wants to catch number of
-    result
-    """
+    result."""
     _reduce_stm: str = " ".join(stm.replace("\t", " ").split()).strip()
     if add_row_number:
         _split_stm: list = _reduce_stm.split(";")
@@ -44,21 +43,21 @@ def filter_not_null(datatype: str) -> bool:
 
 
 class CatalogValidateError(ValueError):
-    """Error for validation process of catalog"""
+    """Error for validation process of catalog."""
 
 
 class ColumnStatement(Column):
-    """Column Model which enhance with generator method for any Postgres statement
+    """Column Model which enhance with generator method for any Postgres
+    statement.
 
     :usage:
         ..> col = Column( ... )
         ... col_stm = ColumnStatement.parse_obj(col)
         ... col_stm.statement()
-
     """
 
     def statement(self, pk: bool = True, fk: bool = False) -> str:
-        """Return string statement of column value"""
+        """Return string statement of column value."""
         pk_stm: str = " PRIMARY KEY " if pk and self.pk else " "
         fk_stm: str = (
             f" REFERENCES {{ai_schema_name}}.{self.fk['table']}"
@@ -76,7 +75,7 @@ class ColumnStatement(Column):
         )
 
     def constraints(self, prefix: Optional[str] = None) -> list:
-        """Return list of all constraint that relate with the column"""
+        """Return list of all constraint that relate with the column."""
         results: list = []
         prefix: str = f"{prefix}_" if prefix else ""
         if self.nullable:
@@ -103,11 +102,10 @@ class ColumnStatement(Column):
 
 class PartitionStatement(Partition):
     """Partition Model which enhance with generator method for any Postgres
-    statement
-    """
+    statement."""
 
     def statement(self) -> str:
-        """Return"""
+        """Return."""
         if self.type:
             return f"PARTITION BY {self.type} ( {', '.join(self.columns)} )"
         return ""
@@ -115,8 +113,7 @@ class PartitionStatement(Partition):
 
 class ProfileStatement(Profile):
     """Profile Model which enhance with generator method for any Postgres
-    statement
-    """
+    statement."""
 
     features: list[ColumnStatement] = Field(
         ..., description="Mapping Column features with position order"
@@ -126,13 +123,13 @@ class ProfileStatement(Profile):
     )
 
     def statement_features(self) -> str:
-        """Generate combination of features statement"""
+        """Generate combination of features statement."""
         return ", ".join(
             [feature.statement(pk=False, fk=True) for feature in self.features]
         )
 
     def statement_pk(self) -> str:
-        """Generate primary key statement"""
+        """Generate primary key statement."""
         return (
             f', PRIMARY KEY ( {", ".join(prim)} )'
             if (prim := self.primary_key)
@@ -142,8 +139,7 @@ class ProfileStatement(Profile):
 
 class TableStatement(Table):
     """Table Model which enhance with generator method for any Postgres
-    statement
-    """
+    statement."""
 
     profile: ProfileStatement = Field(
         ..., description="Profile data of catalog"
@@ -163,7 +159,7 @@ class TableStatement(Table):
         bk: bool = False,
         bk_name: Optional[str] = None,
     ) -> str:
-        """Generate create statement
+        """Generate create statement.
 
         :statement:
 
@@ -200,7 +196,7 @@ class TableStatement(Table):
         start: str,
         end: Optional[str] = None,
     ) -> str:
-        """Generate create partition statement
+        """Generate create partition statement.
 
         :statement:
 
@@ -232,7 +228,7 @@ class TableStatement(Table):
         )
 
     def statement_update(self, suffix: Optional[str] = None) -> str:
-        """Generate insert statement for receive data from values string
+        """Generate insert statement for receive data from values string.
 
         :statement:
 
@@ -266,7 +262,7 @@ class TableStatement(Table):
         )
 
     def statement_insert(self) -> str:
-        """Generate insert statement for receive data from values string
+        """Generate insert statement for receive data from values string.
 
         :statement:
 
@@ -296,12 +292,11 @@ class TableStatement(Table):
         )
 
     def statement_drop(self, cascade: bool = False) -> str:
-        """Generate drop statement
+        """Generate drop statement.
 
         :statement:
 
-            DROP TABLE IF EXISTS DATABASE.SCHEMA.TABLE_NAME CASCADE
-
+        DROP TABLE IF EXISTS DATABASE.SCHEMA.TABLE_NAME CASCADE
         """
         _cascade: str = "CASCADE" if cascade else ""
         return reduce_stm(
@@ -319,12 +314,8 @@ class TableStatement(Table):
         sep: Optional[str] = None,
         cast_type: bool = False,
     ) -> str:
-        """Return setting conflict statement string
-        :ingest:
-                SET
-                COLUMN = EXCLUDED.COLUMN,
-                COLUMN = EXCLUDED.COLUMN,
-                ...
+        """Return setting conflict statement string :ingest: SET COLUMN =
+        EXCLUDED.COLUMN, COLUMN = EXCLUDED.COLUMN, ...
 
         :update:
                 WHERE
@@ -357,8 +348,7 @@ class TableStatement(Table):
 
 class FunctionStatement(Function):
     """Function Model which enhance with generator method for any Postgres
-    statement
-    """
+    statement."""
 
     def statement_check(self) -> str:
         return reduce_stm(
@@ -372,12 +362,11 @@ class FunctionStatement(Function):
         return reduce_stm(self.profile.statement)
 
     def statement_drop(self, cascade: bool = False) -> str:
-        """Generate drop statement
+        """Generate drop statement.
 
         :statement:
 
-            DROP FUNCTION IF EXISTS DATABASE.SCHEMA.FUNCTION_NAME CASCADE
-
+        DROP FUNCTION IF EXISTS DATABASE.SCHEMA.FUNCTION_NAME CASCADE
         """
         _cascade: str = "CASCADE" if cascade else ""
         return reduce_stm(
@@ -387,7 +376,7 @@ class FunctionStatement(Function):
 
 
 class QueryStatement(Function):
-    """Query Model"""
+    """Query Model."""
 
     def statement(self) -> str:
         return reduce_stm(self.profile.statement)
@@ -395,8 +384,7 @@ class QueryStatement(Function):
 
 class SchemaStatement(Schema):
     """Schema Model with enhance with generator method for any Postgres
-    statement
-    """
+    statement."""
 
     def statement_check(self) -> str:
         """Generate check schema statement."""
@@ -408,10 +396,10 @@ class SchemaStatement(Schema):
         )
 
     def statement_create(self) -> str:
-        """Generate create schema statement"""
+        """Generate create schema statement."""
         return reduce_stm(f"CREATE SCHEMA IF NOT EXISTS {self.name}")
 
     def statement_drop(self, cascade: bool = False) -> str:
-        """Generate drop schema statement"""
+        """Generate drop schema statement."""
         _cascade: str = "CASCADE" if cascade else ""
         return reduce_stm(f"DROP SCHEMA IF EXISTS {self.name} {_cascade}")

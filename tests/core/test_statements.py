@@ -7,10 +7,10 @@ from app.core.validators import Column
 
 
 class ColumnStatementTestCase(unittest.TestCase):
-    """Test Case for Column object from statements file"""
+    """Test Case for Column object from statements file."""
 
     def setUp(self) -> None:
-        """Set up input attributes for parsing to the Column model"""
+        """Set up input attributes for parsing to the Column model."""
         self.input_01: dict = {
             "name": "column_name",
             "datatype": (
