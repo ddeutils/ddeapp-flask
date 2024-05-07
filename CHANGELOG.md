@@ -2,6 +2,28 @@
 
 ## Latest Changes
 
+## 0.2.2
+
+### :sparkles: Features
+
+- :dart: feat: add node legacy for initial ingest. (_2024-05-07_)
+- :dart: feat: add create statement on modern node service. (_2024-05-07_)
+- :dart: feat: add ActionQuery to use instead legacy Action for pushdown query. (_2024-05-07_)
+- :dart: feat: add schema setup for target database for the first setup. (_2024-05-06_)
+
+### :black_nib: Code Changes
+
+- :art: style: change code style that exceed limi length. (_2024-05-07_)
+- :construction: refactored: add method on services file that will implement. (_2024-05-07_)
+- :art: style: add debug text for table control does not exists. (_2024-05-06_)
+- :construction: refactored: edit char length in code. (_2024-05-06_)
+
+### :bug: Fix Bugs
+
+- :gear: fixed: fix path of logging utils that does not change from old ver. (_2024-05-07_)
+- :gear: fixed: uncomment control tables for frontend. (_2024-05-06_)
+- :gear: fixed: fix legacy path that does not match with real path. (_2024-05-06_)
+
 ## 0.2.1
 
 ### :sparkles: Features
