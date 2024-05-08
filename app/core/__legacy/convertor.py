@@ -27,6 +27,7 @@ from app.core.errors import (
 from app.core.utils.reusables import merge_dicts
 
 
+# [x] Migrate to ./statements file
 def reduce_stm(stm: str, add_row_number: bool = False) -> str:
     """Reduce statement and prepare statement if it wants to catch number of
     result."""
@@ -44,6 +45,7 @@ def reduce_stm(stm: str, add_row_number: bool = False) -> str:
     return _reduce_stm
 
 
+# [x] Migrate to ./models file
 def reduce_text(text: str, newline: Optional[str] = None) -> str:
     """Reduce text before insert to Database."""
     return text.replace("'", "''").replace("\n", (newline or "|"))
@@ -561,15 +563,15 @@ class Statement:
     be that set statement.
     """
 
-    target_list: list = ["insert into", "update", "delete from"]
-    source_list: list = [
+    target_list: tuple = ("insert into", "update", "delete from")
+    source_list: tuple = (
         "from",
         "join",
         "left join",
         "right join",
         "cross join",
         "full join",
-    ]
+    )
 
     __slots__ = (
         "stm_statement",
@@ -759,45 +761,3 @@ class Statement:
             # Data Control Language
             return "dcl"
         return "undefined"
-
-    def _generate_insert(self):
-        """
-        :structure:
-            insert_ai_article_master:
-                features:
-                    cat_mch3_code: "cat_mch3_code"
-                    article_code: "article_code"
-                from: ""
-                conflict:
-                    set: [""]
-                    where: ""
-        :statements:
-            insert:
-                into: "{}.{}.table_name"
-                statement: "
-                    select ...
-                    "
-            conflicts:
-                features: []
-                conditions: "column_a <> column_b"
-        """
-        ...
-
-    def _generate_update(self):
-        """
-        :structure:
-            update_ai_article_master:
-                features:
-                    sales_price: ""
-                from: ""
-                where: ""
-        """
-        ...
-
-    def _generate_delete(self):
-        """
-        :structure:
-            delete_ai_article_master:
-                where: ""
-        """
-        ...

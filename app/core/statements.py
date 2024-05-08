@@ -423,6 +423,12 @@ class SchemaStatement(Schema):
 
 class ControlStatement:
 
+    def __init__(self, name: str) -> None:
+        self.node: Table = Table.parse_name(fullname=name)
+        self.name: str = self.node.name
+        self.columns: list[str] = self.node.profile.columns(pk_included=True)
+        self.pk: list[str] = self.node.profile.primary_key
+
     @staticmethod
     def _case_params(col: str) -> str:
         return reduce_stm(
@@ -442,4 +448,11 @@ class ControlStatement:
             f"       END AS param_value "
             f"FROM   {{database_name}}.{{ai_schema_name}}.ctr_data_parameter "
             f"WHERE  module_type = {{module_type}}"
+        )
+
+    def statement_pull(self) -> str:
+        return reduce_stm(
+            f"SELECT {{select_columns}} FROM "
+            f"{{database_name}}.{{ai_schema_name}}.{self.name} "
+            f"where {{primary_key_filters}} {{active_flag}} {{condition}}"
         )

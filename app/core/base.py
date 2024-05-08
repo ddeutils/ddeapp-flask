@@ -72,10 +72,13 @@ def sort_by_priority(
 def get_run_date(
     date_type: str = "str", fmt: str = "%Y-%m-%d"
 ) -> Union[str, datetime, date]:
-    """Get run_date value from now datetime :usage: >>
-    get_run_date(date_type='datetime', fmt='%Y%m%d')
+    """Get run_date value from now datetime.
 
-    >> get_run_date(fmt='%Y/%m/%d') '2022/01/01'
+    Examples:
+        >>> get_run_date(date_type='datetime')
+        datetime.now(tz.gettz("Asia/Bangkok"))
+        >>> get_run_date(fmt='%Y/%m/%d')
+        '2022/01/01'
     """
     run_date: datetime = datetime.now(tz.gettz("Asia/Bangkok"))
     if date_type == "str":
@@ -88,12 +91,13 @@ def get_plural(
     word_change: Optional[str] = None,
     word_start: Optional[str] = None,
 ) -> str:
-    """Get plural word for dynamic `num` number if more than 1 or not :usage:
-    >>> get_plural(100) 's'.
+    """Get plural word for dynamic `num` number if more than 1 or not.
 
+    Examples:
+        >>> get_plural(100)
+        's'
         >>> get_plural(1, word_change='ies', word_start='y')
         'y'
-
         >>> get_plural(3, 'es')
         'es'
     """

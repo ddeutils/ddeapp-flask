@@ -1466,6 +1466,7 @@ class TblProcess(TblCatalog):
         )
         return Control("ctr_data_pipeline").push(push_values=_push_values)
 
+    # [x] Migrate to Node services with ``.push``
     def update_tbl_to_ctr_pipeline(
         self,
         update_values: Optional[dict] = None,
@@ -1573,6 +1574,7 @@ class TblProcess(TblCatalog):
         return results
 
 
+# [x] Migrate to `Action` services
 class FuncProcess(FuncCatalog):
     """Function process object for sync configuration from base config to
     target database."""
@@ -1638,6 +1640,7 @@ class FuncProcess(FuncCatalog):
             self.fwk_parameters,
         )
 
+    # [x] Migrate to `Action` services with ``.exists``
     @property
     def check_func_exists(self) -> bool:
         """Check function exists in database."""
@@ -1659,6 +1662,7 @@ class FuncProcess(FuncCatalog):
             )
         return False
 
+    # [x] Migrate to `Action` services with ``.create``
     def push_func_create(
         self,
         force_drop: bool = False,

@@ -713,8 +713,9 @@ class Table(BaseUpdatableModel):
 
     The Object of this model that why I choose Pydantic,
 
-        ..> with open('<filename>.yaml) as f:
-        ...     model = CatalogModel.parse_obj(yaml.load(f))
+        >>> import yaml
+        ... with open('<filename>.yaml') as f:
+        ...     model = Table.parse_obj(yaml.load(f))
 
     This class include the statement generator methods
     """

@@ -13,8 +13,10 @@ from sqlalchemy.exc import OperationalError
 
 from app.blueprints.api.framework.tasks import foreground_tasks
 from app.core.__legacy.objects import (
-    Control,
-    Pipeline,
+    Control as LegacyControl,
+)
+from app.core.__legacy.objects import (
+    Pipeline as LegacyPipeline,
 )
 from app.core.base import get_catalogs
 from app.core.errors import (
@@ -126,7 +128,7 @@ def pull_ctr_check_process() -> tuple[int, ...]:
     if not (
         ctr_pull := {
             data["process_id"]: data["status"]
-            for data in Control("ctr_task_process").pull(
+            for data in LegacyControl("ctr_task_process").pull(
                 pm_filter={"process_id": "*"},
                 included_cols=["process_id", "status"],
                 condition="status <> '0'",
@@ -156,7 +158,7 @@ def pull_ctr_check_process() -> tuple[int, ...]:
 
 def pull_migrate_tables():
     """Check migrate table process."""
-    pipe_cnt = Pipeline(
+    pipe_cnt = LegacyPipeline(
         name="control_search",
         auto_create=False,
         verbose=False,
@@ -198,7 +200,7 @@ def push_trigger_schedule() -> int:
         priority_sorted=True,
     ).items():
         try:
-            pipeline: Pipeline = Pipeline(pipe_name)
+            pipeline: LegacyPipeline = LegacyPipeline(pipe_name)
             if pipeline.check_pipe_trigger():
                 logger.info(
                     f"Start trigger schedule "
@@ -233,7 +235,7 @@ def push_cron_schedule(group_name: str, waiting_process: int = 300) -> int:
         priority_sorted=True,
     ):
         try:
-            pipeline: Pipeline = Pipeline(pipe_name)
+            pipeline: LegacyPipeline = LegacyPipeline(pipe_name)
             if pipeline.check_pipe_schedule(
                 group=group_name,
                 waiting_process=waiting_process,
@@ -301,12 +303,16 @@ def push_initialize_frontend(): ...
 
 
 def push_testing() -> None:
+    from .core.services import Control
+
     Schema().create()
 
     logger.info("Start Testing ...")
     with Task.make(module="demo_docstring"):
-        for _, _ctr_prop in enumerate(registers.control_frameworks, start=1):
-            node: Node = Node.parse_name(fullname=_ctr_prop["name"])
-            if not node.exists():
-                node.create()
-            break
+        # for _, _ctr_prop in enumerate(registers.control_frameworks, start=1):
+        #     node: Node = Node.parse_name(fullname=_ctr_prop["name"])
+        #     if not node.exists():
+        #         node.create()
+        #     break
+        rs = Control("ctr_data_pipeline").pull(pm_filter=["ai_article_master"])
+        print(rs)

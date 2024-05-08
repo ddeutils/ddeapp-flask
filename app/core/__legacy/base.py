@@ -554,7 +554,7 @@ class TblCatalog:
             }
         )
 
-    # [x] Migrate to modern style
+    # [x] Migrate to modern style ``Profile.columns``
     def get_tbl_columns(
         self,
         pk_included: bool = False,

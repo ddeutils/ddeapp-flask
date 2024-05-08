@@ -7,9 +7,12 @@ from __future__ import annotations
 
 import ast
 import builtins
+import datetime as dt
 from typing import (
     Any,
+    Literal,
     Optional,
+    Union,
 )
 
 from pydantic import Field, validator
@@ -26,8 +29,15 @@ from .connections import (
     query_insert_from_csv,
     query_select,
     query_select_check,
+    query_select_one,
 )
-from .errors import ControlProcessNotExists
+from .errors import (
+    ControlProcessNotExists,
+    ControlTableValueError,
+    DatabaseProcessError,
+    TableArgumentError,
+    TableNotImplement,
+)
 from .models import (
     ParameterMode,
     ParameterType,
@@ -42,8 +52,10 @@ from .statements import (
     QueryStatement,
     SchemaStatement,
     TableStatement,
+    reduce_value,
     reduce_value_pairs,
 )
+from .utils import ptext
 from .utils.config import (
     AI_APP_PATH,
     Environs,
@@ -110,12 +122,26 @@ class Action(FunctionStatement):
 
     def create(self) -> None:
         """Push create statement to target database."""
+        if self.type not in ("func", "view", "mview"):
+            raise ValueError(
+                f"Function type {self.type!r} does not support create"
+            )
         query_execute(self.statement_create(), parameters=True)
 
 
 class ActionQuery(QueryStatement):
 
+    ext_parameters: dict = Field(
+        default_factory=dict,
+        description="ActionQuery parameters from the application framework",
+    )
+
+    @validator("ext_parameters", always=True)
+    def prepare_ext_params(cls, value: dict[str, Any]):
+        return merge_dicts(Control.params(), value)
+
     def push(self, params: dict[str, Any]):
+        """Push down the query to target database."""
         query_execute(
             self.statement(),
             parameters={
@@ -152,9 +178,25 @@ class BaseNode(TableStatement):
 
     def log_fetch(self): ...
 
-    def task_push(self): ...
-
-    def task_fetch(self): ...
+    def push(self, values: Optional[dict[str, Any]] = None) -> int:
+        """Update logging watermark to Control Pipeline."""
+        _values: dict = merge_dicts(
+            {"table_name": self.name},
+            (values or {}),
+        )
+        try:
+            return LegacyControl("ctr_data_pipeline").update(
+                update_values=merge_dicts(
+                    {"table_name": self.name},
+                    (values or {}),
+                ),
+            )
+        except DatabaseProcessError as err:
+            logger.warning(
+                f"Does not update control data pipeline table because of, \n"
+                f"{ptext(str(err))}"
+            )
+            return 0
 
 
 class Node(BaseNode):
@@ -204,13 +246,44 @@ class NodeLocal(BaseNode):
 class NodeIngest(BaseNode):
     """Node for Ingestion."""
 
-    def delete(self): ...
+    @property
+    def ingest_action(self) -> Literal["insert", "update"]:
+        return self.ext_parameters.get("ingest_action", "insert")
 
-    def fetch(self): ...
+    @property
+    def ingest_mode(self) -> Literal["common", "merge"]:
+        return self.ext_parameters.get("ingest_mode", "common")
 
-    def push(self):
-        """"""
-        ...
+    def ingest(self):
+        """Ingest Data from the input payload."""
+        if self.ingest_mode not in (
+            "common",
+            "merge",
+        ) or self.ingest_action not in ("insert", "update"):
+            raise TableArgumentError(
+                f"Pair of ingest mode {self.ingest_mode!r} "
+                f"and action mode {self.ingest_action!r} "
+                f"does not support yet."
+            )
+        _update_date: dt.datetime = (
+            dt.datetime.fromisoformat(_update)
+            if (_update := self.node_tbl_params.get("update_date"))
+            else get_run_date("datetime")
+        )
+        if self.tbl_ctr_data_date > _update_date.date():
+            raise ControlTableValueError(
+                f"Please check value of `update_date`, which less than "
+                f"the current control data date: "
+                f"'{self.tbl_ctr_data_date:'%Y-%m-%d'}'"
+            )
+        _row_record: tuple[int, int] = self.push_tbl_ingestion(
+            payloads=self.ingest_payloads,
+            mode=self.ingest_mode,
+            action=self.ingest_action,
+            update_date=_update_date,
+        )
+        self.push(values={"data_date": _update_date.strftime("%Y-%m-%d")})
+        return _row_record
 
 
 class Pipeline(PipelineCatalog):
@@ -226,7 +299,7 @@ class Pipeline(PipelineCatalog):
 
     def check_scheduled(self): ...
 
-    def schedule_push(self): ...
+    def push(self): ...
 
 
 class Task(BaseTask):
@@ -360,8 +433,7 @@ class Task(BaseTask):
 class Control(ControlStatement):
 
     def __init__(self, name: str) -> None:
-        self.node: Node = Node.parse_name(fullname=name)
-        self.name: str = self.node.name
+        super().__init__(name=name)
         self.defaults: dict[str, Any] = {
             "update_date": get_run_date(fmt="%Y-%m-%d %H:%M:%S"),
             "process_time": 0,
@@ -412,5 +484,54 @@ class Control(ControlStatement):
 
     def push(self): ...
 
-    def pull(self):
+    def pull(
+        self,
+        pm_filter: Union[list, dict],
+        condition: Optional[str] = None,
+        included: Optional[list] = None,
+        *,
+        active_flag: Optional[str] = None,
+        all_flag: Optional[bool] = False,
+    ) -> dict[str, Any]:
         """Pull data from the control table."""
+        if len(self.pk) > 1 and isinstance(pm_filter, list):
+            raise TableNotImplement(
+                f"Pull control does not support `pm_filter` with `list` type "
+                f"when {self.name} have primary keys more than 1"
+            )
+        elif isinstance(pm_filter, dict):
+            if any(col not in self.pk for col in pm_filter):
+                raise TableArgumentError(
+                    f"Pull control does not support value in `pm_filter` "
+                    f"with keys, {str(pm_filter.keys())}"
+                )
+            _pm_filter: dict = reduce_value_pairs(pm_filter)
+        else:
+            _pm_filter: dict = {
+                self.pk[0]: ", ".join(map(reduce_value, pm_filter))
+            }
+        _pm_filter_stm: str = " and ".join(
+            [f"{pk} in ({_pm_filter[pk]})" for pk in self.pk]
+        )
+        _query: callable = query_select if all_flag else query_select_one
+        return _query(
+            self.statement_pull(),
+            parameters={
+                "select_columns": ", ".join(
+                    col
+                    for col in self.columns
+                    if col in (included or self.columns)
+                ),
+                "primary_key_filters": _pm_filter_stm,
+                "active_flag": (
+                    f"and active_flg in ('{(active_flag or 'Y')}')"
+                    if "active_flg" in self.columns
+                    else ""
+                ),
+                "condition": (
+                    f"""and ({condition.replace('"', "'")})"""
+                    if condition
+                    else ""
+                ),
+            },
+        )

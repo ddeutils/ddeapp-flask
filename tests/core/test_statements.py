@@ -2,6 +2,8 @@ import unittest
 
 from app.core.statements import (
     ColumnStatement,
+    FunctionStatement,
+    QueryStatement,
 )
 from app.core.validators import Column
 
@@ -11,14 +13,14 @@ class ColumnStatementTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         """Set up input attributes for parsing to the Column model."""
-        self.input_01: dict = {
+        self.input_01 = {
             "name": "column_name",
             "datatype": (
                 "varchar( 128 ) not null unique primary key "
                 "check(column_name <> 'DEMO')"
             ),
         }
-        self.input_02: dict = {
+        self.input_02 = {
             "name": "column_name",
             "datatype": "varchar( 128 ) not null unique",
             "pk": True,
@@ -57,3 +59,62 @@ class TableStatementTestCase(unittest.TestCase):
         respec: str = ""
         result: str = ""
         self.assertEqual(respec, result)
+
+
+class FunctionStatementTestCase(unittest.TestCase):
+    def setUp(self) -> None: ...
+
+    def test_parsing_01_to_statement(self):
+        rs = FunctionStatement.parse_obj(
+            {
+                "name": "func_test_statement",
+                "version": "2022-09-01",
+                "create": (
+                    """create or replace {database_name}.{ai_schema_name}.function
+                cast_to_int(text) returns integer as
+                $func$
+                begin"""
+                ),
+            }
+        )
+        self.assertEqual(
+            (
+                "create or replace {database_name}.{ai_schema_name}.function "
+                "cast_to_int(text) returns integer as $func$ begin;"
+            ),
+            rs.statement_create(),
+        )
+
+
+class QueryStatementTestCase(unittest.TestCase):
+    def setUp(self) -> None: ...
+
+    def test_parsing_01_to_statement(self):
+        rs = QueryStatement.parse_obj(
+            {
+                "name": "query_shutdown",
+                "query": {
+                    "parameter": ["process_message", "status", "update_date"],
+                    "statement": (
+                        """update {database_name}.{ai_schema_name}.ctr_task_process
+                    as ctp set update_date = '{update_date}'
+                    , process_message = '{process_message}'
+                    , status = '{status}'
+                    where ctp.status = '2'"""
+                    ),
+                },
+            }
+        )
+        self.assertEqual(
+            (
+                "update {database_name}.{ai_schema_name}.ctr_task_process as "
+                "ctp set update_date = '{update_date}' , process_message = "
+                "'{process_message}' , status = '{status}' "
+                "where ctp.status = '2';"
+            ),
+            rs.statement(),
+        )
+        self.assertListEqual(
+            ["process_message", "status", "update_date"],
+            rs.profile.parameter,
+        )
