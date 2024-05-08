@@ -11,12 +11,13 @@ from dataclasses import (
 )
 from datetime import datetime
 from enum import (
+    Enum,
     IntEnum,
 )
 from functools import partial, total_ordering
 from typing import Optional, Union
 
-from strenum import StrEnum
+from typing_extensions import Self
 
 from .base import get_run_date
 
@@ -48,45 +49,45 @@ class Status(IntEnum):
     PROCESSING = 2
 
 
-class PartitionType(StrEnum):
+class PartitionType(str, Enum):
     RANGE = "range"
     LIST = "list"
     HASH = "hash"
 
 
-class ParameterType(StrEnum):
+class ParameterType(str, Enum):
     TABLE = "table"
     PIPELINE = "pipeline"
     UNDEFINED = UNDEFINED
 
 
-class ParameterMode(StrEnum):
+class ParameterMode(str, Enum):
     """Parameter Mode Enum."""
 
     COMMON = "common"
     RERUN = "rerun"
 
 
-class ParameterIngestMode(StrEnum):
+class ParameterIngestMode(str, Enum):
     """Parameter Ingestion Mode Enum."""
 
     COMMON = "common"
     MERGE = "merge"
 
 
-class TaskMode(StrEnum):
+class TaskMode(str, Enum):
     FOREGROUND = "foreground"
     BACKGROUND = "background"
 
 
-class TaskComponent(StrEnum):
+class TaskComponent(str, Enum):
     FRAMEWORK = "framework"
     INGESTION = "ingestion"
     ANALYTIC = "analytic"
     UNDEFINED = UNDEFINED
 
 
-class TaskStatus(StrEnum):
+class TaskStatus(str, Enum):
     SUCCESSFUL = "successful"
     FAILED = "failed"
     PROCESSING = "processing"
@@ -105,6 +106,10 @@ class BaseResult:
     _duration: datetime = field(
         default_factory=partial(get_run_date, date_type="datetime")
     )
+
+    @classmethod
+    def make(cls, msg: str, status: Optional[Status] = None) -> Self:
+        return cls(msg, (Status.WAITING if status is None else status))
 
     @property
     def message(self):

@@ -1433,6 +1433,9 @@ class Parameter(BaseUpdatableModel):
             return [rd]
         return value
 
+    def is_table(self) -> bool:
+        return self.type == ParameterType.TABLE
+
 
 class ReleaseDate(BaseModel):
     """Release Date Model that use to tracking checkpoint of runner method on
@@ -1529,7 +1532,7 @@ class Task(BaseUpdatableModel):
             )
             yield idx, dt
 
-        # Revert the release value to default
+        # NOTE: Revert the release value to default
         self.release = ReleaseDate()
 
     def receive(self, result: Result) -> Task:
@@ -1546,6 +1549,15 @@ class Task(BaseUpdatableModel):
     def __add_newline(msg: str, checker: str) -> str:
         """Return added newline message for empty string."""
         return f"\n{msg}" if checker else msg
+
+    def is_successful(self) -> bool:
+        return self.status == Status.SUCCESS
+
+    def is_waiting(self) -> bool:
+        return self.status == Status.WAITING
+
+    def is_failed(self) -> bool:
+        return self.status == Status.FAILED
 
 
 class TableFrontend(Table):

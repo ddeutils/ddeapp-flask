@@ -19,7 +19,6 @@ from ....core.errors import (
 )
 from ....core.models import (
     CommonResult,
-    ParameterType,
     Result,
     Status,
     TaskComponent,
@@ -163,21 +162,18 @@ MAP_MODULE_FUNC: dict[str, Callable] = {
 def _task_gateway(task: Task, obj: ObjectType) -> Task:
     """Task Gateway for running task with difference `ps_obj` type (Node nor
     Pipeline)."""
-    logger.info(
-        f"START {task.release.index:02d}: {obj.name} "
-        f'{"~" * (30 - len(obj.name) + 31)}'
-    )
-    if task.parameters.type == ParameterType.TABLE:
-        task.fetch(
+    logger.info(f"START {task.release.index:02d}: {f'{obj.name} ':~<30}'")
+    if task.parameters.is_table():
+        task.push(
             values={"process_name_get": obj.name, "run_date_get": obj.run_date}
         )
         task.receive(MAP_MODULE_FUNC[task.module](node=obj, task=task))
-        if task.status == Status.FAILED:
+        if task.is_failed():
             raise ProcessStatusError
     else:
         obj.update_to_ctr_schedule({"tracking": "PROCESSING"})
         for order, node in obj.nodes():
-            task.fetch(
+            task.push(
                 values={
                     "process_name_get": node.name,
                     "process_number_get": order,
@@ -185,7 +181,7 @@ def _task_gateway(task: Task, obj: ObjectType) -> Task:
                 }
             )
             task.receive(MAP_MODULE_FUNC[task.module](node=node, task=task))
-            if task.status == Status.FAILED:
+            if task.is_failed():
                 obj.update_to_ctr_schedule({"tracking": "FAILED"})
                 raise ProcessStatusError
     return task
@@ -217,7 +213,7 @@ def foreground_tasks(
 
     if task.parameters.drop_schema:
         for _, run_date in task.runner():
-            logger.info(f"[ run_date: {run_date} ]{'=' * 48}")
+            logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
             task.receive(
                 MAP_MODULE_FUNC["drop_schema"](
                     schema=Schema(),
@@ -235,7 +231,7 @@ def foreground_tasks(
         return result.update(task.message, task.status)
 
     for _, run_date in task.runner():
-        logger.info(f"[ run_date: {run_date} ]{'=' * 48}")
+        logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
         ps_obj: ObjectType = ObjectMap[task.parameters.type](
             name=task.parameters.name,
             process_id=task.id,

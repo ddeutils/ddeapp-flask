@@ -303,12 +303,12 @@ class Task(BaseTask):
         return (
             0
             if self.release.pushed
-            else self.push(values={"process_number_put": task_total})
+            else self.create(values={"process_number_put": task_total})
         )
 
     def finish(self) -> int:
         """Update task log to target database."""
-        return self.fetch(
+        return self.push(
             values=(
                 {
                     "process_name_get": "null",
@@ -319,8 +319,8 @@ class Task(BaseTask):
             )
         )
 
-    def push(self, values: Optional[dict] = None) -> int:
-        """Push information to the Control Data Logging."""
+    def create(self, values: Optional[dict] = None) -> int:
+        """Create information to the Control Data Logging."""
         return LegacyControl("ctr_task_process").push(
             push_values=merge_dicts(
                 {
@@ -342,8 +342,8 @@ class Task(BaseTask):
             )
         )
 
-    def fetch(self, values: Optional[dict] = None) -> int:
-        """Fetch information to the Control Data Logging."""
+    def push(self, values: Optional[dict] = None) -> int:
+        """Update information to the Control Data Logging."""
         return LegacyControl("ctr_task_process").update(
             update_values=merge_dicts(
                 {

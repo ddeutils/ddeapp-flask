@@ -3,10 +3,12 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
+from __future__ import annotations
+
 import datetime as dt
 
-from ....core.errors import ControlProcessNotExists
-from ....core.models import (
+from app.core.errors import ControlProcessNotExists
+from app.core.models import (
     UNDEFINED,
     AnalyticResult,
     DependencyResult,
@@ -14,9 +16,9 @@ from ....core.models import (
     Status,
     TaskComponent,
 )
-from ....core.services import Task
-from ....core.utils.logging_ import logging
-from ....core.validators import Table
+from app.core.services import Task
+from app.core.utils.logging_ import logging
+from app.core.validators import Table
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +38,7 @@ def get_operation_process(process_id: str) -> Result:
     """Get data in control process table."""
     result: Result = AnalyticResult()
     try:
-        process: Task = Task.pull(task_id=process_id)
+        task: Task = Task.pull(task_id=process_id)
     except ControlProcessNotExists as err:
         result.update(
             f"Error: {err.__class__.__name__}: {str(err)}",
@@ -44,41 +46,40 @@ def get_operation_process(process_id: str) -> Result:
         )
         return result
 
-    _update_date: str = process.parameters.others["update_date"]
-    if process.component == TaskComponent.FRAMEWORK:
+    _update_date: str = task.parameters.others["update_date"]
+    if task.component == TaskComponent.FRAMEWORK:
         return _extracted_get_operation_framework(
-            process=process,
+            task=task,
             update_date=_update_date,
         )
     result.percent = (
-        float(process.status.value) if process.status != Status.WAITING else 0.0
+        float(task.status.value) if task.status != Status.WAITING else 0.0
     )
-    result.logging = process.message
+    result.logging = task.message
     return result.update(
-        f"Process was {Status(process.status).name.lower()} "
-        f"at {_update_date}"
+        f"Process was {Status(task.status).name.lower()} " f"at {_update_date}"
     )
 
 
 def _extracted_get_operation_framework(
-    process: Task,
+    task: Task,
     update_date,
 ) -> Result:
     """Extracted result from Framework component."""
-    result: Result = AnalyticResult(logging=process.message)
-    if process.status == Status.SUCCESS:
+    result: Result = AnalyticResult(logging=task.message)
+    if task.is_successful():
         result.percent = 1.00
         return result.update(f"Process run successful at {update_date}")
 
-    if not (_num_put := (process.parameters.others.get("process_number_put"))):
+    if not (_num_put := (task.parameters.others.get("process_number_put"))):
         return result
 
     run_date_put: list = [
-        dt.date.fromisoformat(i) for i in process.parameters.dates
+        dt.date.fromisoformat(i) for i in task.parameters.dates
     ]
     run_date_num_put: int = len(run_date_put)
 
-    if (_get := process.release.date) is not None:
+    if (_get := task.release.date) is not None:
         _run_date_get: dt.date = dt.date.fromisoformat(_get)
         _run_date_get_filter: list = list(
             filter(lambda x: _run_date_get >= x, run_date_put)
@@ -87,18 +88,16 @@ def _extracted_get_operation_framework(
     else:
         run_date_num_get: int = 0
     ps_num_put: int = int(_num_put)
-    ps_num_get: int = int(
-        process.parameters.others.get("process_number_put", 0)
-    )
+    ps_num_get: int = int(task.parameters.others.get("process_number_put", 0))
     current_percent: float = (
         (run_date_num_get * ps_num_put) + (ps_num_get - 1)
     ) / (run_date_num_put * ps_num_put)
-    process_name_get: str = process.parameters.others.get(
+    process_name_get: str = task.parameters.others.get(
         "process_name_get", UNDEFINED
     )
     result.percent = current_percent
     return result.update(
-        f"Process was {Status(process.status).name.lower()} status "
+        f"Process was {Status(task.status).name.lower()} status "
         f"in process {process_name_get} "
         f"with run date: {_get}"
     )
