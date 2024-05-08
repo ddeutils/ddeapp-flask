@@ -30,6 +30,7 @@ from .connections import (
     query_select,
     query_select_check,
     query_select_one,
+    query_select_row,
 )
 from .errors import (
     ControlProcessNotExists,
@@ -52,6 +53,7 @@ from .statements import (
     QueryStatement,
     SchemaStatement,
     TableStatement,
+    reduce_in_value,
     reduce_value,
     reduce_value_pairs,
 )
@@ -334,7 +336,7 @@ class Task(BaseTask):
     def pull(cls, task_id: str):
         """Pull Task from target database with Task ID."""
         if ctr_process := (
-            LegacyControl("ctr_task_process").pull(pm_filter=[task_id])
+            Control("ctr_task_process").pull(pm_filter=[task_id])
         ):
             mode, _type = ctr_process.get(
                 "process_type", "foreground|undefined"
@@ -482,7 +484,96 @@ class Control(ControlStatement):
     @classmethod
     def tables(cls): ...
 
-    def push(self): ...
+    def create(
+        self,
+        values: dict,
+        condition: Optional[str] = None,
+    ):
+        _ctr_columns = filter(
+            lambda _col: _col not in {"primary_id"}, self.cols
+        )
+        _add_column: dict = merge_dicts(
+            self.defaults,
+            {
+                "tracking": "SUCCESS",
+                "active_flg": "Y",
+            },
+        )
+        _row_record_filter: str = ""
+        _status_filter: str = ""
+        for col in _ctr_columns:
+            value_old: Union[str, int] = (
+                _add_column.get(col, "null")
+                if col not in values
+                else values[col]
+            )
+            values[col]: str = reduce_value(value_old)
+        if "status" in list(_ctr_columns):
+            _status_filter: str = "where excluded.status = '2'"
+        if "row_record" in list(_ctr_columns):
+            _row_record_filter: str = (
+                f"{'' if _status_filter else 'where'} "
+                f"{'or' if _status_filter else ''} "
+                f"{self.tbl.shortname}.row_record <= excluded.row_record"
+            )
+        _set_value_pairs: str = ", ".join(
+            [f"{_} = excluded.{_}" for _ in self.cols_no_pk]
+        )
+        return query_select_row(
+            self.statement_create(),
+            parameters={
+                "table_name": self.name,
+                "table_name_sht": self.tbl.shortname,
+                "columns_pair": ", ".join(values),
+                "values": ", ".join(values.values()),
+                "primary_key": ", ".join(self.pk),
+                "set_value_pairs": _set_value_pairs,
+                "row_record_filter": _row_record_filter,
+                "status_filter": _status_filter,
+                "condition": (
+                    f"""and ({condition.replace('"', "'")})"""
+                    if condition
+                    else ""
+                ),
+            },
+        )
+
+    def push(
+        self,
+        values: dict[str, Any],
+        condition: Optional[str] = None,
+    ):
+        _add_column: dict = merge_dicts(
+            self.defaults, {"tacking": "PROCESSING"}
+        )
+        for col, default in _add_column.items():
+            if col in self.cols and col not in values:
+                values[col] = default
+        _update_values: dict = {
+            k: reduce_value(str(v))
+            for k, v in values.items()
+            if k not in self.pk
+        }
+        _filter: list = [
+            f"{self.tbl.shortname}.{_} in {reduce_in_value(values[_])}"
+            for _ in self.pk
+        ]
+        return query_select_row(
+            self.statement_push(),
+            parameters={
+                "table_name": self.name,
+                "table_name_sht": self.tbl.shortname,
+                "update_values_pairs": ", ".join(
+                    [f"{k} = {v}" for k, v in _update_values.items()]
+                ),
+                "filter": " and ".join(_filter),
+                "condition": (
+                    f"""and ({condition.replace('"', "'")})"""
+                    if condition
+                    else ""
+                ),
+            },
+        )
 
     def pull(
         self,
@@ -518,14 +609,12 @@ class Control(ControlStatement):
             self.statement_pull(),
             parameters={
                 "select_columns": ", ".join(
-                    col
-                    for col in self.columns
-                    if col in (included or self.columns)
+                    col for col in self.cols if col in (included or self.cols)
                 ),
                 "primary_key_filters": _pm_filter_stm,
                 "active_flag": (
                     f"and active_flg in ('{(active_flag or 'Y')}')"
-                    if "active_flg" in self.columns
+                    if "active_flg" in self.cols
                     else ""
                 ),
                 "condition": (

@@ -53,6 +53,12 @@ def reduce_value_pairs(value_pairs: dict) -> dict:
     }
 
 
+def reduce_in_value(value: Union[str, int, list]) -> str:
+    if isinstance(value, list):
+        return f"({', '.join([reduce_value(_) for _ in value])})"
+    return f"({reduce_value(value)})"
+
+
 def filter_not_null(datatype: str) -> bool:
     return all(not re.search(word, datatype) for word in ["default", "serial"])
 
@@ -65,8 +71,8 @@ class ColumnStatement(Column):
     """Column Model which enhance with generator method for any Postgres
     statement.
 
-    :usage:
-        ..> col = Column( ... )
+    Examples:
+        >>> col = Column( ... )
         ... col_stm = ColumnStatement.parse_obj(col)
         ... col_stm.statement()
     """
@@ -424,10 +430,17 @@ class SchemaStatement(Schema):
 class ControlStatement:
 
     def __init__(self, name: str) -> None:
-        self.node: Table = Table.parse_name(fullname=name)
-        self.name: str = self.node.name
-        self.columns: list[str] = self.node.profile.columns(pk_included=True)
-        self.pk: list[str] = self.node.profile.primary_key
+        self.tbl: Table = Table.parse_name(fullname=name)
+        self.name: str = self.tbl.name
+        self.cols: list[str] = self.tbl.profile.columns(pk_included=True)
+        self.cols_no_pk: list[str] = self.tbl.profile.columns(pk_included=False)
+        self.pk: list[str] = self.tbl.profile.primary_key
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.name})"
+
+    def __str__(self) -> str:
+        return self.name
 
     @staticmethod
     def _case_params(col: str) -> str:
@@ -452,7 +465,25 @@ class ControlStatement:
 
     def statement_pull(self) -> str:
         return reduce_stm(
-            f"SELECT {{select_columns}} FROM "
-            f"{{database_name}}.{{ai_schema_name}}.{self.name} "
-            f"where {{primary_key_filters}} {{active_flag}} {{condition}}"
+            f"SELECT {{select_columns}} "
+            f"FROM {{database_name}}.{{ai_schema_name}}.{self.name} "
+            f"WHERE {{primary_key_filters}} {{active_flag}} {{condition}}"
+        )
+
+    def statement_create(self) -> str:
+        return reduce_stm(
+            f"INSERT INTO {{database_name}}.{{ai_schema_name}}.{self.name} "
+            f"AS {self.tbl.shortname} ( {{columns_pair}} ) "
+            f"VALUES (  {{values}}  ) "
+            f"on conflict ( {{primary_key}} ) do update "
+            f"set {{set_value_pairs}} "
+            f"{{status_filter}} {{row_record_filter}} {{condition}}"
+        )
+
+    def statement_push(self) -> str:
+        return reduce_stm(
+            f"UPDATE {{database_name}}.{{ai_schema_name}}.{self.name} "
+            f"AS {self.tbl.shortname} "
+            f"set  {{update_values_pairs}} "
+            f"where {{filter}} {{condition}}"
         )

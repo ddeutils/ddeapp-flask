@@ -374,9 +374,11 @@ class Control:
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
 
+    # [x] Migrate to modern style by `Control` service
     def __str__(self):
         return self.name
 
+    # [x] Migrate to modern style by `Control` service
     def pull(
         self,
         pm_filter: Union[list, dict],

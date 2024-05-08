@@ -51,6 +51,7 @@ def reduce_text(text: str, newline: Optional[str] = None) -> str:
     return text.replace("'", "''").replace("\n", (newline or "|"))
 
 
+# [x] Migrate to ./statements file
 def reduce_in_value(value: Union[str, int, list]) -> str:
     if isinstance(value, list):
         return f"({', '.join([reduce_value(_) for _ in value])})"
