@@ -3,6 +3,8 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
+from __future__ import annotations
+
 import re
 from typing import (
     Optional,
@@ -39,6 +41,8 @@ def reduce_stm(stm: str, add_row_number: bool = False) -> str:
 
 
 def reduce_value(value: Union[str, int]) -> str:
+    if isinstance(value, list):
+        return f"({', '.join([reduce_value(_) for _ in value])})"
     return value if value in {"null", "true", "false", "*"} else f"'{value}'"
 
 

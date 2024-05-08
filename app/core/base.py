@@ -3,6 +3,8 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
+from __future__ import annotations
+
 import fnmatch
 import importlib
 import operator
@@ -232,7 +234,7 @@ class LoadCatalog:
         prefix: Optional[str],
         folder: str,
         prefix_file: str,
-    ) -> "LoadCatalog":
+    ) -> LoadCatalog:
         return cls(name, prefix, folder, prefix_file, shortname=True)
 
     def __init__(

@@ -185,6 +185,7 @@ def check_schema_exists(schema_name: str) -> bool:
     )
 
 
+# [x] Migrate to modern style by `Schema` Model
 def check_ai_exists() -> bool:
     return check_schema_exists(schema_name=env.get("AI_SCHEMA", "ai"))
 
@@ -240,6 +241,7 @@ class Control:
 
     __slots__ = ("ctr", "ctr_cols", "ctr_cols_exc_pk", "ctr_pk")
 
+    # [x] Migrate to modern style by `Control` service
     @classmethod
     def parameters(cls, module: Optional[str] = None) -> dict:
         """Get all parameters with `module` argument from `ctr_data_parameter`
@@ -426,11 +428,17 @@ class Control:
             },
         )
 
-    def push(self, push_values: dict, condition: Optional[str] = None) -> int:
+    def push(
+        self,
+        push_values: dict,
+        condition: Optional[str] = None,
+    ) -> int:
         """Push New data to the Control Framework tables, such as.
 
-        - `ctr_data_logging`
-        - `ctr_task_process`
+            - `ctr_data_logging`
+            - `ctr_task_process`
+
+        :return: Return a number of row that insert to target table.
         """
         _ctr_columns = filter(
             lambda _col: _col not in {"primary_id"}, self.ctr_cols
@@ -1736,7 +1744,7 @@ def check_run_mode(obj: str, run_mode: Optional[str] = None):
         )
 
 
-# [x] Migrate to Action services
+# [x] Migrate to `Action` services
 class Action(FuncProcess):
     """Action object for control process of function object."""
 

@@ -55,10 +55,14 @@ def reduce_in_value(value: Union[str, int, list]) -> str:
     return f"({reduce_value(value)})"
 
 
-def reduce_value(value: Union[str, int]) -> str:
+# [x] Migrate to ./statements file
+def reduce_value(value: Optional[Union[str, int]] = None) -> str:
+    if value is None:
+        return "null"
     return value if value in {"null", "true", "false", "*"} else f"'{value}'"
 
 
+# [x] Migrate to ./statements file
 def reduce_value_pairs(value_pairs: dict) -> dict:
     return {
         col: col if value == "*" else reduce_value(value)

@@ -3,6 +3,7 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
+from __future__ import annotations
 
 import ast
 import hashlib
@@ -41,7 +42,6 @@ __all__ = (
 )
 
 
-# utility function -------------------------------------------------------------
 def split_str(strings, sep: str = r"\s+"):
     """
     warning: does not yet work if sep is a lookahead like `(?=b)`
@@ -70,7 +70,6 @@ def split_str(strings, sep: str = r"\s+"):
         yield match.group(1)
 
 
-# utility function -------------------------------------------------------------
 def isplit(source, sep=None, regex=False):
     """Generator version of str.split() :param source: source string (unicode
     or bytes) :param sep: separator to split on. :param regex: if True, will
@@ -111,7 +110,6 @@ def isplit(source, sep=None, regex=False):
             start = idx + sep_size
 
 
-# utility function -------------------------------------------------------------
 def split_iterable(iterable, chunk_size=None, generator_flag: bool = True):
     """
     Split an iterable into mini batch with batch length of batch_number
@@ -147,14 +145,12 @@ def split_iterable(iterable, chunk_size=None, generator_flag: bool = True):
         return _chunks
 
 
-# utility function -------------------------------------------------------------
 def chunks(dataframe, n):
     """Yield successive n-sized chunks from dataframe."""
     for i in range(0, len(dataframe), n):
         yield dataframe.iloc[i : i + n]
 
 
-# utility function -------------------------------------------------------------
 def rows(f, chunk_size=1024, sep="|"):
     """
     Read a file where the row separator is '|' lazily
@@ -173,7 +169,6 @@ def rows(f, chunk_size=1024, sep="|"):
     yield row
 
 
-# utility function -------------------------------------------------------------
 def merge_dicts(*dict_args) -> dict:
     """Given any number of dictionaries, shallow copy and merge into a new
     dict, precedence goes to key-value pairs in latter dictionaries.
@@ -188,7 +183,6 @@ def merge_dicts(*dict_args) -> dict:
     return result
 
 
-# utility function -------------------------------------------------------------
 def merge_lists(*list_args) -> list:
     """
     usage:
@@ -201,7 +195,6 @@ def merge_lists(*list_args) -> list:
     return result
 
 
-# utility function -------------------------------------------------------------
 def hash_string(input_value: str, num_length: int = 8) -> str:
     """Hash str input to number with SHA256 algorithm."""
     return str(
@@ -209,7 +202,6 @@ def hash_string(input_value: str, num_length: int = 8) -> str:
     )[-num_length:]
 
 
-# utility function -------------------------------------------------------------
 def random_sting(num_length: int = 8) -> str:
     """Random string from uppercase ASCII and number 0-9."""
     return "".join(
@@ -217,7 +209,6 @@ def random_sting(num_length: int = 8) -> str:
     )
 
 
-# utility function -------------------------------------------------------------
 def path_join(full_path: AnyStr, full_join_path: str) -> AnyStr:
     """Join path with multi pardir value if set `full_join_path` be
     '../../<path>'."""
@@ -232,7 +223,6 @@ def path_join(full_path: AnyStr, full_join_path: str) -> AnyStr:
     return _abspath
 
 
-# utility function -------------------------------------------------------------
 def convert_str_list(str_list: str) -> list:
     """Get list of run_date from list string of run_date.
 
@@ -250,7 +240,6 @@ def convert_str_list(str_list: str) -> list:
     )
 
 
-# utility function -------------------------------------------------------------
 def convert_str_dict(str_dict: str) -> dict:
     """Get list of run_date from list string of run_date.
 
@@ -268,7 +257,6 @@ def convert_str_dict(str_dict: str) -> dict:
     )
 
 
-# utility function -------------------------------------------------------------
 def convert_str_bool(str_bool: str, force_raise: bool = False) -> bool:
     """Get boolean of input string."""
     if str_bool.lower() in {"yes", "true", "t", "1", "y", "1.0"}:
@@ -280,7 +268,6 @@ def convert_str_bool(str_bool: str, force_raise: bool = False) -> bool:
     return False
 
 
-# utility function -------------------------------------------------------------
 def sort_by_priority_list(values: Iterable, priority: list) -> list:
     """Sorts an iterable according to a list of priority items.
 
@@ -291,12 +278,6 @@ def sort_by_priority_list(values: Iterable, priority: list) -> list:
         >> sort_by_priority_list(values=set([1,2,3]), priority=[2,3])
         [2, 3, 1]
     """
-    # priority_dict = {k: i for i, k in enumerate(priority)}
-    #
-    # def priority_getter(value):
-    #     return priority_dict.get(value, len(values))
-    #
-    # return sorted(values, key=priority_getter)
     priority_dict = defaultdict(
         lambda: len(priority),
         zip(
@@ -304,11 +285,10 @@ def sort_by_priority_list(values: Iterable, priority: list) -> list:
             range(len(priority)),
         ),
     )
-    priority_getter = priority_dict.__getitem__  # dict.get(key)
+    priority_getter = priority_dict.__getitem__
     return sorted(values, key=priority_getter)
 
 
-# utility function -------------------------------------------------------------
 def only_one(
     check_list: list, match_list: list, default: bool = True
 ) -> Optional:
@@ -331,21 +311,18 @@ def only_one(
     )
 
 
-# utility function -------------------------------------------------------------
 def must_list(value: Optional[Union[str, list]] = None) -> list:
     if value:
         return convert_str_list(value) if isinstance(value, str) else value
     return []
 
 
-# utility function -------------------------------------------------------------
 def must_dict(value: Optional[Union[str, dict]] = None) -> dict:
     if value:
         return convert_str_dict(value) if isinstance(value, str) else value
     return {}
 
 
-# utility function -------------------------------------------------------------
 def must_bool(
     value: Optional[Union[str, int, bool]] = None, force_raise: bool = False
 ) -> bool:
@@ -363,7 +340,6 @@ def must_bool(
     return False
 
 
-# utility function -------------------------------------------------------------
 def to_snake_case(value: str):
     """
     Usage
@@ -374,12 +350,10 @@ def to_snake_case(value: str):
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).lower()
 
 
-# utility function -------------------------------------------------------------
 def to_pascal_case(value: str, joined: str = ""):
     return joined.join(word.title() for word in value.split("_"))
 
 
-# utility function -------------------------------------------------------------
 def to_camel_case(value: str):
     return "".join(
         word.title() if index_word > 0 else word

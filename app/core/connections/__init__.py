@@ -12,7 +12,8 @@ from .postgresql import (
 
 
 def query_select_check(
-    statement: str, parameters: Optional[dict] = None
+    statement: str,
+    parameters: Optional[dict] = None,
 ) -> bool:
     """Enhance query function to get `check_exists` value from result."""
     return eval(
@@ -20,10 +21,13 @@ def query_select_check(
     )
 
 
-def query_select_row(statement: str, parameters: Optional[dict] = None) -> int:
+def query_select_row(
+    statement: str,
+    parameters: Optional[dict] = None,
+) -> int:
     """Enhance query function to get `row_number` value from result."""
     if any(
-        _ in statement
+        _ in statement.lower()
         for _ in {
             "select count(*) as row_number from ",
             "func_count_if_exists",

@@ -67,11 +67,7 @@ def push_func_setup(task: Optional[Task] = None) -> None:
     task: Task = task or Task.make(module="function_setup")
     for idx, _func_prop in enumerate(registers.functions, start=1):
         _func: Action = Action.parse_name(fullname=_func_prop["name"])
-        logger.info(
-            f"START {idx:02d}: {_func.name} "
-            f'{"~" * (30 - len(_func.name) + 31)}'
-        )
-
+        logger.info(f"START {idx:02d}: {f'{_func.name} ':~<30}")
         if not _func.exists():
             _func.create()
             logger.info(
@@ -93,10 +89,7 @@ def push_ctr_setup(
     ):
         status: Status = Status.SUCCESS
         _node = Node.parse_name(fullname=_ctr_prop["name"])
-        logger.info(
-            f"START {idx:02d}: {_node.name} {'~' * (30 - len(_node.name) + 31)}"
-        )
-
+        logger.info(f"START {idx:02d}: {f'{_node.name} ':~<30}")
         if not _node.exists():
             if _node.name in (
                 "ctr_data_logging",
@@ -288,7 +281,7 @@ def push_load_file_to_db(
     target: str,
     truncate: bool = False,
     compress: Optional[str] = None,
-):
+) -> int:
     """Push load csv file to target table with short name.
 
     Examples:
@@ -309,15 +302,12 @@ def push_testing() -> None:
     Schema().create()
 
     logger.info("Start Testing ...")
-
-    # for _, _ctr_prop in enumerate(
-    #     registers.control_frameworks,
-    #     start=1,
-    # ):
-    #     node = Node.parse_name(fullname=_ctr_prop["name"])
-    #     if not node.exists():
-    #         node.create()
-
-    from app.core.services import Control
-
-    print(Control.params())
+    task: Task = Task.make(module="push_testing")
+    print(task)
+    task.start()
+    for _, _ctr_prop in enumerate(registers.control_frameworks, start=1):
+        node: Node = Node.parse_name(fullname=_ctr_prop["name"])
+        if not node.exists():
+            node.create()
+        break
+    task.finish()
