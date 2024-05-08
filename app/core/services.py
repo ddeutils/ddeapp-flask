@@ -18,7 +18,6 @@ from typing import (
 from pydantic import Field, validator
 from typing_extensions import Self
 
-from .__legacy.objects import Control as LegacyControl
 from .base import (
     get_plural,
     get_run_date,
@@ -187,8 +186,8 @@ class BaseNode(TableStatement):
             (values or {}),
         )
         try:
-            return LegacyControl("ctr_data_pipeline").update(
-                update_values=merge_dicts(
+            return Control("ctr_data_pipeline").push(
+                values=merge_dicts(
                     {"table_name": self.name},
                     (values or {}),
                 ),
@@ -396,8 +395,8 @@ class Task(BaseTask):
 
     def create(self, values: Optional[dict] = None) -> int:
         """Create information to the Control Data Logging."""
-        return LegacyControl("ctr_task_process").push(
-            push_values=merge_dicts(
+        return Control("ctr_task_process").create(
+            values=merge_dicts(
                 {
                     "process_id": self.id,
                     "process_name_put": self.parameters.name,
@@ -419,8 +418,8 @@ class Task(BaseTask):
 
     def push(self, values: Optional[dict] = None) -> int:
         """Update information to the Control Data Logging."""
-        return LegacyControl("ctr_task_process").update(
-            update_values=merge_dicts(
+        return Control("ctr_task_process").push(
+            values=merge_dicts(
                 {
                     "process_id": self.id,
                     "process_message": reduce_text(self.message),
@@ -522,8 +521,6 @@ class Control(ControlStatement):
         return query_select_row(
             self.statement_create(),
             parameters={
-                "table_name": self.name,
-                "table_name_sht": self.tbl.shortname,
                 "columns_pair": ", ".join(values),
                 "values": ", ".join(values.values()),
                 "primary_key": ", ".join(self.pk),
@@ -561,8 +558,6 @@ class Control(ControlStatement):
         return query_select_row(
             self.statement_push(),
             parameters={
-                "table_name": self.name,
-                "table_name_sht": self.tbl.shortname,
                 "update_values_pairs": ", ".join(
                     [f"{k} = {v}" for k, v in _update_values.items()]
                 ),

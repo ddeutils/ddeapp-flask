@@ -13,9 +13,6 @@ from sqlalchemy.exc import OperationalError
 
 from app.blueprints.api.framework.tasks import foreground_tasks
 from app.core.__legacy.objects import (
-    Control as LegacyControl,
-)
-from app.core.__legacy.objects import (
     Pipeline as LegacyPipeline,
 )
 from app.core.base import get_catalogs
@@ -32,6 +29,7 @@ from app.core.models import (
 from app.core.services import (
     Action,
     ActionQuery,
+    Control,
     Node,
     NodeLocal,
     Schema,
@@ -128,9 +126,9 @@ def pull_ctr_check_process() -> tuple[int, ...]:
     if not (
         ctr_pull := {
             data["process_id"]: data["status"]
-            for data in LegacyControl("ctr_task_process").pull(
+            for data in Control("ctr_task_process").pull(
                 pm_filter={"process_id": "*"},
-                included_cols=["process_id", "status"],
+                included=["process_id", "status"],
                 condition="status <> '0'",
                 all_flag=True,
             )
