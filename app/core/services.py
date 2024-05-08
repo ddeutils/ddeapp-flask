@@ -3,15 +3,27 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
-from typing import Any, Optional
+from __future__ import annotations
+
+import ast
+import builtins
+from typing import (
+    Any,
+    Optional,
+)
 
 from pydantic import Field, validator
+from typing_extensions import Self
 
 from .__legacy.objects import Control as LegacyControl
-from .base import get_plural, registers
+from .base import (
+    get_plural,
+    registers,
+)
 from .connections import (
     query_execute,
     query_insert_from_csv,
+    query_select,
     query_select_check,
 )
 from .errors import ControlProcessNotExists
@@ -24,10 +36,12 @@ from .models import (
     reduce_text,
 )
 from .statements import (
+    ControlStatement,
     FunctionStatement,
     QueryStatement,
     SchemaStatement,
     TableStatement,
+    reduce_value_pairs,
 )
 from .utils.config import (
     AI_APP_PATH,
@@ -59,6 +73,7 @@ __all__ = (
     "NodeLocal",
     "Pipeline",
     "Task",
+    "Control",
 )
 
 
@@ -75,12 +90,12 @@ class Schema(SchemaStatement):
         """Push exists statement to target database."""
         return query_select_check(self.statement_check(), parameters=True)
 
-    def create(self) -> "Schema":
+    def create(self) -> Schema:
         """Push create statement to target database."""
         query_execute(self.statement_create())
         return self
 
-    def drop(self, cascade: bool = False) -> "Schema":
+    def drop(self, cascade: bool = False) -> Schema:
         """Push drop statement to target database."""
         query_execute(self.statement_drop(cascade=cascade))
         return self
@@ -119,7 +134,7 @@ class BaseNode(TableStatement):
 
     @validator("ext_parameters", always=True)
     def prepare_ext_params(cls, value: dict[str, Any]):
-        return merge_dicts(LegacyControl.parameters(), value)
+        return merge_dicts(Control.params(), value)
 
     def exists(self) -> bool:
         """Push exists statement to target database."""
@@ -137,7 +152,7 @@ class BaseNode(TableStatement):
 class Node(BaseNode):
     """"""
 
-    def create(self) -> "Node":
+    def create(self) -> Self:
         query_execute(self.statement_create(), parameters=True)
         return self
 
@@ -213,7 +228,18 @@ class Pipeline(PipelineCatalog):
 
 
 class Task(BaseTask):
-    """Task Service Model."""
+    """Task Service Model.
+
+    Notes:
+        -   For starting any api tasks, I will create this Task model with the 4
+            keys (module, parameters, mode, and component).
+        -   Task will generate the task ID from a module value, ``param.type``,
+            and ``param.name``.
+        -   Task has the runner method that return generator of datetime from
+            the ``param.dates``.
+        -   ``Task.start`` and ``Task.finish`` is the main of create and update
+            the task status log to logging table at target database.
+    """
 
     @classmethod
     def pull(cls, task_id: str):
@@ -243,9 +269,7 @@ class Task(BaseTask):
                 status=Status(int(ctr_process["status"])),
                 id=task_id,
                 message=ctr_process["process_message"],
-                release=ReleaseDate(
-                    date=date,
-                ),
+                release=ReleaseDate(date=date),
             )
         raise ControlProcessNotExists(
             f"Process ID: {task_id} does not exists in Control Task Process "
@@ -253,7 +277,13 @@ class Task(BaseTask):
         )
 
     def start(self, task_total: Optional[int] = 1) -> int:
-        """Start Task."""
+        """Start Task.
+
+        :rtype: int
+        :return: Return 0 if the release was pushed (runner index !=
+            start index). But push the log to target database when
+            release was not pushed.
+        """
         return (
             0
             if self.release.pushed
@@ -261,7 +291,7 @@ class Task(BaseTask):
         )
 
     def finish(self) -> int:
-        """Finish Task."""
+        """Update task log to target database."""
         return self.fetch(
             values=(
                 {
@@ -311,10 +341,44 @@ class Task(BaseTask):
         )
 
 
-class Control:
+class Control(ControlStatement):
+
+    def __init__(self, name: str):
+        self.name: str = name
+        self.node: Node = Node.parse_name(fullname=name)
 
     @classmethod
-    def params(cls, module: Optional[str] = None) -> dict[str, Any]: ...
+    def params(cls, module: Optional[str] = None) -> dict[str, Any]:
+        logger.debug("Loading params from `ctr_data_parameter` by Control ...")
+        _results: dict = {
+            value["param_name"]: (
+                ast.literal_eval(value["param_value"])
+                if value["param_type"] in {"list", "dict"}
+                else getattr(builtins, value["param_type"])(
+                    value["param_value"]
+                )
+            )
+            for value in query_select(
+                cls.statement_params(),
+                parameters=reduce_value_pairs({"module_type": (module or "*")}),
+            )
+        }
+        # Calculate special parameters that logic was provided by vendor.
+        proportion_value: int = _results.get("proportion_value", 3)
+        proportion_inc_curr_m: str = _results.get(
+            "proportion_inc_current_month_flag", "N"
+        )
+        window_end: int = 1 if proportion_inc_curr_m == "N" else 0
+        window_start: int = (
+            proportion_value
+            if proportion_inc_curr_m == "N"
+            else (proportion_value - 1)
+        )
+        return {
+            "window_start": window_start,
+            "window_end": window_end,
+            **_results,
+        }
 
     @classmethod
     def tables(cls): ...

@@ -3,6 +3,8 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
+from __future__ import annotations
+
 import importlib
 import re
 from collections.abc import Generator, Iterator
@@ -26,6 +28,7 @@ from pydantic import (
     root_validator,
     validator,
 )
+from typing_extensions import Self
 
 from .__legacy.convertor import (
     Statement,
@@ -155,6 +158,10 @@ AbstractSetOrDict = Union[
 
 class BaseUpdatableModel(BaseModel):
     """Base Model that was implemented updatable method and properties."""
+
+    @classmethod
+    def parse(cls, obj) -> Self:
+        return cls.parse_obj(obj)
 
     @classmethod
     def get_field_names(cls, alias=False):
@@ -1466,7 +1473,7 @@ class Task(BaseUpdatableModel):
     release: ReleaseDate = Field(default_factory=ReleaseDate)
 
     @classmethod
-    def make(cls, module: str) -> "Task":
+    def make(cls, module: str) -> Task:
         return cls(module=module)
 
     @root_validator(pre=True)
@@ -1519,7 +1526,7 @@ class Task(BaseUpdatableModel):
         # Revert the release value to default
         self.release = ReleaseDate()
 
-    def receive(self, result: Result) -> "Task":
+    def receive(self, result: Result) -> Task:
         """Receive result dataclass and merge status and message to self."""
         logger.debug("Task: Start Receive data from Result")
         self.status = result.status

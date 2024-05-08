@@ -6,6 +6,7 @@
 import re
 from typing import (
     Optional,
+    Union,
 )
 
 from pydantic import Field
@@ -35,6 +36,17 @@ def reduce_stm(stm: str, add_row_number: bool = False) -> str:
         _split_stm.append(_last_stm)
         return "; ".join(_split_stm)
     return _reduce_stm
+
+
+def reduce_value(value: Union[str, int]) -> str:
+    return value if value in {"null", "true", "false", "*"} else f"'{value}'"
+
+
+def reduce_value_pairs(value_pairs: dict) -> dict:
+    return {
+        col: col if value == "*" else reduce_value(value)
+        for col, value in value_pairs.items()
+    }
 
 
 def filter_not_null(datatype: str) -> bool:
@@ -403,3 +415,27 @@ class SchemaStatement(Schema):
         """Generate drop schema statement."""
         _cascade: str = "CASCADE" if cascade else ""
         return reduce_stm(f"DROP SCHEMA IF EXISTS {self.name} {_cascade}")
+
+
+class ControlStatement:
+
+    @staticmethod
+    def _case_params(col: str) -> str:
+        return reduce_stm(
+            f"CASE WHEN {col} = 'int'  THEN '0' "
+            f"     WHEN {col} = 'str'  THEN '' "
+            f"     WHEN {col} = 'list' THEN '[]' END "
+        )
+
+    @classmethod
+    def statement_params(cls) -> str:
+        return reduce_stm(
+            f"SELECT parameter_name AS param_name "
+            f",      parameter_type AS param_type "
+            f",      CASE WHEN active_flg = 'N' "
+            f"            THEN ({cls._case_params('parameter_type')}) "
+            f"            ELSE parameter_value "
+            f"       END AS param_value "
+            f"FROM   {{database_name}}.{{ai_schema_name}}.ctr_data_parameter "
+            f"WHERE  module_type = {{module_type}}"
+        )

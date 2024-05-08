@@ -3,7 +3,6 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
-
 import os
 from typing import (
     Optional,
@@ -310,10 +309,15 @@ def push_testing() -> None:
     Schema().create()
 
     logger.info("Start Testing ...")
-    for _, _ctr_prop in enumerate(
-        registers.control_frameworks,
-        start=1,
-    ):
-        node = Node.parse_name(fullname=_ctr_prop["name"])
-        if not node.exists():
-            node.create()
+
+    # for _, _ctr_prop in enumerate(
+    #     registers.control_frameworks,
+    #     start=1,
+    # ):
+    #     node = Node.parse_name(fullname=_ctr_prop["name"])
+    #     if not node.exists():
+    #         node.create()
+
+    from app.core.services import Control
+
+    print(Control.params())
