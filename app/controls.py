@@ -22,6 +22,8 @@ from app.core.errors import (
     ObjectBaseError,
 )
 from app.core.models import (
+    FAILED,
+    SUCCESS,
     Result,
     Status,
 )
@@ -87,7 +89,7 @@ def push_ctr_setup(
         registers.control_frameworks,
         start=1,
     ):
-        status: Status = Status.SUCCESS
+        status: Status = SUCCESS
         _node = Node.parse_name(fullname=_ctr_prop["name"])
         logger.info(f"START {idx:02d}: {f'{_node.name} ':~<30}")
         if not _node.exists():
@@ -108,7 +110,7 @@ def push_ctr_setup(
                     )
                 except ObjectBaseError as err:
                     logger.error(f"Error ObjectBaseError: {err}")
-                    status: Status = Status.FAILED
+                    status: Status = FAILED
         logger.info(
             f"Success create {_ctr_prop['name']!r} "
             f"after app start with status {status.value}"
@@ -302,12 +304,9 @@ def push_testing() -> None:
     Schema().create()
 
     logger.info("Start Testing ...")
-    task: Task = Task.make(module="push_testing")
-    print(task)
-    task.start()
-    for _, _ctr_prop in enumerate(registers.control_frameworks, start=1):
-        node: Node = Node.parse_name(fullname=_ctr_prop["name"])
-        if not node.exists():
-            node.create()
-        break
-    task.finish()
+    with Task.make(module="demo_docstring"):
+        for _, _ctr_prop in enumerate(registers.control_frameworks, start=1):
+            node: Node = Node.parse_name(fullname=_ctr_prop["name"])
+            if not node.exists():
+                node.create()
+            break

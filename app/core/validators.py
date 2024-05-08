@@ -1435,11 +1435,17 @@ class Parameter(BaseUpdatableModel):
 
 
 class ReleaseDate(BaseModel):
-    """Release Date Model."""
+    """Release Date Model that use to tracking checkpoint of runner method on
+    the Task model."""
 
-    date: Optional[str] = Field(default=None, description="")
-    index: Optional[int] = Field(default=None, description="")
-    pushed: bool = Field(default=False, description="")
+    date: Optional[str] = Field(default=None, description="Date that release")
+    index: Optional[int] = Field(
+        default=None, description="Index of this release"
+    )
+    pushed: bool = Field(
+        default=False,
+        description="If true that mean this the process already pushed",
+    )
 
 
 class Task(BaseUpdatableModel):

@@ -18,6 +18,7 @@ from typing_extensions import Self
 from .__legacy.objects import Control as LegacyControl
 from .base import (
     get_plural,
+    get_run_date,
     registers,
 )
 from .connections import (
@@ -140,6 +141,13 @@ class BaseNode(TableStatement):
         """Push exists statement to target database."""
         return query_select_check(self.statement_check(), parameters=True)
 
+    def create(self) -> Self:
+        """Execute create statement to target database."""
+        query_execute(self.statement_create(), parameters=True)
+        return self
+
+    def drop(self): ...
+
     def log_push(self): ...
 
     def log_fetch(self): ...
@@ -151,12 +159,6 @@ class BaseNode(TableStatement):
 
 class Node(BaseNode):
     """"""
-
-    def create(self) -> Self:
-        query_execute(self.statement_create(), parameters=True)
-        return self
-
-    def drop(self): ...
 
     def backup(self): ...
 
@@ -239,7 +241,21 @@ class Task(BaseTask):
             the ``param.dates``.
         -   ``Task.start`` and ``Task.finish`` is the main of create and update
             the task status log to logging table at target database.
+
+    Examples:
+
+        >>> task: Task = Task.make(module="demo_docstring")
+        ... task.start()
+        ... print("Do Something")
+        ... task.finish()
     """
+
+    def __enter__(self) -> Self:
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.finish()
 
     @classmethod
     def pull(cls, task_id: str):
@@ -343,9 +359,20 @@ class Task(BaseTask):
 
 class Control(ControlStatement):
 
-    def __init__(self, name: str):
-        self.name: str = name
+    def __init__(self, name: str) -> None:
         self.node: Node = Node.parse_name(fullname=name)
+        self.name: str = self.node.name
+        self.defaults: dict[str, Any] = {
+            "update_date": get_run_date(fmt="%Y-%m-%d %H:%M:%S"),
+            "process_time": 0,
+            "status": 2,
+        }
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.name})"
+
+    def __str__(self) -> str:
+        return self.name
 
     @classmethod
     def params(cls, module: Optional[str] = None) -> dict[str, Any]:
@@ -385,4 +412,5 @@ class Control(ControlStatement):
 
     def push(self): ...
 
-    def pull(self): ...
+    def pull(self):
+        """Pull data from the control table."""

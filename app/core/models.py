@@ -166,3 +166,8 @@ Result = Union[
     AnalyticResult,
     DependencyResult,
 ]
+
+SUCCESS = Status.SUCCESS
+FAILED = Status.FAILED
+WAITING = Status.WAITING
+PROCESSING = Status.PROCESSING

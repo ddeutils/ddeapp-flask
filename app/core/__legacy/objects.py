@@ -362,6 +362,7 @@ class Control:
     def name_short(self) -> str:
         return self.ctr.tbl_name_sht
 
+    # [x] Migrate to modern style by `Control` service
     @property
     def col_default(self) -> dict:
         return {

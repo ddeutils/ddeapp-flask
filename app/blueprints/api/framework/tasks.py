@@ -3,7 +3,10 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
+from __future__ import annotations
+
 import queue
+from typing import Callable
 
 from ....core.__legacy.objects import (
     Node,
@@ -151,14 +154,15 @@ def run_schema_drop(
     return result
 
 
-MAP_MODULE_FUNC: dict = {
+MAP_MODULE_FUNC: dict[str, Callable] = {
     name: eval(func_name)
     for name, func_name in registers.modules.framework.items()
 }
 
 
 def _task_gateway(task: Task, obj: ObjectType) -> Task:
-    """Task Gateway for running task with difference `ps_obj` type."""
+    """Task Gateway for running task with difference `ps_obj` type (Node nor
+    Pipeline)."""
     logger.info(
         f"START {task.release.index:02d}: {obj.name} "
         f'{"~" * (30 - len(obj.name) + 31)}'
@@ -244,6 +248,7 @@ def foreground_tasks(
         # TODO: add waiting process by queue
         task.start(ps_obj.process_count)
         try:
+            # Start push the task to target execute function.
             task: Task = _task_gateway(task, ps_obj)
         except ProcessStatusError:
             logger.warning(
