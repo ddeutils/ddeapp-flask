@@ -173,8 +173,10 @@ def merge_dicts(*dict_args) -> dict:
     """Given any number of dictionaries, shallow copy and merge into a new
     dict, precedence goes to key-value pairs in latter dictionaries.
 
-    usage:
-        >> merge_dicts({1: 'one',2: 'two',3: 'three'}, {3: 'Three',4: 'Four'})
+    Examples:
+        >>> merge_dicts({1: 'one',2: 'two',3: 'three'}, {3: 'Three',4: 'Four'})
+        {1: 'one', 2: 'two', 3: 'Three', 4: 'Four'}
+        >>> {1: 'one', 2: 'two', 3: 'three'} | {3: 'Three', 4: 'Four'}
         {1: 'one', 2: 'two', 3: 'Three', 4: 'Four'}
     """
     result: dict = {}
@@ -185,9 +187,9 @@ def merge_dicts(*dict_args) -> dict:
 
 def merge_lists(*list_args) -> list:
     """
-    usage:
-            >> merge_lists([1, 2, 3, 4], ['one', 'two', three'])
-            [1, 2, 3, 4, 'one', 'two', 'three']
+    Examples:
+        >>> merge_lists([1, 2, 3, 4], ['one', 'two', 'three'])
+        [1, 2, 3, 4, 'one', 'two', 'three']
     """
     result: list = []
     for _list in list_args:
@@ -243,11 +245,10 @@ def convert_str_list(str_list: str) -> list:
 def convert_str_dict(str_dict: str) -> dict:
     """Get list of run_date from list string of run_date.
 
-    usage
-    -----
-        >>> print(convert_str_dict("{'1': '2021-01-02', '2':'2021-01-03'}"))
+    Examples:
+        >>> convert_str_dict("{'1': '2021-01-02', '2':'2021-01-03'}")
         {'1': '2021-01-02', '2': '2021-01-03'}
-        >>> print(convert_str_dict("2022-04-01"))
+        >>> convert_str_dict("2022-04-01")
         {0: '2022-04-01'}
     """
     return (
@@ -273,9 +274,9 @@ def sort_by_priority_list(values: Iterable, priority: list) -> list:
 
     Usage
     -----
-        >> sort_by_priority_list(values=[1,2,2,3], priority=[2,3,1])
+        >>> sort_by_priority_list(values=[1,2,2,3], priority=[2,3,1])
         [2, 2, 3, 1]
-        >> sort_by_priority_list(values=set([1,2,3]), priority=[2,3])
+        >>> sort_by_priority_list(values=set([1,2,3]), priority=[2,3])
         [2, 3, 1]
     """
     priority_dict = defaultdict(
@@ -295,12 +296,12 @@ def only_one(
     """
     Usage
     -----
-        >> list_a = ['a', 'a', 'b']
-        >> list_b = ['a', 'b', 'c']
-        >> list_c = ['d', 'f']
-        >> only_one(list_a, list_b):
+        >>> list_a = ['a', 'a', 'b']
+        ... list_b = ['a', 'b', 'c']
+        ... list_c = ['d', 'f']
+        ... only_one(list_a, list_b)
 
-        >> only_one(list_c, list_b):
+        >>> only_one(list_c, list_b)
 
     """
     if len(exist := set(check_list).intersection(set(match_list))) == 1:
@@ -326,11 +327,6 @@ def must_dict(value: Optional[Union[str, dict]] = None) -> dict:
 def must_bool(
     value: Optional[Union[str, int, bool]] = None, force_raise: bool = False
 ) -> bool:
-    """
-    Usage
-    -----
-        >>
-    """
     if value:
         return (
             value
@@ -341,11 +337,6 @@ def must_bool(
 
 
 def to_snake_case(value: str):
-    """
-    Usage
-    -----
-        >>
-    """
     name = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", value)
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).lower()
 

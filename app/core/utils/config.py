@@ -9,10 +9,6 @@ from typing import Optional
 
 import yaml
 
-from ..utils.reusables import (
-    merge_dicts,
-)
-
 AI_APP_PATH: Path = Path(
     os.getenv(
         "AI_APP_PATH", str((Path(__file__).parent / "../../..").resolve())
@@ -92,14 +88,11 @@ class Environs:
                             result[line_split[0]]: str = str(
                                 eval(line_split[1])
                             )
-            _result: dict = merge_dicts(
-                result,
-                {
-                    key: value
-                    for key, value in os.environ.items()
-                    if key in _registers.env_variables
-                },
-            )
+            _result: dict = result | {
+                key: value
+                for key, value in os.environ.items()
+                if key in _registers.env_variables
+            }
             self.__dict__.update(**_result)
             os.environ.update(**_result)
 

@@ -34,7 +34,6 @@ from .utils.config import (
 from .utils.logging_ import logging
 from .utils.reusables import (
     hash_string,
-    merge_dicts,
     must_list,
 )
 
@@ -337,7 +336,7 @@ def get_catalogs(
                         if _key_exists
                         else _config_data_raw
                     )
-                    _files: dict = merge_dicts(_files, _config_data)
+                    _files: dict = _files | _config_data
                     del _config_data_raw, _config_data
     return sort_by_priority(_files) if priority_sorted else _files
 

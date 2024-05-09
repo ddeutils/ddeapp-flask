@@ -34,10 +34,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core.errors import DatabaseProcessError
 from app.core.utils.config import Environs
-from app.core.utils.reusables import (
-    chunks,
-    merge_dicts,
-)
+from app.core.utils.reusables import chunks
 
 env = Environs()
 
@@ -60,7 +57,7 @@ def generate_url(
         "host": env.DB_HOST,
         "port": env.DB_PORT or None,
     }
-    return URL.create(**merge_dicts(_db_conf, (conf_replace or {})))
+    return URL.create(**(_db_conf | (conf_replace or {})))
 
 
 def query_format(
@@ -78,11 +75,8 @@ def query_format(
         else:
             return statement
     if isinstance(statement, str):
-        return statement.format(**merge_dicts(_db_param, parameters))
-    return [
-        _state.format(**merge_dicts(_db_param, parameters))
-        for _state in statement
-    ]
+        return statement.format(**(_db_param | parameters))
+    return [_state.format(**(_db_param | parameters)) for _state in statement]
 
 
 def ssh_connect():

@@ -65,7 +65,6 @@ from .utils.config import (
 )
 from .utils.logging_ import logging
 from .utils.reusables import (
-    merge_dicts,
     must_list,
 )
 from .validators import (
@@ -140,8 +139,8 @@ class ActionQuery(QueryStatement):
     )
 
     @validator("ext_parameters", always=True)
-    def prepare_ext_params(cls, value: dict[str, Any]):
-        return merge_dicts(Control.params(), value)
+    def __prepare_ext_params(cls, value: dict[str, Any]):
+        return Control.params() | value
 
     def push(self, params: dict[str, Any]):
         """Push down the query to target database."""
@@ -159,12 +158,12 @@ class BaseNode(TableStatement):
 
     ext_parameters: dict = Field(
         default_factory=dict,
-        description="Node parameters from the application framework",
+        description="Node parameters from the View Form on API",
     )
 
     @validator("ext_parameters", always=True)
-    def prepare_ext_params(cls, value: dict[str, Any]):
-        return merge_dicts(Control.params(), value)
+    def __prepare_ext_params(cls, value: dict[str, Any]):
+        return Control.params() | value
 
     def exists(self) -> bool:
         """Push exists statement to target database."""
@@ -183,17 +182,9 @@ class BaseNode(TableStatement):
 
     def push(self, values: Optional[dict[str, Any]] = None) -> int:
         """Update logging watermark to Control Pipeline."""
-        _values: dict = merge_dicts(
-            {"table_name": self.name},
-            (values or {}),
-        )
+        _values: dict = {"table_name": self.name} | (values or {})
         try:
-            return Control("ctr_data_pipeline").push(
-                values=merge_dicts(
-                    {"table_name": self.name},
-                    (values or {}),
-                ),
-            )
+            return Control("ctr_data_pipeline").push(values=_values)
         except DatabaseProcessError as err:
             logger.warning(
                 f"Does not update control data pipeline table because of, \n"
@@ -398,7 +389,7 @@ class Task(BaseTask):
     def create(self, values: Optional[dict] = None) -> int:
         """Create information to the Control Data Logging."""
         return Control("ctr_task_process").create(
-            values=merge_dicts(
+            values=(
                 {
                     "process_id": self.id,
                     "process_name_put": self.parameters.name,
@@ -413,35 +404,35 @@ class Task(BaseTask):
                     "process_number_get": 1,
                     "process_module": f"{self.component}|{self.module}",
                     "process_type": f"{self.mode}|{self.parameters.type}",
-                },
-                (values or {}),
+                }
+                | (values or {})
             )
         )
 
     def push(self, values: Optional[dict] = None) -> int:
         """Update information to the Control Data Logging."""
         return Control("ctr_task_process").push(
-            values=merge_dicts(
+            values=(
                 {
                     "process_id": self.id,
                     "process_message": reduce_text(self.message),
                     "process_time": self.duration(),
                     "status": self.status,
-                },
-                (values or {}),
+                }
+                | (values or {})
             )
         )
 
 
 class Control(ControlStatement):
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, *, params: Optional[dict] = None) -> None:
         super().__init__(name=name)
         self.defaults: dict[str, Union[str, int]] = {
             "update_date": get_run_date(fmt="%Y-%m-%d %H:%M:%S"),
             "process_time": 0,
             "status": 2,
-        }
+        } | params
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.name})"
@@ -507,17 +498,14 @@ class Control(ControlStatement):
         self,
         values: dict,
         condition: Optional[str] = None,
-    ):
+    ) -> int:
         _ctr_columns = filter(
             lambda _col: _col not in {"primary_id"}, self.cols
         )
-        _add_column: dict[str, Any] = merge_dicts(
-            self.defaults,
-            {
-                "tracking": "SUCCESS",
-                "active_flg": "Y",
-            },
-        )
+        _add_column: dict[str, Any] = self.defaults | {
+            "tracking": "SUCCESS",
+            "active_flg": "Y",
+        }
         _row_record_filter: str = ""
         _status_filter: str = ""
         for col in _ctr_columns:
@@ -558,10 +546,8 @@ class Control(ControlStatement):
         self,
         values: dict[str, Any],
         condition: Optional[str] = None,
-    ):
-        _add_column: dict = merge_dicts(
-            self.defaults, {"tacking": "PROCESSING"}
-        )
+    ) -> int:
+        _add_column: dict = self.defaults | {"tacking": "PROCESSING"}
         for col, default in _add_column.items():
             if col in self.cols and col not in values:
                 values[col] = default

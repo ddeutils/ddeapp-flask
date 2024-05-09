@@ -19,10 +19,7 @@ from ...core.errors import (
     CatalogNotFound,
     ValidateFormsError,
 )
-from ...core.utils.reusables import (
-    convert_str_list,
-    merge_dicts,
-)
+from ...core.utils.reusables import convert_str_list
 from ...core.validators import (
     Pipeline,
     Table,
@@ -113,7 +110,7 @@ class BaseValidate:
             )
         }
         if add_values:
-            self.data_result = merge_dicts(self.data_result, add_values)
+            self.data_result = self.data_result | add_values
         self._refactors()
 
     def as_dict(self) -> dict:
@@ -131,7 +128,7 @@ class BaseValidate:
         _result: dict = {}
         for data, value in self.data_result.items():
             if func := self._methods.get(f"refactor_{data}"):
-                _result: dict = merge_dicts(_result, func(value))
+                _result: dict = _result | func(value)
             else:
                 _result[data] = value
         self.data_result = _result
@@ -141,17 +138,14 @@ class BaseValidate:
         for name, func in self._methods.items():
             if name.startswith("expand_"):
                 values: list = name.replace("expand_", "").split("_and_")
-                _result: dict = merge_dicts(
-                    _result,
-                    func(
-                        **{
-                            data: value
-                            for data, value in self.data_result.items()
-                            if data in values
-                        }
-                    ),
+                _result: dict = _result | func(
+                    **{
+                        data: value
+                        for data, value in self.data_result.items()
+                        if data in values
+                    }
                 )
-        self.data_result = merge_dicts(self.data_result, _result)
+        self.data_result = self.data_result | _result
 
     def _co_validates(self) -> None:
         for name, func in self._methods.items():

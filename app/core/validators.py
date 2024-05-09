@@ -51,7 +51,6 @@ from .models import (
 from .utils.config import Params
 from .utils.logging_ import get_logger
 from .utils.reusables import (
-    merge_dicts,
     must_bool,
     must_list,
     only_one,
@@ -404,7 +403,7 @@ class Column(BaseUpdatableModel):
         else:
             values["datatype"] = _datatype
             values_update["nullable"] = not re.search("not null", _nullable)
-        return merge_dicts(values_update, values)
+        return values_update | values
 
     @validator("name", pre=True)
     def prepare_name(cls, value) -> str:
@@ -1423,7 +1422,7 @@ class Parameter(BaseUpdatableModel):
                 and value not in cls.get_field_names(alias=False)
             )
         }
-        return {"others": merge_dicts(_others, _exist_others), **values}
+        return {"others": _others | _exist_others, **values}
 
     @validator("dates", always=True)
     def prepare_dates(cls, value, values):
