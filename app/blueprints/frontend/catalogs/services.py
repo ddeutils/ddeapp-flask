@@ -1,8 +1,14 @@
+# ------------------------------------------------------------------------------
+# Copyright (c) 2022 Korawich Anuttra. All rights reserved.
+# Licensed under the MIT License. See LICENSE in the project root for
+# license information.
+# ------------------------------------------------------------------------------
+from __future__ import annotations
+
 import pickle
+from collections.abc import Iterator
 from pathlib import Path
-from typing import (
-    Optional,
-)
+from typing import Optional
 
 from app.core.utils.logging_ import get_logger
 
@@ -19,11 +25,11 @@ from ...frontend.catalogs.models import (
 )
 
 logger = get_logger(__name__)
-__categories: dict["str", Category] = {}
+__categories: dict[str, Category] = {}
 __all_catalogs_list: list[Catalog] = []
 
 
-def load_catalogs(cache: bool = False):
+def load_catalogs(cache: bool = False) -> None:
     global __categories, __all_catalogs_list
 
     filepath = Path(__file__).parent / "cache" / "categories.pickle"
@@ -77,14 +83,15 @@ def category_by_name(category: str) -> Optional[Category]:
 
 
 def all_catalogs(
-    page: int = 1, page_size: Optional[int] = None
-) -> list[Catalog]:
-    catalogs = __all_catalogs_list
+    page: int = 1,
+    page_size: Optional[int] = None,
+) -> Iterator[Catalog]:
+    catalogs: list[Catalog] = __all_catalogs_list
     if page_size:
         start = page_size * (page - 1)
         end = start + page_size
         catalogs = catalogs[start:end]
-    return catalogs
+    yield from catalogs
 
 
 def all_categories() -> list[Category]:

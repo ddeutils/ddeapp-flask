@@ -8,6 +8,7 @@ from __future__ import annotations
 import ast
 import builtins
 import datetime as dt
+from collections.abc import Iterator
 from typing import (
     Any,
     Literal,
@@ -22,6 +23,7 @@ from .base import (
     get_plural,
     get_run_date,
     registers,
+    sort_by_priority,
 )
 from .connections import (
     query_execute,
@@ -435,7 +437,7 @@ class Control(ControlStatement):
 
     def __init__(self, name: str) -> None:
         super().__init__(name=name)
-        self.defaults: dict[str, Any] = {
+        self.defaults: dict[str, Union[str, int]] = {
             "update_date": get_run_date(fmt="%Y-%m-%d %H:%M:%S"),
             "process_time": 0,
             "status": 2,
@@ -481,7 +483,25 @@ class Control(ControlStatement):
         }
 
     @classmethod
-    def tables(cls): ...
+    def tables(
+        cls,
+        condition: Optional[str] = None,
+    ) -> Iterator[dict[str, str]]:
+        """Get all tables with `condition` argument from `ctr_data_pipeline` in
+        target database and convert to python list of dictionary type."""
+        logger.debug("Loading tables from `ctr_data_pipeline` by Control ...")
+        for name in sort_by_priority(
+            [
+                tbl["table_name"]
+                for tbl in cls("ctr_data_pipeline").pull(
+                    pm_filter={"table_name": "*"},
+                    included=["table_name"],
+                    condition=condition,
+                    all_flag=True,
+                )
+            ]
+        ):
+            yield {"table_name": name}
 
     def create(
         self,
@@ -491,7 +511,7 @@ class Control(ControlStatement):
         _ctr_columns = filter(
             lambda _col: _col not in {"primary_id"}, self.cols
         )
-        _add_column: dict = merge_dicts(
+        _add_column: dict[str, Any] = merge_dicts(
             self.defaults,
             {
                 "tracking": "SUCCESS",
@@ -511,8 +531,7 @@ class Control(ControlStatement):
             _status_filter: str = "where excluded.status = '2'"
         if "row_record" in list(_ctr_columns):
             _row_record_filter: str = (
-                f"{'' if _status_filter else 'where'} "
-                f"{'or' if _status_filter else ''} "
+                f"{'or' if _status_filter else 'where'} "
                 f"{self.tbl.shortname}.row_record <= excluded.row_record"
             )
         _set_value_pairs: str = ", ".join(
@@ -528,7 +547,7 @@ class Control(ControlStatement):
                 "row_record_filter": _row_record_filter,
                 "status_filter": _status_filter,
                 "condition": (
-                    f"""and ({condition.replace('"', "'")})"""
+                    f"""AND ({condition.replace('"', "'")})"""
                     if condition
                     else ""
                 ),
@@ -561,9 +580,9 @@ class Control(ControlStatement):
                 "update_values_pairs": ", ".join(
                     [f"{k} = {v}" for k, v in _update_values.items()]
                 ),
-                "filter": " and ".join(_filter),
+                "filter": " AND ".join(_filter),
                 "condition": (
-                    f"""and ({condition.replace('"', "'")})"""
+                    f"""AND ({condition.replace('"', "'")})"""
                     if condition
                     else ""
                 ),
@@ -613,7 +632,7 @@ class Control(ControlStatement):
                     else ""
                 ),
                 "condition": (
-                    f"""and ({condition.replace('"', "'")})"""
+                    f"""AND ({condition.replace('"', "'")})"""
                     if condition
                     else ""
                 ),

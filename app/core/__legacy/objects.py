@@ -209,22 +209,6 @@ def split_choose(choose: Union[str, list]) -> tuple[list, list]:
     return _process["filter"], _process["reject"]
 
 
-def _cal_ctr_params(parameters: dict) -> dict:
-    proportion_value: int = parameters.get("proportion_value", 3)
-    proportion_inc_curr_m: str = parameters.get(
-        "proportion_inc_current_month_flag", "N"
-    )
-    return {
-        "window_start": (
-            proportion_value
-            if proportion_inc_curr_m == "N"
-            else (proportion_value - 1)
-        ),
-        "window_end": (1 if proportion_inc_curr_m == "N" else 0),
-        **parameters,
-    }
-
-
 class Control:
     """Control Object for get all control framework data from target database.
 

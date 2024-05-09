@@ -22,9 +22,7 @@ import operator
 import os
 import re
 from typing import (
-    Dict,
     Optional,
-    Tuple,
     Union,
 )
 
@@ -82,6 +80,7 @@ def verbose_log(
             logger.debug(end * 75)
 
 
+# [x] Migrate to modern style base
 def sort_by_priority(
     values: Union[list, dict], priority_lists: Optional[list] = None
 ):
@@ -107,6 +106,7 @@ def sort_by_priority(
         }
 
 
+# [x] Migrate to modern style base
 def get_run_date(
     date_type: str = "str", fmt: str = "%Y-%m-%d"
 ) -> Union[str, dt.datetime, dt.date]:
@@ -121,6 +121,7 @@ def get_run_date(
     return run_date.date() if date_type == "date" else run_date
 
 
+# [x] Migrate to modern style base
 def get_plural(
     num: int,
     word_change: Optional[str] = None,

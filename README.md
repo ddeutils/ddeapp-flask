@@ -1,4 +1,4 @@
-# Data Framework Application: *Flask and Postgres*
+# Data Framework Application: *Flask*
 
 **Table of Contents**:
 
@@ -19,9 +19,10 @@ on different environments or systems. It has [fewer dependencies](requirements.t
 less complex code, and lightweight of coding which mean you can remove some components
 of this framework before deploy without error or with debuggable error.
 
-First objective of this framework application is data pipeline orchestration in
-a retail platform, but the core engine of this application framework can do more
-than orchestrate data pipeline by requested or scheduler.
+> [!NOTE]
+> First objective of this framework application is data pipeline orchestration in
+> a retail platform, but the core engine of this application framework can do more
+> than orchestrate data pipeline by requested or scheduler.
 
 ## Overviews
 
@@ -240,7 +241,7 @@ $ curl --location --request GET 'http://127.0.0.1:5000/apikey' \
   --header 'APIKEY: <api-key-in-env>'
 {"message": "Success: Connect with the apikey, the application was running ..."}
 ```
-> **Note**: \
+> [!NOTE]
 > If the `APIKEY` does not match with the application config, it will respond with
 > `{ "message": "Error: Unauthorised with 'APIKEY'" }`.
 

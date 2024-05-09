@@ -46,10 +46,11 @@ CATALOGS: list = ["catalog", "pipeline", "function"]
 
 def sort_by_priority(
     values: Union[list, dict], priority_lists: Optional[list] = None
-):
+) -> Union[list, dict]:
     """Sorted list by string prefix priority."""
-    _priority_lists: list = priority_lists or params.list_tbl_priority
-    priority_dict: dict = {k: i for i, k in enumerate(_priority_lists)}
+    priority_dict: dict = {
+        k: i for i, k in enumerate(priority_lists or params.list_tbl_priority)
+    }
 
     def priority_getter(value):
         return next(
