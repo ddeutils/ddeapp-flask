@@ -30,8 +30,6 @@ def ingest_payload(node: NodeIngest, task: Task) -> Result:
     """Run Ingest process node together with process object."""
     result: CommonResult = CommonResult()
     try:
-        if not node.exists():
-            ...
         ps_row_success, ps_row_failed = node.ingest()
         result.message = (
             f"Success: Load data to {node.name!r} with logging value "
@@ -73,7 +71,7 @@ def ingestion_foreground(module: str, external_parameters: dict) -> Result:
         )
         for idx, run_date in task.runner():
             logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
-            node: NodeIngest = NodeIngest.start(
+            node: NodeIngest = NodeIngest.parse_task(
                 task.parameters.name,
                 fwk_params={
                     "run_id": task.id,
@@ -121,7 +119,7 @@ def ingestion_background(
         bg_queue.put(task.id)
         for idx, run_date in task.runner():
             logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
-            node: NodeIngest = NodeIngest.start(
+            node: NodeIngest = NodeIngest.parse_task(
                 task.parameters.name,
                 fwk_params={
                     "run_id": task.id,

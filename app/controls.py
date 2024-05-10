@@ -306,23 +306,18 @@ def push_testing() -> None:
     Schema().create()
 
     logger.info("Start Testing ...")
-    with Task.make(module="demo_docstring") as task:
-        for _, _ctr_prop in enumerate(registers.control_frameworks, start=1):
-            node: Node = Node.parse_name(fullname=_ctr_prop["name"])
-            if node.exists():
-                print(node.profile.to_mapping(pk=True))
-            break
-        task.status = Status.WAITING
-    (
-        ActionQuery.parse_name(fullname="query:query_shutdown")
-        .add_ext_params(
-            params={
-                "status": 1,
-                "process_message": (
-                    "Error: RuntimeError: Server shutdown while "
-                    "process was running in background"
-                ),
-            },
-        )
-        .push()
-    )
+    with Task.make(module="demo_docstring"):
+        Node.parse_name(fullname="imp_min_max_service_level")
+    # (
+    #     ActionQuery.parse_name(fullname="query:query_shutdown")
+    #     .add_ext_params(
+    #         params={
+    #             "status": 1,
+    #             "process_message": (
+    #                 "Error: RuntimeError: Server shutdown while "
+    #                 "process was running in background"
+    #             ),
+    #         },
+    #     )
+    #     .push()
+    # )

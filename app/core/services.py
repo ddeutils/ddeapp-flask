@@ -216,13 +216,13 @@ class BaseNode(MapParameterService, TableStatement):
     """Base Node Service Model."""
 
     @classmethod
-    def start(
+    def parse_task(
         cls,
         name: str,
         fwk_params: DictKeyStr,
         ext_params: DictKeyStr,
     ) -> Self:
-        """Start Running the Node."""
+        """Parsing all parameters from Task before Running the Node."""
         return cls.parse_name(
             name,
             additional={"fwk_params": fwk_params, "ext_params": ext_params},
@@ -346,12 +346,13 @@ class Node(BaseNode):
                 f"Auto insert configuration data to `ctr_data_pipeline` "
                 f"for {self.name!r}"
             )
+            self.make_watermark()
             self.watermark_refresh()
 
     @validator("watermark", pre=True, always=True)
     def __prepare_watermark(cls, value: DictKeyStr, values):
         try:
-            wtm: DictKeyStr = Control("ctr_data_pipeline").pull(
+            wtm: DictKeyStr = WTM_DEFAULT | Control("ctr_data_pipeline").pull(
                 pm_filter=[values["name"]]
             )
         except DatabaseProcessError:
