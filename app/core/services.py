@@ -23,6 +23,7 @@ from conf.settings import settings
 from .__types import DictKeyStr
 from .base import (
     PARAMS,
+    get_cal_date,
     get_plural,
     get_process_date,
     get_run_date,
@@ -70,6 +71,7 @@ from .statements import (
     SchemaStatement,
     TableStatement,
     reduce_in_value,
+    reduce_stm,
     reduce_value,
     reduce_value_pairs,
 )
@@ -148,17 +150,15 @@ def query_explain(statement: str, parameters: ParamType = True) -> dict:
     )
 
 
-def get_time_checkpoint(
-    date_type: Optional[str] = None,
-) -> Union[datetime, date]:
-    return get_run_date(date_type=(date_type or "date_time"))
-
-
 class MapParameterService(MapParameter):
 
     @validator("ext_params", always=True)
     def __prepare_ext_params(cls, value: DictKeyStr) -> DictKeyStr:
-        return value | Control.params()
+        try:
+            return value | Control.params()
+        except DatabaseProcessError:
+            logger.warning("Control Data Parameter does not exists.")
+            return value
 
     @validator("fwk_params", pre=True, always=True)
     def __prepare_fwk_params(
@@ -242,13 +242,14 @@ class BaseAction(MapParameterService, FunctionStatement):
                     f"from query explain checking"
                 ) from err
         else:
-            if not self.exists() and _auto_create:
-                self.create()
-            else:
-                raise FuncNotFound(
-                    f"Table {self.name} not found in the AI Database, "
-                    f"Please set `func_auto_create`."
-                )
+            if not self.exists():
+                if _auto_create:
+                    self.create()
+                else:
+                    raise FuncNotFound(
+                        f"Table {self.name} not found in the AI Database, "
+                        f"Please set `func_auto_create`."
+                    )
 
     def exists(self) -> bool:
         """Push exists statement to target database."""
@@ -325,12 +326,15 @@ class BaseNode(MapParameterService, TableStatement):
         cls,
         name: str,
         fwk_params: DictKeyStr,
-        ext_params: DictKeyStr,
+        ext_params: Optional[DictKeyStr] = None,
     ) -> Self:
         """Parsing all parameters from Task before Running the Node."""
         return cls.parse_name(
             name,
-            additional={"fwk_params": fwk_params, "ext_params": ext_params},
+            additional={
+                "fwk_params": fwk_params,
+                "ext_params": (ext_params or {}),
+            },
         )
 
     @property
@@ -354,7 +358,27 @@ class BaseNode(MapParameterService, TableStatement):
         query_execute(self.statement_create(), parameters=True)
         return self
 
-    def drop(self): ...
+    def create_backup(self): ...
+
+    def create_partition(self): ...
+
+    def drop(
+        self,
+        cascade: bool = False,
+        execute: bool = True,
+    ) -> Optional[str]:
+        rows: int = self.count()
+        logger.warning(
+            f"Drop table {self.name!r} "
+            f"{f'with {rows} row{get_plural(rows)} ' if rows > 0 else ''}"
+            f"successful"
+        )
+        if execute:
+            query_execute(self.statement_drop(cascade=cascade), parameters=True)
+            return
+        return self.statement_drop(cascade=cascade)
+
+    def drop_partition(self): ...
 
     def make_log(self, values: Optional[dict] = None):
         return Control("ctr_data_logging").create(
@@ -369,6 +393,21 @@ class BaseNode(MapParameterService, TableStatement):
                 }
                 | (values or {})
             )
+        )
+
+    def pull_log(self, action_type: str, all_flag: bool = False):
+        """Pull logging data from the Control Data Logging."""
+        return Control("ctr_data_logging").pull(
+            pm_filter={
+                "table_name": self.name,
+                "run_date": (
+                    self.fwk_params.run_date.strftime("%Y-%m-%d")
+                    if not all_flag
+                    else "*"
+                ),
+                "action_type": action_type,
+            },
+            all_flag=all_flag,
         )
 
     def log(self, values: Optional[dict] = None):
@@ -416,9 +455,23 @@ class BaseNode(MapParameterService, TableStatement):
             )
             return 0
 
+    def count(self, condition: Optional[Union[str, list]] = None) -> int:
+        if condition:
+            _condition: list = (
+                [condition] if isinstance(condition, str) else condition
+            )
+            return query_select_row(
+                self.statement_count_condition(),
+                parameters={"condition": " and ".join(_condition)},
+            )
+        return query_select_row(self.statement_count(), parameters={})
+
+    def init(self): ...
+
 
 class Node(BaseNode):
 
+    choose: list[str] = Field(default_factory=list)
     watermark: ControlWatermark = Field(
         default_factory=dict,
         description="Node watermark data from Control Pipeline",
@@ -426,6 +479,10 @@ class Node(BaseNode):
 
     def __init__(self, **data):
         super().__init__(**data)
+        self.__validate_create()
+        self.__validate_quota()
+
+    def __validate_create(self):
         _auto_create: bool = must_bool(
             self.fwk_params.task_params.others.get("auto_create", "Y"),
             force_raise=True,
@@ -441,7 +498,10 @@ class Node(BaseNode):
                 f"`auto_create` was set be True"
             )
             self.create()
-        if self.watermark.table_name == UNDEFINED:
+        if (
+            self.watermark.table_name == UNDEFINED
+            and self.fwk_params.run_mode != TaskComponent.RECREATED
+        ):
             if not _auto_create:
                 raise ControlTableNotExists(
                     f"Table name: {self.name} does not exists "
@@ -453,6 +513,8 @@ class Node(BaseNode):
             )
             self.make_watermark()
             self.watermark_refresh()
+
+    def __validate_quota(self): ...
 
     @validator("watermark", pre=True, always=True)
     def __prepare_watermark(cls, value: DictKeyStr, values):
@@ -479,12 +541,146 @@ class Node(BaseNode):
         )
 
 
-class ManageNode(Node):
+class NodeManage(Node):
+
     def backup(self): ...
 
-    def retention(self): ...
+    def pull_max_data_date(self, default: bool = True) -> Optional[date]:
+        """Pull max data date that use the retention column for sorting."""
+        _default_value: Optional[date] = (
+            datetime.strptime("1990-01-01", "%Y-%m-%d").date()
+            if default
+            else None
+        )
+        if any(col == "undefined" for col in self.watermark.rtt_column):
+            return _default_value
+        elif len(self.watermark.rtt_column) > 1:
+            raise CatalogArgumentError(
+                "Pull max data date does not support for composite rtt columns"
+            )
+        return date.fromisoformat(
+            query_select_one(
+                PARAMS.ps_stm.pull_max_data_date,
+                parameters={
+                    "table_name": self.name,
+                    "ctr_rtt_col": self.watermark.rtt_column[0],
+                },
+            ).get("max_date", _default_value)
+        )
 
-    def init(self): ...
+    def delete_with_date(
+        self,
+        del_date: str,
+        del_mode: Optional[str] = None,
+    ) -> int:
+        _primary_key: list[str] = self.profile.primary_key
+        _primary_key_group: str = ",".join(
+            [str(_) for _ in range(1, len(_primary_key) + 1)]
+        )
+        _primary_key_mark_a: str = ",".join(
+            [f"a.{col}" for col in _primary_key]
+        )
+        _primary_key_join_a_and_b: str = "on " + " and ".join(
+            [f"a.{col} = b.{col}" for col in _primary_key]
+        )
+        if self.watermark.table_type == "master" and del_mode == "rtt":
+            _stm: str = reduce_stm(PARAMS.ps_stm.push_del_with_date.master_rtt)
+        elif self.watermark.table_type != "master":
+            _stm: str = reduce_stm(PARAMS.ps_stm.push_del_with_date.not_master)
+        else:
+            return 0
+        return query_select_row(
+            _stm,
+            parameters={
+                # TODO: rtt_column must be list of 1 column value
+                "ctr_rtt_col": self.watermark.rtt_column[0],
+                "ctr_rtt_value": self.watermark.rtt_value,
+                "del_operation": ("<" if del_mode == "rtt" else ">="),
+                "del_date": del_date,
+                "table_name": self.name,
+                "primary_key": ", ".join(_primary_key),
+                "primary_key_group": _primary_key_group,
+                "primary_key_mark_a": _primary_key_mark_a,
+                "primary_key_join_a_and_b": _primary_key_join_a_and_b,
+            },
+        )
+
+    def retention_date(
+        self,
+        rtt_mode: str,
+        rtt_date_type: Optional[str] = None,
+    ) -> date:
+        """Pull min retention date with mode, like `data_date` or `run_date`"""
+        _input_date: date = (
+            self.pull_max_data_date()
+            if rtt_mode == "data_date"
+            else self.fwk_params.run_date
+        )
+        _run_type: str = rtt_date_type or "monthly"
+        return get_process_date(
+            run_date=get_cal_date(
+                data_date=_input_date,
+                mode="sub",
+                run_type=_run_type,
+                cal_value=self.watermark.rtt_value,
+                date_type="date",
+            ),
+            run_type=_run_type,
+            date_type="date",
+        )
+
+    def __retention(self, rtt_date: date):
+        _start_time: datetime = self.fwk_params.checkpoint()
+        self.make_log(
+            values={
+                "data_date": rtt_date.strftime("%Y-%m-%d"),
+                "action_type": "retention",
+            }
+        )
+        try:
+            _rtt_row: int = self.delete_with_date(
+                del_date=rtt_date.strftime("%Y-%m-%d"), del_mode="rtt"
+            )
+            logger.info(
+                f"Success Delete data_date that less than {rtt_date:%Y-%m-%d} "
+                f"with {_rtt_row} row{get_plural(_rtt_row)}"
+            )
+            self.log(
+                values={
+                    "action_type": "retention",
+                    "row_record": _rtt_row,
+                    "process_time": self.fwk_params.duration(_start_time),
+                    "status": 0,
+                }
+            )
+        except DatabaseProcessError as err:
+            _rtt_row: int = 0
+            self.log(
+                values={
+                    "action_type": "retention",
+                    "process_time": self.fwk_params.duration(_start_time),
+                    "status": 1,
+                }
+            )
+            raise err
+        return _rtt_row
+
+    def retention(self):
+        if self.watermark.rtt_value == 0:
+            logger.info(
+                "Skip retention process because `ctr_rtt_value` equal 0 or "
+                "does not set in Control Framework table"
+            )
+            return 0
+        logger.info(
+            f"Process Retention value: {self.watermark.rtt_value} month with "
+            f"mode: {self.ext_params.get('data_retention_mode', 'data_date')}"
+        )
+        return self.__retention(
+            rtt_date=self.retention_date(
+                rtt_mode=self.ext_params.get("data_retention_mode", "data_date")
+            )
+        )
 
 
 class NodeLocal(Node):
@@ -534,7 +730,7 @@ class NodeIngest(Node):
     ) -> tuple[int, int]:
         ps_row_success: int = 0
         ps_row_failed: int = 0
-        _start_time: datetime = get_time_checkpoint()
+        _start_time: datetime = self.fwk_params.checkpoint()
         self.make_log(
             values={
                 "data_date": update_date.strftime("%Y-%m-%d"),
@@ -599,11 +795,7 @@ class NodeIngest(Node):
                     values={
                         "action_type": "ingestion",
                         "row_record": {1: ps_row_success, 2: ps_row_failed},
-                        "process_time": round(
-                            (
-                                get_time_checkpoint() - _start_time
-                            ).total_seconds()
-                        ),
+                        "process_time": self.fwk_params.duration(_start_time),
                         "status": 0,
                     }
                 )
@@ -612,11 +804,7 @@ class NodeIngest(Node):
                     values={
                         "action_type": "ingestion",
                         "row_record": {1: ps_row_success, 2: ps_row_failed},
-                        "process_time": round(
-                            (
-                                get_time_checkpoint() - _start_time
-                            ).total_seconds()
-                        ),
+                        "process_time": self.fwk_params.duration(_start_time),
                         "status": 1,
                     }
                 )

@@ -99,6 +99,24 @@ def migrate(condition: str, debug: bool):
 
 
 @click.command(
+    name="init",
+    short_help="run initial setup to target database",
+)
+def init():
+    """Run initial setup to target database."""
+    from app.controls import (
+        push_ctr_setup,
+        push_func_setup,
+        push_schema_setup,
+    )
+
+    click.echo("Start Initial create tables to target database ...")
+    push_schema_setup()
+    push_func_setup()
+    push_ctr_setup()
+
+
+@click.command(
     name="run",
     short_help="run application server",
 )
@@ -110,11 +128,6 @@ def migrate(condition: str, debug: bool):
     "--api", is_flag=True, help="run application only the API component"
 )
 @click.option(
-    "--recreated",
-    is_flag=True,
-    help="re-create control tables to target database",
-)
-@click.option(
     "--server",
     is_flag=True,
     help="run application with WSGI server",
@@ -123,7 +136,6 @@ def runserver(
     debug: bool = False,
     thread: bool = False,
     api: bool = False,
-    recreated: bool = False,
     server: bool = False,
 ):
     """Run WSGI Application or Server which implement by waitress.
@@ -149,10 +161,7 @@ def runserver(
     logger.debug("Testing logging ...")
 
     # application factory able to use file `wsgi.py`
-    app: Flask = create_app(
-        frontend=(not api),
-        recreated=recreated,
-    )
+    app: Flask = create_app(frontend=(not api))
     if server:
         from waitress import serve
 
@@ -188,6 +197,7 @@ def test():
 
 cli.add_command(load)
 cli.add_command(migrate)
+cli.add_command(init)
 cli.add_command(runserver)
 cli.add_command(test)
 

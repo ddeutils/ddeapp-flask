@@ -597,7 +597,7 @@ class TblCatalog:
             _result[ps] = stm.mapping()
         return _result
 
-    # [x] Migrate to modern style
+    # [x] Migrate to modern style TableStatement
     def get_tbl_stm_drop(self, cascade: bool = False) -> str:
         _cascade: str = "cascade" if cascade else ""
         return reduce_stm(
@@ -606,7 +606,7 @@ class TblCatalog:
             )
         )
 
-    # [x] Migrate to modern style
+    # [x] Migrate to modern style TableStatement
     def get_tbl_stm_create(self) -> str:
 
         foreign: dict = self.tbl_foreign_key

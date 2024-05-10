@@ -84,6 +84,7 @@ class TaskComponent(str, Enum):
     FRAMEWORK = "framework"
     INGESTION = "ingestion"
     ANALYTIC = "analytic"
+    RECREATED = "recreated"
     UNDEFINED = UNDEFINED
 
 

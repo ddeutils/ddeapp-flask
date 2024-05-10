@@ -66,13 +66,14 @@ pip install --no-cache-dir -r requirements.txt
 After setup environment variables and dependencies, we can run by this command:
 
 ```shell
-python .\manage.py run --help
+$ python .\manage.py run --help
 ```
 
 For the first time, you should create all tables to database:
 
 ```shell
-python .\manage.py run --api --debug --recreated
+$ python .\manage.py init
+$ python .\manage.py run --api --debug --recreated
 ```
 
 ### Components

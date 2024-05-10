@@ -8,30 +8,30 @@ from __future__ import annotations
 import queue
 from typing import Callable
 
-from ....core.__legacy.objects import (
+from app.core.__legacy.objects import (
     Node as LegacyNode,
 )
-from ....core.__legacy.objects import (
+from app.core.__legacy.objects import (
     ObjectType,
     Pipeline,
 )
-from ....core.errors import (
+from app.core.errors import (
     ObjectBaseError,
     ProcessStatusError,
 )
-from ....core.models import (
+from app.core.models import (
+    FAILED,
     CommonResult,
     Result,
-    Status,
     TaskComponent,
     TaskMode,
 )
-from ....core.services import (
+from app.core.services import (
     Schema,
     Task,
 )
-from ....core.utils.config import Params
-from ....core.utils.logging_ import logging
+from app.core.utils import logging
+from app.core.utils.config import Params
 
 logger = logging.getLogger(__name__)
 registers = Params(param_name="registers.yaml")
@@ -51,7 +51,7 @@ def run_tbl_setup(node: LegacyNode, task: Task) -> Result:
             node.push_tbl_drop(cascade=task.parameters.cascade)
             record_stm = f" with drop table in {node.process_time} sec"
         else:
-            if node.name in {"ctr_data_pipeline", "ctr_data_parameter"}:
+            if node.name in ("ctr_data_pipeline", "ctr_data_parameter"):
                 node.auto_init = True
             row_record: int = node.push_tbl_create(
                 force_drop=node.auto_drop,
@@ -64,9 +64,7 @@ def run_tbl_setup(node: LegacyNode, task: Task) -> Result:
                 )
         result.message = f"Success: Setup {node.name!r}{record_stm}"
     except ObjectBaseError as err:
-        result.update(
-            f"Error: {err.__class__.__name__}: {str(err)}", Status.FAILED
-        )
+        result.update(f"Error: {err.__class__.__name__}: {str(err)}", FAILED)
         logger.error(result.message)
     return result
 
@@ -91,9 +89,7 @@ def run_tbl_data(node: LegacyNode, task: Task) -> Result:
                 f"({ps_row} rows, {node.process_time} sec)"
             )
     except ObjectBaseError as err:
-        result.update(
-            f"Error: {err.__class__.__name__}: {str(err)}", Status.FAILED
-        )
+        result.update(f"Error: {err.__class__.__name__}: {str(err)}", FAILED)
         logger.error(result.message)
     return result
 
@@ -130,9 +126,7 @@ def run_tbl_retention(node: LegacyNode, task: Task) -> Result:
             f"({', '.join(msg_row)}, {node.process_time} sec)"
         )
     except ObjectBaseError as err:
-        result.update(
-            f"Error: {err.__class__.__name__}: {str(err)}", Status.FAILED
-        )
+        result.update(f"Error: {err.__class__.__name__}: {str(err)}", FAILED)
         logger.error(result.message)
     return result
 
@@ -146,11 +140,13 @@ def run_schema_drop(
     try:
         if schema.exists:
             logger.warning(f"Schema {schema.name!r} was exists in database")
-        result.message = f"Success: Drop schema {schema.name!r} with {cascade}"
-    except ObjectBaseError as err:
-        result.update(
-            f"Error: {err.__class__.__name__}: {str(err)}", Status.FAILED
+            schema.drop(cascade=cascade)
+        result.message = (
+            f"Success: Drop schema {schema.name!r} with "
+            f"{'cascade' if cascade else ''}"
         )
+    except ObjectBaseError as err:
+        result.update(f"Error: {err.__class__.__name__}: {str(err)}", FAILED)
         logger.error(result.message)
     return result
 
@@ -164,7 +160,7 @@ MAP_MODULE_FUNC: dict[str, Callable] = {
 def _task_gateway(task: Task, obj: ObjectType) -> Task:
     """Task Gateway for running task with difference `ps_obj` type (Node nor
     Pipeline)."""
-    logger.info(f"START {task.release.index:02d}: {f'{obj.name} ':~<30}'")
+    logger.info(f"START {task.release.index:02d}: {f'{obj.name} ':~<50}'")
     if task.parameters.is_table():
         task.push(
             values={"process_name_get": obj.name, "run_date_get": obj.run_date}
@@ -200,64 +196,56 @@ def foreground_tasks(
     Control Task Schedule.
     """
     result: Result = CommonResult()
-    task: Task = Task.parse_obj(
+    with Task.parse_obj(
         {
             "module": module,
             "parameters": external_parameters,
             "mode": TaskMode.FOREGROUND,
             "component": TaskComponent.FRAMEWORK,
         }
-    )
-    logger.info(
-        f"Start run foreground task: {task.id!r} "
-        f"at time: {task.start_time:%Y-%m-%d %H:%M:%S}"
-    )
-
-    if task.parameters.drop_schema:
+    ) as task:
+        logger.info(
+            f"Start run foreground task: {task.id!r} "
+            f"at time: {task.start_time:%Y-%m-%d %H:%M:%S}"
+        )
+        if task.parameters.drop_schema:
+            for _, run_date in task.runner():
+                logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
+                task.receive(
+                    MAP_MODULE_FUNC["drop_schema"](
+                        schema=Schema(),
+                        cascade=task.parameters.cascade,
+                    )
+                )
+                logger.info(
+                    f"End foreground task: {task.id!r} "
+                    f"with duration: {task.duration():.2f} sec"
+                )
+                break
+            return result.update(task.message, task.status)
         for _, run_date in task.runner():
             logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
-            task.receive(
-                MAP_MODULE_FUNC["drop_schema"](
-                    schema=Schema(),
-                    cascade=task.parameters.cascade,
-                )
+            ps_obj: ObjectType = ObjectMap[task.parameters.type](
+                name=task.parameters.name,
+                process_id=task.id,
+                run_mode=task.parameters.others.get("run_mode", "common"),
+                run_date=run_date,
+                auto_init=task.parameters.others.get("initial_data", "N"),
+                auto_drop=task.parameters.others.get("drop_before_create", "N"),
+                external_parameters=external_parameters,
             )
-            logger.info(
-                f"End foreground task: {task.id!r} "
-                f"with duration: {task.duration():.2f} sec"
-            )
-
-            # Ingestion only first date
-            break
-
-        return result.update(task.message, task.status)
-
-    for _, run_date in task.runner():
-        logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
-        ps_obj: ObjectType = ObjectMap[task.parameters.type](
-            name=task.parameters.name,
-            process_id=task.id,
-            run_mode=task.parameters.others.get("run_mode", "common"),
-            run_date=run_date,
-            auto_init=task.parameters.others.get("initial_data", "N"),
-            auto_drop=task.parameters.others.get("drop_before_create", "N"),
-            external_parameters=external_parameters,
+            # TODO: add waiting process by queue
+            task.start(ps_obj.process_count)
+            try:
+                # Start push the task to target execute function.
+                task: Task = _task_gateway(task, ps_obj)
+            except ProcessStatusError as err:
+                logger.warning(f"Process was break because raise from {err}")
+                break
+        logger.info(
+            f"End foreground task: {task.id!r} with duration: "
+            f"{task.duration():.2f} sec"
         )
-        # TODO: add waiting process by queue
-        task.start(ps_obj.process_count)
-        try:
-            # Start push the task to target execute function.
-            task: Task = _task_gateway(task, ps_obj)
-        except ProcessStatusError:
-            logger.warning(
-                "Process was break because raise by `ProcessStatusError` ..."
-            )
-            break
-    task.finish()
-    logger.info(
-        f"End foreground task: {task.id!r} "
-        f"with duration: {task.duration():.2f} sec"
-    )
     return result.update(task.message, task.status)
 
 

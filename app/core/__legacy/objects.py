@@ -10,7 +10,6 @@ import builtins
 import datetime as dt
 import functools
 import inspect
-import itertools
 import time
 from typing import (
     Any,
@@ -25,10 +24,8 @@ from sqlalchemy.exc import ProgrammingError
 
 from app.core.base import get_catalogs
 from app.core.connections.postgresql import (
-    ParamType,
     query_execute,
     query_execute_row,
-    query_insert_from_csv,
     query_select,
     query_select_df,
     query_select_one,
@@ -40,14 +37,12 @@ from app.core.errors import (
     ControlTableValueError,
     DatabaseProcessError,
     DatabaseSchemaNotExists,
-    ObjectBaseError,
     ProcessValueError,
     TableArgumentError,
     TableNotFound,
     TableNotImplement,
 )
 from app.core.__legacy.base import (
-    AI_APP_PATH,
     PipeCatalog,
     TblCatalog,
     filter_ps_type,
@@ -57,13 +52,10 @@ from app.core.__legacy.base import (
     get_process_id,
     get_run_date,
     params,
-    registers,
     sort_by_priority,
     verbose_log,
 )
 from app.core.__legacy.convertor import (
-    Statement,
-    Value,
     reduce_in_value,
     reduce_stm,
     reduce_text,
@@ -81,10 +73,7 @@ from app.core.utils.reusables import (
     merge_dicts,
     must_bool,
     only_one,
-    path_join,
-    split_iterable,
 )
-from conf.settings import settings
 
 env = Environs(env_name=".env")
 logger = logging.getLogger(__name__)
@@ -117,27 +106,6 @@ def query_select_check(
 
 
 # [x] Migrate to modern style by `Schema` Model
-def push_schema_create(schema_name: str):
-    """Push create schema."""
-    query_execute(
-        reduce_stm(params.bs_stm.create.schema),
-        parameters={"schema_name": schema_name},
-    )
-
-
-# [x] Migrate to modern style by `Schema` Model
-def push_schema_drop(schema_name: str, cascade: bool = False):
-    """Push drop schema."""
-    query_execute(
-        reduce_stm(params.bs_stm.drop.schema),
-        parameters={
-            "schema_name": schema_name,
-            "cascade": ("cascade" if cascade else ""),
-        },
-    )
-
-
-# [x] Migrate to modern style by `Schema` Model
 def check_schema_exists(schema_name: str) -> bool:
     """Check schema exists in database."""
     return query_select_check(
@@ -150,7 +118,7 @@ def check_ai_exists() -> bool:
     return check_schema_exists(schema_name=env.get("AI_SCHEMA", "ai"))
 
 
-# [x] Migrate to ./services
+# [x] Migrate to ./validators `FrameworkParameter.checkpoint`
 def get_time_checkpoint(
     date_type: Optional[str] = None,
 ) -> Union[dt.datetime, dt.date]:
@@ -242,6 +210,7 @@ class Control:
         except DatabaseProcessError:
             return {}
 
+    # [x] Migrate to modern style by `Control` service
     @classmethod
     def tables(cls, condition: Optional[str] = None) -> list[dict]:
         """Get all tables with `condition` argument from `ctr_data_pipeline` in
@@ -274,15 +243,6 @@ class Control:
         )
         return [{"table_name": name} for name in _sorted]
 
-    @classmethod
-    def catalogs(cls) -> list[dict]:
-        """Get all catalogs from all configuration file at `./conf/catalog`
-        path."""
-        _result: list = list(
-            get_catalogs(config_form="catalog", priority_sorted=True).keys()
-        )
-        return [{"catalog_name": _} for _ in _result]
-
     def __init__(self, ctr: Union[TblCatalog, str]):
         """Main Initialization of Control object."""
         if isinstance(ctr, TblCatalog):
@@ -299,10 +259,12 @@ class Control:
         self.ctr_cols_exc_pk: list = self.ctr.get_tbl_columns(pk_included=False)
         self.ctr_pk: list = self.ctr.tbl_primary_key
 
+    # [x] Migrate to modern style by `Control.node` service
     @property
     def name(self) -> str:
         return self.ctr.tbl_name
 
+    # [x] Migrate to modern style by `Control.node` service
     @property
     def name_short(self) -> str:
         return self.ctr.tbl_name_sht
@@ -376,6 +338,7 @@ class Control:
             },
         )
 
+    # [x] Migrate to modern style by `Control` service
     def push(
         self,
         push_values: dict,
@@ -437,6 +400,7 @@ class Control:
             },
         )
 
+    # [x] Migrate to modern style by `Control` service
     def update(
         self, update_values: dict, condition: Optional[str] = None
     ) -> int:
@@ -583,6 +547,7 @@ class TblProcess(TblCatalog):
             self.tbl_run_date, self.tbl_ctr_run_type, date_type="date"
         )
 
+    # [x] Migrate to modern `MapParameterService.filter_params`
     @property
     def tbl_parameters(self) -> dict:
         return merge_dicts(
@@ -593,34 +558,42 @@ class TblProcess(TblCatalog):
             self.fwk_parameters,
         )
 
+    # [x] Migrate to schema `ControlWatermark`
     @property
     def tbl_ctr_run_count_now(self) -> int:
         return int(float(self.tbl_ctr_data["run_count_now"]))
 
+    # [x] Migrate to schema `ControlWatermark`
     @property
     def tbl_ctr_run_count_max(self) -> int:
         return int(float(self.tbl_ctr_data["run_count_max"]))
 
+    # [x] Migrate to schema `ControlWatermark`
     @property
     def tbl_ctr_tbl_type(self) -> str:
         return self.tbl_ctr_data["table_type"]
 
+    # [x] Migrate to schema `ControlWatermark`
     @property
     def tbl_ctr_run_type(self) -> str:
         return self.tbl_ctr_data["run_type"]
 
+    # [x] Migrate to schema `ControlWatermark`
     @property
     def tbl_ctr_data_date(self) -> dt.date:
         return dt.date.fromisoformat(self.tbl_ctr_data["data_date"])
 
+    # [x] Migrate to schema `ControlWatermark`
     @property
     def tbl_ctr_run_date(self) -> dt.date:
         return dt.date.fromisoformat(self.tbl_ctr_data["run_date"])
 
+    # [x] Migrate to schema `ControlWatermark`
     @property
     def tbl_ctr_rtt_value(self) -> int:
         return int(float(self.tbl_ctr_data["rtt_value"]))
 
+    # [x] Migrate to schema `ControlWatermark`
     @property
     def tbl_ctr_rtt_column(self) -> Union[str, list]:
         try:
@@ -635,6 +608,7 @@ class TblProcess(TblCatalog):
             # before call this property.
             return "undefined"
 
+    # [x] Migrate to `BaseNode.exists`
     @property
     def check_tbl_exists(self) -> bool:
         """Check table exists."""
@@ -643,6 +617,7 @@ class TblProcess(TblCatalog):
             parameters={"table_name": self.tbl_name},
         )
 
+    # [x] Migrate to `Node.count`
     def pull_tbl_count(self, condition: Optional[Union[str, list]] = None):
         if condition:
             _condition: list = (
@@ -659,6 +634,7 @@ class TblProcess(TblCatalog):
             params.ps_stm.pull_count, parameters={"table_name": self.tbl_name}
         )
 
+    # [x] Migrate to modern on service `Node.pull_max_data_date`
     def pull_tbl_max_data_date(self, default: bool = True) -> Optional[dt.date]:
         """Pull max data date that use the retention column for sorting."""
         _default_value: Optional[dt.date] = (
@@ -679,6 +655,7 @@ class TblProcess(TblCatalog):
             ).get("max_date", _default_value)
         )
 
+    # [x] Migrate to modern on service `Node.retention_date`
     def pull_tbl_retention_date(
         self,
         rtt_mode: str,
@@ -717,6 +694,7 @@ class TblProcess(TblCatalog):
             )
         }
 
+    # [x] Migrate to `Node.watermark`
     def pull_tbl_from_ctr_pipeline(self) -> dict:
         """Pull configuration data from the Control Data Pipeline."""
         try:
@@ -725,6 +703,7 @@ class TblProcess(TblCatalog):
             logger.warning("control table `ctr_data_pipeline` does not exits")
             return {}
 
+    # [x] Migrate to `BaseNode.pull_log`
     def pull_tbl_from_ctr_logging(
         self, action_type: str, all_flag: bool = False
     ):
@@ -742,6 +721,7 @@ class TblProcess(TblCatalog):
             all_flag=all_flag,
         )
 
+    # [x] Migrate to `BaseNode.drop`
     def push_tbl_drop(
         self,
         cascade: bool = False,
@@ -755,8 +735,6 @@ class TblProcess(TblCatalog):
         if not execute:
             return self.get_tbl_stm_drop(cascade=cascade)
         query_execute(self.get_tbl_stm_drop(cascade=cascade), parameters=True)
-
-    def push_tbl_drop_partition(self): ...
 
     def push_tbl_create(
         self,
@@ -819,133 +797,6 @@ class TblProcess(TblCatalog):
                 f"{get_plural(row_num)}"
             )
         return row_num
-
-    def push_tbl_create_bk(self): ...
-
-    def push_tbl_create_partition(self): ...
-
-    # [x] Migrate to NodeIngest services with ``NodeIngest.__ingest``
-    def push_tbl_insert(self, columns: list, value: str) -> int:
-        """Push Insert values to target table :warning: columns must have
-        primary key."""
-        return query_execute_row(
-            self.get_tbl_stm_ingest(),
-            parameters={
-                "string_columns": ", ".join(columns),
-                "string_values": value,
-            },
-        )
-
-    # [x] Migrate to NodeIngest services with ``NodeIngest.__ingest``
-    def push_tbl_update(self, columns: list, value: str) -> int:
-        """Push Update values to target table.
-
-        Warning:
-            columns must have primary key.
-        """
-        _map_columns_type: dict = {
-            col: attrs["datatype"]
-            for col, attrs in self.get_tbl_columns(
-                pk_included=True,
-                datatype_included=True,
-            ).items()
-        }
-        string_columns_pairs: str = ", ".join(
-            [
-                f"{col} = {self.tbl_name_sht}_ud.{col}"
-                f"::{_map_columns_type[col]}"
-                for col in columns
-                if col not in self.tbl_primary_key
-            ]
-        )
-        return query_execute_row(
-            self.get_tbl_stm_update(),
-            parameters={
-                "string_columns": ", ".join(columns),
-                "string_columns_pairs": string_columns_pairs,
-                "string_values": value,
-            },
-        )
-
-    # [x] Migrate to NodeIngest services with ``NodeIngest.__ingest``
-    def push_tbl_ingestion(
-        self,
-        payloads: list,
-        mode: str,
-        action: str,
-        update_date: dt.datetime,
-    ) -> tuple[int, int]:
-        ps_row_success: int = 0
-        ps_row_failed: int = 0
-        _start_time: dt.datetime = get_time_checkpoint()
-        self.push_tbl_to_ctr_logging(
-            push_values={
-                "data_date": update_date.strftime("%Y-%m-%d"),
-                "update_date": update_date.strftime("%Y-%m-%d %H:%M:%S"),
-                "action_type": "ingestion",
-            }
-        )
-
-        # Note: Chuck size for merge mode will be split from the first level
-        # of payloads.
-        for index, data in enumerate(
-            split_iterable(payloads, settings.APP_INGEST_CHUCK),
-            start=1,
-        ):
-            try:
-                cols, values = Value(
-                    values=data,
-                    update_date=update_date.strftime("%Y-%m-%d %H:%M:%S"),
-                    mode=mode,
-                    action=action,
-                    expected_cols=self.get_tbl_columns(
-                        pk_included=True, datatype_included=True
-                    ),
-                    expected_pk=self.tbl_primary_key,
-                ).generate()
-                row_ingest: int = (
-                    self.push_tbl_update(cols, values)
-                    if action == "update"
-                    else self.push_tbl_insert(cols, values)
-                )
-                _failed: int = 0
-                if row_ingest != (_row_generate := (values.count("), (") + 1)):
-                    _failed: int = _row_generate - row_ingest
-                    ps_row_failed += _failed
-                ps_row_success += row_ingest
-                logger.info(
-                    f"Ingest chunk {index:02d}: "
-                    f"(success: {row_ingest} row{get_plural(row_ingest)},"
-                    f"false: {_failed} row{get_plural(_failed)})"
-                )
-                self.update_tbl_to_ctr_logging(
-                    update_values={
-                        "action_type": "ingestion",
-                        "row_record": {1: ps_row_success, 2: ps_row_failed},
-                        "process_time": round(
-                            (
-                                get_time_checkpoint() - _start_time
-                            ).total_seconds()
-                        ),
-                        "status": 0,
-                    }
-                )
-            except ObjectBaseError as err:
-                self.update_tbl_to_ctr_logging(
-                    update_values={
-                        "action_type": "ingestion",
-                        "row_record": {1: ps_row_success, 2: ps_row_failed},
-                        "process_time": round(
-                            (
-                                get_time_checkpoint() - _start_time
-                            ).total_seconds()
-                        ),
-                        "status": 1,
-                    }
-                )
-                logger.error(f"Error: {err.__class__.__name__}: {str(err)}")
-                raise err
-        return ps_row_success, ps_row_failed
 
     def push_tbl_diff(self):
         # Get mapping of different columns between config table
@@ -1071,6 +922,7 @@ class TblProcess(TblCatalog):
             parameters={"table_name": self.tbl_name, "condition": condition},
         )
 
+    # [x] Migrate to modern on service `Node.delete_with_date`
     def push_tbl_del_with_date(
         self, delete_date: str, delete_mode: Optional[str] = None
     ) -> int:
@@ -1335,6 +1187,7 @@ class TblProcess(TblCatalog):
             logger.error(f"Error: {err.__class__.__name__}: {str(err)}")
         return _backup_row
 
+    # [x] Migrate to modern on service `Node.__retention`
     def push_tbl_retention(self, rtt_date: dt.date) -> int:
         _start_time: dt.datetime = get_time_checkpoint()
         self.push_tbl_to_ctr_logging(
@@ -1787,6 +1640,7 @@ class Node(TblProcess):
     def retention_date(self) -> dt.date:
         return self.pull_tbl_retention_date(rtt_mode=self.retention_mode)
 
+    # [x] Migrate to modern on service `Node.retention`
     def retention_start(self) -> int:
         _rtt_row: int = 0
         if self.tbl_ctr_rtt_value == 0:
@@ -1844,81 +1698,6 @@ class Node(TblProcess):
             if isinstance(_payloads_raw, dict)
             else _payloads_raw
         )
-
-    @property
-    def ingest_mode(self) -> str:
-        return self.node_tbl_params.get("ingest_mode", "common")
-
-    @property
-    def ingest_action(self) -> str:
-        return self.node_tbl_params.get("ingest_action", "insert")
-
-    def ingest_start(self) -> tuple[int, int]:
-        if self.ingest_mode not in {
-            "common",
-            "merge",
-        } or self.ingest_action not in {"insert", "update"}:
-            raise TableArgumentError(
-                f"Pair of ingest mode {self.ingest_mode!r} "
-                f"and action mode {self.ingest_action!r} "
-                f"does not support yet."
-            )
-
-        _update_date: dt.datetime = (
-            dt.datetime.fromisoformat(_update)
-            if (_update := self.node_tbl_params.get("update_date"))
-            else get_run_date("datetime")
-        )
-        if self.tbl_ctr_data_date > _update_date.date():
-            raise ControlTableValueError(
-                f"Please check value of `update_date`, which less than "
-                f"the current control data date: "
-                f"'{self.tbl_ctr_data_date:'%Y-%m-%d'}'"
-            )
-        _row_record: tuple[int, int] = self.push_tbl_ingestion(
-            payloads=self.ingest_payloads,
-            mode=self.ingest_mode,
-            action=self.ingest_action,
-            update_date=_update_date,
-        )
-        self.update_tbl_to_ctr_pipeline(
-            update_values={
-                "data_date": _update_date.strftime("%Y-%m-%d"),
-                # 'run_date': self.tbl_run_date.strftime('%Y-%m-%d'),
-            }
-        )
-        return _row_record
-
-    # [x] Migrate to NodeLocal services
-    def load_file(
-        self,
-        filename: str,
-        chunk_size: int = 10000,
-        truncate: bool = False,
-        compress: Optional[str] = None,
-    ):
-        filepath: str = path_join(
-            AI_APP_PATH, f"{registers.path.data}/{filename}"
-        )
-        file_props: dict = {
-            "filepath": filepath,
-            "table": self.name,
-            "props": {
-                "delimiter": "|",
-                "encoding": "utf-8",
-                "engine": "python",
-            },
-        }
-        for chunk, rows in query_insert_from_csv(
-            file_props,
-            chunk_size=chunk_size,
-            truncate=truncate,
-            compress=compress,
-        ):
-            logger.info(
-                f"Success with first chuck size {chunk} "
-                f"with {rows} row{get_plural(rows)}"
-            )
 
 
 class PipeProcess(PipeCatalog):
@@ -2003,7 +1782,6 @@ class PipeProcess(PipeCatalog):
                     f"database ..."
                 ),
             )
-            push_schema_create(schema_name=env.AI_SCHEMA)
         verbose_log(
             self,
             (

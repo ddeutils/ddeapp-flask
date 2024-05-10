@@ -1393,28 +1393,20 @@ class Schema(BaseUpdatableModel):
 class Parameter(BaseUpdatableModel):
     """Parameter Model that receive data from interface of framework."""
 
-    others: dict = Field(
-        default_factory=dict,
-        description="Other parameters",
-    )
+    others: dict = Field(default_factory=dict, description="Other parameters")
     type: ParameterType = Field(
         default=ParameterType.UNDEFINED.value, description="Parameter type"
     )
     name: Optional[str] = Field(default=None, description="Parameter name")
     dates: list[str] = Field(
-        default_factory=lambda: [get_run_date()], description="Parameter dates"
+        default_factory=lambda: [get_run_date()], description="List of date"
     )
     mode: ParameterMode = Field(
         default=ParameterMode.COMMON.value, description="Module mode parameter"
     )
-    drop_table: bool = Field(default=False, description="Drop Table parameter")
-    drop_schema: bool = Field(
-        default=False, description="Drop Schema parameter"
-    )
-    cascade: bool = Field(
-        default=False,
-        description="Cascade flag parameter",
-    )
+    drop_table: bool = Field(default=False, description="Drop Table flag")
+    drop_schema: bool = Field(default=False, description="Drop Schema flag")
+    cascade: bool = Field(default=False, description="Cascade flag")
 
     @root_validator(pre=True)
     def prepare_values(cls, values):
@@ -1457,7 +1449,7 @@ class Parameter(BaseUpdatableModel):
 class FrameworkParameter(BaseUpdatableModel):
     run_id: int
     run_date: date
-    run_mode: str
+    run_mode: TaskComponent
     task_params: Parameter = Field(
         default_factory=Parameter,
         description="Task parameters",
@@ -1467,13 +1459,16 @@ class FrameworkParameter(BaseUpdatableModel):
         description="Start datetime of this running framework parameter",
     )
 
-    def duration(self) -> int:
+    def duration(self, start: Optional[datetime] = None) -> int:
         """Generate duration since this model start initialize data."""
+        _start: datetime = start or self.start_time
         return round(
-            (
-                get_run_date(date_type="date_time") - self.start_time
-            ).total_seconds()
+            (get_run_date(date_type="date_time") - _start).total_seconds()
         )
+
+    @staticmethod
+    def checkpoint(date_type: Optional[str] = None):
+        return get_run_date(date_type=(date_type or "date_time"))
 
 
 class MapParameter(BaseUpdatableModel):
@@ -1522,10 +1517,7 @@ class Task(BaseUpdatableModel):
         default=Status.WAITING.value,
         description="Task status",
     )
-    id: Optional[str] = Field(
-        default=None,
-        description="Task ID",
-    )
+    id: Optional[str] = Field(default=None, description="Task ID")
     message: str = Field(default="", description="Task Message")
     start_time: datetime = Field(
         default_factory=partial(get_run_date, "date_time")

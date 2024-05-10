@@ -325,6 +325,19 @@ class TableStatement(Table):
             f"{_cascade}"
         )
 
+    def statement_count(self) -> str:
+        return reduce_stm(
+            f"SELECT {{ai_schema_name}}.func_count_if_exists("
+            f"'{{ai_schema_name}}', '{self.name}') AS row_number"
+        )
+
+    def statement_count_condition(self) -> str:
+        return reduce_stm(
+            f"SELECT COUNT(1) AS row_number "
+            f"FROM {{database_name}}.{{ai_schema_name}}.{self.name} "
+            f"WHERE {{condition}}"
+        )
+
     def conflict_set(
         self,
         excluded: Optional[list] = None,

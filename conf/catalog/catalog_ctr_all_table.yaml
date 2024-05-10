@@ -132,9 +132,9 @@ ctr_data_pipeline:
       update_date: "timestamp null"
       run_date: "date not null"
       run_type: "varchar( 64 ) null"
-      run_count_now: "numeric not null"
-      run_count_max: "numeric not null"
-      rtt_value: "numeric not null"
+      run_count_now: "integer not null"
+      run_count_max: "integer not null"
+      rtt_value: "int not null"
       rtt_column: "varchar( 256 ) null"
       active_flg: "varchar( 32 ) not null"
     primary_key: ['table_name']

@@ -28,13 +28,13 @@ control_frameworks:
     # Frontend control tables
     - name: 'sql:ctr_web_user'
     - name: 'sql:ctr_web_role'
-    - name: 'sql:ctr_web_user_role'
-    - name: 'sql:ctr_web_group'
-    - name: 'sql:ctr_web_group_to_group'
-    - name: 'sql:ctr_web_user_group'
-    - name: 'sql:ctr_web_group_role'
-    - name: 'sql:ctr_web_policy'
-    - name: 'sql:ctr_web_role_policy'
+#    - name: 'sql:ctr_web_user_role'
+#    - name: 'sql:ctr_web_group'
+#    - name: 'sql:ctr_web_group_to_group'
+#    - name: 'sql:ctr_web_user_group'
+#    - name: 'sql:ctr_web_group_role'
+#    - name: 'sql:ctr_web_policy'
+#    - name: 'sql:ctr_web_role_policy'
 
 functions:
     # This key was generated before this application started for

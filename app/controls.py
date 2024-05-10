@@ -21,10 +21,10 @@ from app.core.errors import (
     ObjectBaseError,
 )
 from app.core.models import (
-    FAILED,
     SUCCESS,
     Result,
     Status,
+    TaskComponent,
 )
 from app.core.services import (
     Action,
@@ -69,7 +69,7 @@ def push_func_setup(task: Optional[Task] = None) -> None:
     task: Task = task or Task.make(module="function_setup")
     for idx, _func_prop in enumerate(registers.functions, start=1):
         _func: Action = Action.parse_name(fullname=_func_prop["name"])
-        logger.info(f"START {idx:02d}: {f'{_func.name} ':~<30}")
+        logger.info(f"START {idx:02d}: {f'{_func.name} ':~<50}")
         if not _func.exists():
             _func.create()
             logger.info(
@@ -82,7 +82,6 @@ def push_ctr_setup(
     task: Optional[Task] = None,
 ) -> None:
     """Run Setup Control Framework table in `register.yaml`"""
-    from app.core.__legacy.objects import Node as LegacyNode
 
     task: Task = task or Task.make(module="control_setup")
     for idx, _ctr_prop in enumerate(
@@ -90,27 +89,21 @@ def push_ctr_setup(
         start=1,
     ):
         status: Status = SUCCESS
-        _node = Node.parse_name(fullname=_ctr_prop["name"])
-        logger.info(f"START {idx:02d}: {f'{_node.name} ':~<30}")
+        _node = Node.parse_task(
+            name=_ctr_prop["name"],
+            fwk_params={
+                "run_id": task.id,
+                "run_date": f"{task.start_time:%Y-%m-%d}",
+                "run_mode": TaskComponent.RECREATED,
+            },
+            ext_params={
+                "auto_init": "Y",
+            },
+        )
+        logger.info(f"START {idx:02d}: {f'{_node.name} ':~<50}")
+        # NOTE: Create without logging.
         if not _node.exists():
-            if _node.name in (
-                "ctr_data_logging",
-                "ctr_task_process",
-            ):
-                # NOTE: Create without logging.
-                _node.create()
-            else:
-                try:
-                    _node_legacy: LegacyNode = LegacyNode(
-                        name=_ctr_prop["name"],
-                        process_id=task.id,
-                        run_mode="setup",
-                        auto_init="Y",
-                        auto_drop="Y",
-                    )
-                except ObjectBaseError as err:
-                    logger.error(f"Error ObjectBaseError: {err}")
-                    status: Status = FAILED
+            _node.create()
         logger.info(
             f"Success create {_ctr_prop['name']!r} "
             f"after app start with status {status.value}"

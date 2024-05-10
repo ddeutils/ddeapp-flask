@@ -57,7 +57,6 @@ def make_celery(app: Flask) -> Celery:
 def create_app(
     settings_override: Optional[dict] = None,
     frontend: bool = True,
-    recreated: bool = False,
 ):
     """Create a Flask application using the app factory pattern.
 
@@ -68,8 +67,6 @@ def create_app(
 
     :param settings_override: Override settings
     :param frontend: Run Flask server included frontend component flag
-    :param recreated: Re-create table in target database
-    :type recreated: bool(=False)
 
     :return: Flask app
     """
@@ -275,18 +272,6 @@ def create_app(
 
         # Add events
         events(app)
-
-        # Init function and control framework table to database
-        if recreated:
-            from .controls import (
-                push_ctr_setup,
-                push_func_setup,
-                push_schema_setup,
-            )
-
-            push_schema_setup()
-            push_func_setup()
-            push_ctr_setup()
 
     middleware(app)
 
