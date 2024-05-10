@@ -17,7 +17,7 @@ from app.core.models import (
     TaskComponent,
 )
 from app.core.services import Task
-from app.core.utils.logging_ import logging
+from app.core.utils import logging
 from app.core.validators import Table
 
 logger = logging.getLogger(__name__)

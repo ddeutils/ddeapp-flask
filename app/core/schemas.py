@@ -6,10 +6,11 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Union
+from typing import Any, Union
 
 from pydantic import validator
 
+from .models import UNDEFINED
 from .validators import BaseUpdatableModel
 
 
@@ -34,3 +35,19 @@ class ControlWatermark(BaseUpdatableModel):
         elif isinstance(value, date):
             return datetime.fromisoformat(value.isoformat())
         return datetime.fromisoformat(value)
+
+
+WTM_DEFAULT: dict[str, Any] = {
+    "system_type": UNDEFINED,
+    "table_name": UNDEFINED,
+    "table_type": UNDEFINED,
+    "data_date": "1990-01-01",
+    "update_date": "1990-01-01 00:00:00",
+    "run_date": "1990-01-01",
+    "run_type": UNDEFINED,
+    "run_count_now": "1.0",
+    "run_count_max": "1.0",
+    "rtt_value": UNDEFINED,
+    "rtt_column": UNDEFINED,
+    "active_flg": "N",
+}

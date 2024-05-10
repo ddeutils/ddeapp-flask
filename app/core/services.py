@@ -10,7 +10,6 @@ import builtins
 import datetime as dt
 from collections.abc import Iterator
 from typing import (
-    Literal,
     Optional,
     Union,
 )
@@ -41,13 +40,16 @@ from .convertor import Value
 from .errors import (
     CatalogArgumentError,
     ControlProcessNotExists,
+    ControlTableNotExists,
     ControlTableValueError,
     DatabaseProcessError,
     ObjectBaseError,
     TableArgumentError,
+    TableNotFound,
     TableNotImplement,
 )
 from .models import (
+    UNDEFINED,
     ParameterMode,
     ParameterType,
     Status,
@@ -55,7 +57,7 @@ from .models import (
     TaskMode,
     reduce_text,
 )
-from .schemas import ControlWatermark
+from .schemas import WTM_DEFAULT, ControlWatermark
 from .statements import (
     ControlStatement,
     FunctionStatement,
@@ -130,7 +132,7 @@ class MapParameterService(MapParameter):
                 {
                     "run_id": hash_string(get_run_date(fmt="%Y%m%d%H%M%S%f")),
                     "run_date": get_run_date(fmt="%Y-%m-%d"),
-                    "run_mode": "undefined",
+                    "run_mode": UNDEFINED,
                 }
                 | value
             )
@@ -220,19 +222,11 @@ class BaseNode(MapParameterService, TableStatement):
         fwk_params: DictKeyStr,
         ext_params: DictKeyStr,
     ) -> Self:
+        """Start Running the Node."""
         return cls.parse_name(
             name,
             additional={"fwk_params": fwk_params, "ext_params": ext_params},
         )
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        if not self.exists() and must_bool(
-            self.fwk_params.task_params.others.get("auto_create", "Y"),
-            force_raise=True,
-        ):
-            logger.info(f"Auto create table {self.name} ...")
-            self.create()
 
     @property
     def run_type(self) -> str:
@@ -289,17 +283,17 @@ class BaseNode(MapParameterService, TableStatement):
             values=(
                 {
                     "system_type": PARAMS.map_tbl_sys.get(
-                        self.prefix, "undefined"
+                        self.prefix, UNDEFINED
                     ),
                     "table_name": self.name,
-                    "table_type": "undefined",
+                    "table_type": UNDEFINED,
                     "data_date": self.fwk_params.run_date.strftime("%Y-%m-%d"),
                     "run_date": self.fwk_params.run_date.strftime("%Y-%m-%d"),
                     "run_type": self.run_type,
                     "run_count_now": 0,
                     "run_count_max": 0,
                     "rtt_value": 0,
-                    "rtt_column": "undefined",
+                    "rtt_column": UNDEFINED,
                 }
                 | (values or {})
             )
@@ -325,6 +319,35 @@ class Node(BaseNode):
         description="Node watermark data from Control Pipeline",
     )
 
+    def __init__(self, **data):
+        super().__init__(**data)
+        _auto_create: bool = must_bool(
+            self.fwk_params.task_params.others.get("auto_create", "Y"),
+            force_raise=True,
+        )
+        if not self.exists():
+            if not _auto_create:
+                raise TableNotFound(
+                    "Please set `tbl_auto_create` be True or setup "
+                    "this table with API."
+                )
+            logger.info(
+                f"Auto create {self.name!r} in database because "
+                f"`auto_create` was set be True"
+            )
+            self.create()
+        if self.watermark.table_name == UNDEFINED:
+            if not _auto_create:
+                raise ControlTableNotExists(
+                    f"Table name: {self.name} does not exists "
+                    f"in Control data pipeline"
+                )
+            logger.info(
+                f"Auto insert configuration data to `ctr_data_pipeline` "
+                f"for {self.name!r}"
+            )
+            self.watermark_refresh()
+
     @validator("watermark", pre=True, always=True)
     def __prepare_watermark(cls, value: DictKeyStr, values):
         try:
@@ -332,8 +355,15 @@ class Node(BaseNode):
                 pm_filter=[values["name"]]
             )
         except DatabaseProcessError:
-            wtm = {}
+            wtm = WTM_DEFAULT
         return ControlWatermark.parse_obj(wtm | value)
+
+    def watermark_refresh(self):
+        logger.debug("Add more external parameters ...")
+        self.__dict__["watermark"] = ControlWatermark.parse_obj(
+            obj=Control("ctr_data_pipeline").pull(pm_filter=[self.name])
+        )
+        return self
 
 
 class ManageNode(Node):
@@ -344,7 +374,7 @@ class ManageNode(Node):
     def init(self): ...
 
 
-class NodeLocal(BaseNode):
+class NodeLocal(Node):
     """Node for Local File loading."""
 
     def load(
@@ -379,20 +409,8 @@ class NodeLocal(BaseNode):
 
 
 class NodeIngest(Node):
-    """Node for Ingestion."""
-
-    @property
-    def ingest_action(self) -> Literal["insert", "update"]:
-        return self.ext_params.get("ingest_action", "insert")
-
-    @property
-    def ingest_mode(self) -> Literal["common", "merge"]:
-        return self.ext_params.get("ingest_mode", "common")
-
-    @property
-    def ingest_payloads(self) -> list:
-        _payloads: Union[dict, list] = self.ext_params.get("payloads", [])
-        return [_payloads] if isinstance(_payloads, dict) else _payloads
+    """Node that implement Ingestion method that use on the ingestion
+    component."""
 
     def __ingest(
         self,
@@ -495,13 +513,13 @@ class NodeIngest(Node):
 
     def ingest(self) -> tuple[int, int]:
         """Ingest Data from the input payload."""
-        if self.ingest_mode not in (
+        _action: str = self.ext_params.get("ingest_action", "insert")
+        if (_mode := self.ext_params.get("ingest_mode", "common")) not in (
             "common",
             "merge",
-        ) or self.ingest_action not in ("insert", "update"):
+        ) or _action not in ("insert", "update"):
             raise TableArgumentError(
-                f"Pair of ingest mode {self.ingest_mode!r} "
-                f"and action mode {self.ingest_action!r} "
+                f"Pair of ingest mode {_mode!r} and action mode {_action!r} "
                 f"does not support yet."
             )
         _update_date: dt.datetime = (
@@ -515,10 +533,11 @@ class NodeIngest(Node):
                 f"the current control data date: "
                 f"'{self.watermark.data_date:'%Y-%m-%d'}'"
             )
+        _payloads: Union[dict, list] = self.ext_params.get("payloads", [])
         _row_record: tuple[int, int] = self.__ingest(
-            payloads=self.ingest_payloads,
-            mode=self.ingest_mode,
-            action=self.ingest_action,
+            payloads=[_payloads] if isinstance(_payloads, dict) else _payloads,
+            mode=_mode,
+            action=_action,
             update_date=_update_date,
         )
         self.push(values={"data_date": _update_date.strftime("%Y-%m-%d")})

@@ -20,14 +20,13 @@ from app.core.models import (
     TaskComponent,
     TaskMode,
 )
-from app.core.services import NodeIngest as Node
-from app.core.services import Task
-from app.core.utils.logging_ import logging
+from app.core.services import NodeIngest, Task
+from app.core.utils import logging
 
 logger = logging.getLogger(__name__)
 
 
-def ingest_payload(node: Node, task: Task) -> Result:
+def ingest_payload(node: NodeIngest, task: Task) -> Result:
     """Run Ingest process node together with process object."""
     result: CommonResult = CommonResult()
     try:
@@ -74,7 +73,7 @@ def ingestion_foreground(module: str, external_parameters: dict) -> Result:
         )
         for idx, run_date in task.runner():
             logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
-            node: Node = Node.start(
+            node: NodeIngest = NodeIngest.start(
                 task.parameters.name,
                 fwk_params={
                     "run_id": task.id,
@@ -122,7 +121,7 @@ def ingestion_background(
         bg_queue.put(task.id)
         for idx, run_date in task.runner():
             logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
-            node: Node = Node.start(
+            node: NodeIngest = NodeIngest.start(
                 task.parameters.name,
                 fwk_params={
                     "run_id": task.id,
