@@ -387,9 +387,11 @@ class Column(BaseUpdatableModel):
         )
 
         # Rename serial value to int from datatype
-        _datatype, values_update["default"] = catch_from_string(
+        _datatype, _has_serial = catch_from_string(
             _datatype, "serial", replace="int"
         )
+        if _has_serial:
+            values_update["default"] = "serial"
 
         if "check" in _datatype:
             if m := re.search(
