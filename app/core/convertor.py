@@ -642,7 +642,8 @@ class Value:
         ]
 
         def merge_with_key(
-            _data: dict, _key: Optional[str] = "data_merge"
+            _data: dict,
+            _key: Optional[str] = "data_merge",
         ) -> list[dict]:
             if _key not in _data:
                 return [_data]

@@ -8,9 +8,6 @@ from __future__ import annotations
 import queue
 from typing import Callable
 
-from app.core.__legacy.objects import (
-    Node as LegacyNode,
-)
 from app.core.base import (
     get_plural,
     registers,
@@ -82,9 +79,7 @@ def ingestion_foreground(module: str, external_parameters: dict) -> Result:
                 fwk_params={
                     "run_id": task.id,
                     "run_date": run_date,
-                    "run_mode": task.parameters.others.get(
-                        "run_mode", "ingestion"
-                    ),
+                    "run_mode": task.component,
                     "task_params": task.parameters,
                 },
                 ext_params=external_parameters,
@@ -127,14 +122,15 @@ def ingestion_background(
         bg_queue.put(task.id)
         for idx, run_date in task.runner():
             logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
-            node: LegacyNode = LegacyNode(
-                name=task.parameters.name,
-                process_id=task.id,
-                run_mode=task.component.value,
-                run_date=run_date,
-                auto_init=task.parameters.others.get("initial_data", "N"),
-                auto_drop=task.parameters.others.get("drop_before_create", "N"),
-                external_parameters=external_parameters,
+            node: Node = Node.start(
+                task.parameters.name,
+                fwk_params={
+                    "run_id": task.id,
+                    "run_date": run_date,
+                    "run_mode": task.component,
+                    "task_params": task.parameters,
+                },
+                ext_params=external_parameters,
             )
             bg_queue.put(task.parameters.name)
             logger.info(f"START {idx:02d}: {f'{node.name} ':~<50}")
