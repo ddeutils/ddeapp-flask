@@ -9,6 +9,7 @@ import ast
 import builtins
 from collections.abc import Iterator
 from datetime import date, datetime
+from itertools import takewhile
 from typing import (
     Optional,
     Union,
@@ -29,6 +30,7 @@ from .base import (
     sort_by_priority,
 )
 from .connections import (
+    ParamType,
     query_execute,
     query_execute_row,
     query_insert_from_csv,
@@ -37,13 +39,16 @@ from .connections import (
     query_select_one,
     query_select_row,
 )
-from .convertor import Value
+from .convertor import Statement, Value
 from .errors import (
     CatalogArgumentError,
     ControlProcessNotExists,
     ControlTableNotExists,
     ControlTableValueError,
     DatabaseProcessError,
+    FuncArgumentError,
+    FuncNotFound,
+    FuncRaiseError,
     ObjectBaseError,
     TableArgumentError,
     TableNotFound,
@@ -62,7 +67,6 @@ from .schemas import WTM_DEFAULT, ControlWatermark
 from .statements import (
     ControlStatement,
     FunctionStatement,
-    QueryStatement,
     SchemaStatement,
     TableStatement,
     reduce_in_value,
@@ -109,6 +113,39 @@ __all__ = (
 
 def null_or_str(value: str) -> Optional[str]:
     return None if value == "None" else value
+
+
+def query_explain(statement: str, parameters: ParamType = True) -> dict:
+    """Enhance query function for explain analytic."""
+    stm = Statement(statement)
+    query: str = stm.generate().strip()
+    if query.count(";") > 1:
+        raise FuncRaiseError(
+            "query should not contain `;` more than 1 letter in 1 query"
+        )
+    if stm.type == "dql":
+        _statement: str = PARAMS.ps_stm.explain.format(query=query.rstrip(";"))
+        return {
+            "QUERY PLAN": ast.literal_eval(
+                query_select_one(_statement, parameters=parameters)[
+                    "QUERY PLAN"
+                ]
+            )
+        }
+    elif stm.type == "dml":
+        _statement: str = PARAMS.ps_stm.explain.format(
+            query=Statement.add_row_num(query.rstrip(";")).rstrip(";")
+        )
+        return {
+            "QUERY PLAN": ast.literal_eval(
+                query_select_one(_statement, parameters=parameters)[
+                    "QUERY PLAN"
+                ]
+            )
+        }
+    raise FuncArgumentError(
+        "query explain support only statement type be `dql` or `dml` only"
+    )
 
 
 def get_time_checkpoint(
@@ -188,7 +225,30 @@ class Schema(SchemaStatement):
         return self
 
 
-class Action(FunctionStatement):
+class BaseAction(MapParameterService, FunctionStatement):
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        _auto_create: bool = must_bool(
+            self.fwk_params.task_params.others.get("auto_create", "Y"),
+            force_raise=True,
+        )
+        if self.type == "query":
+            try:
+                self.explain()
+            except DatabaseProcessError as err:
+                raise FuncRaiseError(
+                    f"{self.name!r} was raised the statement error "
+                    f"from query explain checking"
+                ) from err
+        else:
+            if not self.exists() and _auto_create:
+                self.create()
+            else:
+                raise FuncNotFound(
+                    f"Table {self.name} not found in the AI Database, "
+                    f"Please set `func_auto_create`."
+                )
 
     def exists(self) -> bool:
         """Push exists statement to target database."""
@@ -200,16 +260,60 @@ class Action(FunctionStatement):
             raise ValueError(
                 f"Function type {self.type!r} does not support create"
             )
-        query_execute(self.statement_create(), parameters=True)
+        query_execute(self.statement(), parameters=True)
 
-
-class ActionQuery(MapParameterService, QueryStatement):
-
-    def execute(self):
-        """Push down the query to target database."""
-        query_execute(
+    def explain(self):
+        if self.type != "query":
+            raise FuncRaiseError(
+                f"Function type {self.type!r} does not support for explain."
+            )
+        return query_explain(
             self.statement(),
             parameters=self.filter_params(self.profile.parameter),
+        )
+
+
+class Action(BaseAction): ...
+
+
+class ActionQuery(BaseAction):
+
+    def execute(self, limit: int = 10):
+        """Push down the query to target database."""
+        if self.type not in {"query", "view", "mview"}:
+            raise FuncRaiseError(
+                f"Function type {self.type!r} does not support for execute "
+                f"query method."
+            )
+        stm: Statement = Statement(self.profile.statement)
+        if stm.type == "dql":
+            return {
+                index: result
+                for index, result in takewhile(
+                    lambda x: x[0] <= limit,
+                    enumerate(
+                        query_select(
+                            stm.generate(),
+                            parameters=self.filter_params(
+                                self.profile.parameter
+                            ),
+                        ),
+                        start=1,
+                    ),
+                )
+            }
+        elif stm.type == "dml":
+            return {
+                1: {
+                    "row_number": query_select_row(
+                        stm.generate(),
+                        parameters=self.filter_params(self.profile.parameter),
+                    )
+                }
+            }
+        raise FuncArgumentError(
+            f"Function {self.name!r} does not support `push_query` "
+            f"with statement type {stm.type!r}"
         )
 
 
@@ -822,12 +926,12 @@ class Control(ControlStatement):
         for col, default in _add_column.items():
             if col in self.cols and col not in values:
                 values[col] = default
-        _update_values: dict = {
+        _update_values: dict[str, str] = {
             k: reduce_value(str(v))
             for k, v in values.items()
             if k not in self.pk
         }
-        _filter: list = [
+        _filter: list[str] = [
             f"{self.tbl.shortname}.{_} in {reduce_in_value(values[_])}"
             for _ in self.pk
         ]

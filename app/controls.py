@@ -308,16 +308,16 @@ def push_testing() -> None:
     logger.info("Start Testing ...")
     with Task.make(module="demo_docstring"):
         Node.parse_name(fullname="imp_min_max_service_level")
-    # (
-    #     ActionQuery.parse_name(fullname="query:query_shutdown")
-    #     .add_ext_params(
-    #         params={
-    #             "status": 1,
-    #             "process_message": (
-    #                 "Error: RuntimeError: Server shutdown while "
-    #                 "process was running in background"
-    #             ),
-    #         },
-    #     )
-    #     .push()
-    # )
+    (
+        ActionQuery.parse_name(fullname="query:query_shutdown")
+        .add_ext_params(
+            params={
+                "status": 1,
+                "process_message": (
+                    "Error: RuntimeError: Server shutdown while "
+                    "process was running in background"
+                ),
+            },
+        )
+        .execute()
+    )

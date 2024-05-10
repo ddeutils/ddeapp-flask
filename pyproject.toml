@@ -58,6 +58,7 @@ ignore = [
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
+    "C416",  # unnecessary `dict` comprehension (rewrite using `dict()`)
 ]
 
 [tool.ruff.lint.per-file-ignores]

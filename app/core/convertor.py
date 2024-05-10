@@ -8,7 +8,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 from itertools import compress
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from .errors import (
     ColumnsNotEqualError,
@@ -108,7 +108,7 @@ class Statement:
         return "with" if self.stm_with_count == 1 else ","
 
     @property
-    def stm_type(self) -> str:
+    def type(self) -> str:
         if not self.stm_generate_flg:
             self.generate()
         if "select count(*) as row_number from " in self.stm_result:
@@ -229,7 +229,9 @@ class Statement:
         return dict(enumerate(_mapping.values(), start=1))
 
     @staticmethod
-    def _check_type(statement: str) -> str:
+    def _check_type(
+        statement: str,
+    ) -> Literal["dql", "dml", "ddl", "dcl", "undefined"]:
         _statement: str = statement.strip()
         if _statement.startswith("select"):
             # Data Query Language

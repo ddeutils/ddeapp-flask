@@ -54,7 +54,7 @@ class ColumnStatement(Column):
     statement.
 
     Examples:
-        >>> col = ColumnStatement(...)
+        >>> col = Column.parse_obj({})
         ... col_stm = ColumnStatement.parse_obj(col)
         ... col_stm.statement()
     """
@@ -377,7 +377,7 @@ class FunctionStatement(Function):
             f"END AS check_exists"
         )
 
-    def statement_create(self) -> str:
+    def statement(self) -> str:
         """Return function profile statement."""
         return reduce_stm(self.profile.statement)
 
@@ -393,13 +393,6 @@ class FunctionStatement(Function):
             f"DROP FUNCTION IF EXISTS "
             f"{{database_name}}.{{ai_schema_name}}.{self.name} {_cascade}"
         )
-
-
-class QueryStatement(Function):
-    """Query Model."""
-
-    def statement(self) -> str:
-        return reduce_stm(self.profile.statement)
 
 
 class SchemaStatement(Schema):
