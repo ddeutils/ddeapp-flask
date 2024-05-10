@@ -120,12 +120,13 @@ def get_process_date(
     fmt: str = "%Y-%m-%d",
 ) -> Union[str, date]:
     """Get process_date value that convert by `run_type` value like 'daily',
-    'weekly', etc. :usage: >>> get_process_date('2022-01-20', 'monthly')
-    '2022-01-01'.
+    'weekly', etc.
 
+    Examples:
+        >>> get_process_date('2022-01-20', 'monthly')
+        '2022-01-01'.
         >>> get_process_date('2022-01-20', 'monthly', invert=True)
         '2022-01-31'
-
         >>> get_process_date('2022-01-20', 'weekly')
         '2022-01-17'
     """

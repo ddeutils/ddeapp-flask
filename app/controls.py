@@ -183,7 +183,7 @@ def push_ctr_stop_running() -> None:
                     ),
                 },
             )
-            .push()
+            .execute()
         )
     except (OperationalError, PsycopgOperationalError):
         logger.warning("... Target database does not connectable.")

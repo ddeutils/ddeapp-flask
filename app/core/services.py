@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import ast
 import builtins
-import datetime as dt
 from collections.abc import Iterator
+from datetime import date, datetime
 from typing import (
     Optional,
     Union,
@@ -23,6 +23,7 @@ from .__types import DictKeyStr
 from .base import (
     PARAMS,
     get_plural,
+    get_process_date,
     get_run_date,
     registers,
     sort_by_priority,
@@ -112,7 +113,7 @@ def null_or_str(value: str) -> Optional[str]:
 
 def get_time_checkpoint(
     date_type: Optional[str] = None,
-) -> Union[dt.datetime, dt.date]:
+) -> Union[datetime, date]:
     return get_run_date(date_type=(date_type or "date_time"))
 
 
@@ -204,7 +205,7 @@ class Action(FunctionStatement):
 
 class ActionQuery(MapParameterService, QueryStatement):
 
-    def push(self):
+    def execute(self):
         """Push down the query to target database."""
         query_execute(
             self.statement(),
@@ -366,6 +367,13 @@ class Node(BaseNode):
         )
         return self
 
+    def process_date(self) -> date:
+        return get_process_date(
+            self.fwk_params.run_date,
+            self.watermark.run_type,
+            date_type="date",
+        )
+
 
 class ManageNode(Node):
     def backup(self): ...
@@ -418,11 +426,11 @@ class NodeIngest(Node):
         payloads: list,
         mode: str,
         action: str,
-        update_date: dt.datetime,
+        update_date: datetime,
     ) -> tuple[int, int]:
         ps_row_success: int = 0
         ps_row_failed: int = 0
-        _start_time: dt.datetime = get_time_checkpoint()
+        _start_time: datetime = get_time_checkpoint()
         self.make_log(
             values={
                 "data_date": update_date.strftime("%Y-%m-%d"),
@@ -512,7 +520,7 @@ class NodeIngest(Node):
                 raise err
         return ps_row_success, ps_row_failed
 
-    def ingest(self) -> tuple[int, int]:
+    def execute(self) -> tuple[int, int]:
         """Ingest Data from the input payload."""
         _action: str = self.ext_params.get("ingest_action", "insert")
         if (_mode := self.ext_params.get("ingest_mode", "common")) not in (
@@ -523,8 +531,8 @@ class NodeIngest(Node):
                 f"Pair of ingest mode {_mode!r} and action mode {_action!r} "
                 f"does not support yet."
             )
-        _update_date: dt.datetime = (
-            dt.datetime.fromisoformat(_update)
+        _update_date: datetime = (
+            datetime.fromisoformat(_update)
             if (_update := self.ext_params.get("update_date"))
             else get_run_date("datetime")
         )
@@ -602,7 +610,7 @@ class Task(BaseTask):
                 "process_module", "undefined|undefined"
             ).split("|", maxsplit=1)
             run_mode: str = ctr_process.get("run_mode", "common")
-            date: Optional[str] = null_or_str(ctr_process.get("run_date_get"))
+            _date: Optional[str] = null_or_str(ctr_process.get("run_date_get"))
             return cls(
                 module=module,
                 parameters={
@@ -617,7 +625,7 @@ class Task(BaseTask):
                 status=Status(int(ctr_process["status"])),
                 id=task_id,
                 message=ctr_process["process_message"],
-                release=ReleaseDate(date=date),
+                release=ReleaseDate(date=_date),
             )
         raise ControlProcessNotExists(
             f"Process ID: {task_id} does not exists in Control Task Process "

@@ -1462,6 +1462,18 @@ class FrameworkParameter(BaseUpdatableModel):
         default_factory=Parameter,
         description="Task parameters",
     )
+    start_time: datetime = Field(
+        default_factory=partial(get_run_date, "date_time"),
+        description="Start datetime of this running framework parameter",
+    )
+
+    def duration(self) -> int:
+        """Generate duration since this model start initialize data."""
+        return round(
+            (
+                get_run_date(date_type="date_time") - self.start_time
+            ).total_seconds()
+        )
 
 
 class MapParameter(BaseUpdatableModel):

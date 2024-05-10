@@ -127,24 +127,27 @@ def get_plural(
     word_change: Optional[str] = None,
     word_start: Optional[str] = None,
 ) -> str:
-    """Get plural word for dynamic `num` number if more than 1 or not :usage:
-    >>> get_plural(100) 's'.
+    """Get plural word for dynamic `num` number if more than 1 or not.
 
+    Examples:
+        >>> get_plural(100)
+        's'
         >>> get_plural(1, word_change='ies', word_start='y')
         'y'
-
         >>> get_plural(3, 'es')
         'es'
     """
     return (word_change or "s") if num > 1 else (word_start or "")
 
 
+# [x] Migrate to base
 def get_process_id(process: str, fmt: str = "%Y%m%d%H%M%S%f") -> str:
     """Get process ID from input string that combine timestamp and hashing of
     argument process together."""
     return get_run_date(fmt=fmt)[:-2] + hash_string(process)
 
 
+# [x] Migrate to base
 def get_process_date(
     run_date: Union[str, dt.date],
     run_type: str,

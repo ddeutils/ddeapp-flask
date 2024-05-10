@@ -578,6 +578,7 @@ class TblProcess(TblCatalog):
         self.tbl_col_update: bool = False
         self.tbl_col_delete: bool = False
 
+        # [x] Migrate to modern `Node.__init__`
         if not self.check_tbl_exists:
             logger.warning(
                 f"Table {self.tbl_name!r} not found in AI Database ..."
@@ -597,10 +598,12 @@ class TblProcess(TblCatalog):
                     "this table with API."
                 )
 
+        # [x] Migrate to modern `Node.watermark`
         # Pull data from control table.
         # FIXME: if ctr_data_pipeline does not exists it will raise error
         self.tbl_ctr_data: dict = self.pull_tbl_from_ctr_pipeline()
 
+        # [x] Migrate to modern `Node.__init__`
         if not self.tbl_ctr_data:
             if not self.tbl_auto_create:
                 raise ControlTableNotExists(
@@ -614,6 +617,7 @@ class TblProcess(TblCatalog):
             self.push_tbl_to_ctr_pipeline()
             self.tbl_ctr_data: dict = self.pull_tbl_from_ctr_pipeline()
 
+        # [x] Migrate to modern `Node.process_date`
         # Generate process date from control data.
         self.tbl_ps_date: dt.date = get_process_date(
             self.tbl_run_date, self.tbl_ctr_run_type, date_type="date"
