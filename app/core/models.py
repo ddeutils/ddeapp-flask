@@ -109,7 +109,10 @@ class BaseResult:
 
     @classmethod
     def make(cls, msg: str, status: Optional[Status] = None) -> Self:
-        return cls(msg, (Status.WAITING if status is None else status))
+        return cls(
+            _message=msg,
+            status=(Status.WAITING if status is None else status),
+        )
 
     @property
     def message(self):

@@ -176,11 +176,7 @@ def create_app(
                 # g.search_form = SearchForm()
                 ...
 
-            logger.debug(
-                f'Request "{request.method} {request.url}"\n'
-                f"Header:\n"
-                f"{request.headers}"
-            )
+            logger.debug(f'Request "{request.method} {request.url}"')
 
         @app.get("/api")
         def api_index():
@@ -198,7 +194,7 @@ def create_app(
             This is using docstrings for specifications.
             ---
             parameters:
-                -   name: APIKEY
+                -   name: APIKEYRequest
                     in: header
                     type: string
                     required: true
@@ -320,7 +316,7 @@ def events(app: Flask) -> None:
     from sqlalchemy.exc import OperationalError
 
     try:
-        from app.core.connections.postgresql import generate_engine
+        from .core.connections.postgresql import generate_engine
 
         engine = generate_engine()
 
@@ -328,7 +324,9 @@ def events(app: Flask) -> None:
         with engine.connect() as conn:
             conn.execute(text("select 1"))
     except (OperationalError, PsycopgOperationalError) as err:
-        raise RuntimeError("Dose not connect to target database") from err
+        raise RuntimeError(
+            "Dose not connect to target database with current connection."
+        ) from err
 
     # TODO: Catch error `psycopg2.OperationalError`
     # With after_request we can handle the CORS response headers
@@ -383,7 +381,7 @@ def filters(app: Flask) -> None:
     from flask import render_template
     from markupsafe import Markup
 
-    from app.core.utils.reusables import to_pascal_case
+    from .core.utils.reusables import to_pascal_case
 
     warp_app: Flask = app
     logger.debug("Start set up filters to this application ...")

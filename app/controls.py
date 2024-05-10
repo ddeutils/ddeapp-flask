@@ -301,16 +301,12 @@ def push_initialize_frontend(): ...
 
 
 def push_testing() -> None:
-    from .core.services import Control
-
     Schema().create()
 
     logger.info("Start Testing ...")
     with Task.make(module="demo_docstring"):
-        # for _, _ctr_prop in enumerate(registers.control_frameworks, start=1):
-        #     node: Node = Node.parse_name(fullname=_ctr_prop["name"])
-        #     if not node.exists():
-        #         node.create()
-        #     break
-        rs = Control("ctr_data_pipeline").pull(pm_filter=["ai_article_master"])
-        print(rs)
+        for _, _ctr_prop in enumerate(registers.control_frameworks, start=1):
+            node: Node = Node.parse_name(fullname=_ctr_prop["name"])
+            if node.exists():
+                print(node.profile.to_mapping(pk=True))
+            break

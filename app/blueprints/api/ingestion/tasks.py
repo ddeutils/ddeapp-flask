@@ -9,8 +9,7 @@ import queue
 from typing import Callable
 
 from app.core.__legacy.objects import (
-    Node,
-    ObjectType,
+    Node as LegacyNode,
 )
 from app.core.base import (
     get_plural,
@@ -24,6 +23,7 @@ from app.core.models import (
     TaskComponent,
     TaskMode,
 )
+from app.core.services import NodeIngest as Node
 from app.core.services import Task
 from app.core.utils.logging_ import logging
 
@@ -34,7 +34,9 @@ def ingest_payload(node: Node, task: Task) -> Result:
     """Run Ingest process node together with process object."""
     result: CommonResult = CommonResult()
     try:
-        ps_row_success, ps_row_failed = node.ingest_start()
+        if not node.exists():
+            ...
+        ps_row_success, ps_row_failed = node.ingest()
         result.message = (
             f"Success: Load data to {node.name!r} with logging value "
             f"(success {ps_row_success} row{get_plural(ps_row_success)}, "
@@ -75,16 +77,18 @@ def ingestion_foreground(module: str, external_parameters: dict) -> Result:
         )
         for idx, run_date in task.runner():
             logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
-            node: ObjectType = Node(
-                name=task.parameters.name,
-                process_id=task.id,
-                run_mode=task.parameters.others.get("run_mode", "ingestion"),
-                run_date=run_date,
-                auto_init=task.parameters.others.get("initial_data", "N"),
-                auto_drop=task.parameters.others.get("drop_before_create", "N"),
-                external_parameters=external_parameters,
+            node: Node = Node.start(
+                task.parameters.name,
+                fwk_params={
+                    "run_id": task.id,
+                    "run_date": run_date,
+                    "run_mode": task.parameters.others.get(
+                        "run_mode", "ingestion"
+                    ),
+                },
+                ext_params=external_parameters,
             )
-            logger.info(f"START {idx:02d}: {f'{node.name} ':~<30}'")
+            logger.info(f"START {idx:02d}: {f'{node.name} ':~<50}")
             task.receive(MAP_MODULE_FUNC[module](node=node, task=task))
             # NOTE: Ingestion only first date
             break
@@ -122,7 +126,7 @@ def ingestion_background(
         bg_queue.put(task.id)
         for idx, run_date in task.runner():
             logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
-            node: ObjectType = Node(
+            node: LegacyNode = LegacyNode(
                 name=task.parameters.name,
                 process_id=task.id,
                 run_mode=task.component.value,
@@ -132,7 +136,7 @@ def ingestion_background(
                 external_parameters=external_parameters,
             )
             bg_queue.put(task.parameters.name)
-            logger.info(f"START {idx:02d}: {f'{node.name} ':~<30}'")
+            logger.info(f"START {idx:02d}: {f'{node.name} ':~<50}")
             task.receive(MAP_MODULE_FUNC[module](node=node, task=task))
             # NOTE: Ingestion only first date
             break

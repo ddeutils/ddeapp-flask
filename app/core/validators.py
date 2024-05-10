@@ -30,16 +30,16 @@ from pydantic import (
 )
 from typing_extensions import Self
 
-from .__legacy.convertor import (
-    Statement,
-    reduce_stm,
-)
 from .base import (
     LoadCatalog,
     get_process_id,
     get_run_date,
 )
 from .connections.io import load_json_to_values
+from .convertor import (
+    Statement,
+    reduce_stm,
+)
 from .models import (
     ParameterMode,
     ParameterType,
@@ -61,6 +61,7 @@ logger = get_logger(__name__)
 
 
 __all__ = (
+    "BaseUpdatableModel",
     "Column",
     "Partition",
     "Profile",
@@ -73,6 +74,8 @@ __all__ = (
     "Schema",
     "ReleaseDate",
     "Task",
+    "MapParameter",
+    "FrameworkParameter",
 )
 
 
@@ -120,10 +123,11 @@ def catch_from_string(
 
 
 def get_function(func_string: str) -> callable:
-    """Get function from imported string :usage: ..> get_function( ...
+    """Get function from imported string.
 
-    'app.vendor.replenishment.run_prod_cls_criteria'
-    ... )
+    Examples:
+        >>> get_function('app.vendor.replenishment.run_prod_cls_criteria')
+        app.vendor.replenishment.run_prod_cls_criteria
     """
     module, _function = func_string.rsplit(sep=".", maxsplit=1)
     mod = importlib.import_module(module)
@@ -147,7 +151,7 @@ def filter_ps_type(
 
 
 def filter_not_null(datatype: str) -> bool:
-    return all(not re.search(word, datatype) for word in ["default", "serial"])
+    return all(not re.search(word, datatype) for word in ("default", "serial"))
 
 
 AbstractSetOrDict = Union[
@@ -350,8 +354,8 @@ class Column(BaseUpdatableModel):
             {PRIMARY KEY|FOREIGN KEY} {CHECK}
 
         Examples:
-        - varchar( 100 ) not null default 'O' check( <name> <> 'test' )
-        - serial not null primary key
+            - varchar( 100 ) not null default 'O' check( <name> <> 'test' )
+            - serial not null primary key
         """
         if not (
             datatype_key := only_one(
@@ -383,7 +387,9 @@ class Column(BaseUpdatableModel):
         )
 
         # Rename serial value to int from datatype
-        _datatype, _ = catch_from_string(_datatype, "serial", replace="int")
+        _datatype, values_update["default"] = catch_from_string(
+            _datatype, "serial", replace="int"
+        )
 
         if "check" in _datatype:
             if m := re.search(
@@ -398,7 +404,10 @@ class Column(BaseUpdatableModel):
                     "datatype with type string does not support for "
                     "this format of check"
                 )
-        if re.search("default", _datatype):
+        if (
+            re.search("default", _datatype)
+            and values.get("datatype") is not None
+        ):
             values["datatype"] = _datatype.split("default")[0].strip()
         else:
             values["datatype"] = _datatype
@@ -742,7 +751,7 @@ class Table(BaseUpdatableModel):
     tag: Tag = Field(default_factory=dict, description="Tag of catalog")
 
     @classmethod
-    def parse_shortname(cls, shortname: str):
+    def parse_shortname(cls, shortname: str) -> Self:
         """Parse shortname to Table Model."""
         return cls.parse_obj(
             LoadCatalog.from_shortname(
@@ -754,7 +763,12 @@ class Table(BaseUpdatableModel):
         )
 
     @classmethod
-    def parse_name(cls, fullname: str):
+    def parse_name(
+        cls,
+        fullname: str,
+        *,
+        additional: Optional[dict[str, Any]] = None,
+    ) -> Self:
         """Parse name to Table Model."""
         _type, name = filter_ps_type(fullname)
         obj = LoadCatalog(
@@ -764,7 +778,7 @@ class Table(BaseUpdatableModel):
             prefix_file="catalog",
         ).load()
         obj.update({"type": _type})
-        return cls.parse_obj(obj)
+        return cls.parse_obj(obj=(obj | {"additional": (additional or {})}))
 
     @root_validator(pre=True)
     def prepare_values(cls, values):
@@ -819,6 +833,7 @@ class Table(BaseUpdatableModel):
                     None,
                 ),
             },
+            **values.get("additional", {}),
         }
 
     @validator("profile", pre=True)
@@ -1435,6 +1450,24 @@ class Parameter(BaseUpdatableModel):
 
     def is_table(self) -> bool:
         return self.type == ParameterType.TABLE
+
+
+class FrameworkParameter(BaseUpdatableModel):
+    run_id: int
+    run_date: date
+    run_mode: str
+
+
+class MapParameter(BaseUpdatableModel):
+    fwk_params: FrameworkParameter = Field(
+        default_factory=dict,
+        description="Framework Parameters from the application framework",
+    )
+
+    ext_params: dict = Field(
+        default_factory=dict,
+        description="External Parameters from the application framework",
+    )
 
 
 class ReleaseDate(BaseModel):

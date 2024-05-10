@@ -18,6 +18,10 @@ class CatalogBaseError(BaseError):
     """Catalog Base Exception."""
 
 
+class CatalogValidateError(BaseError):
+    """Error for validation process of catalog."""
+
+
 class CatalogNotFound(CatalogBaseError):
     """Exception raised for errors in key of yaml config file."""
 

@@ -13,6 +13,7 @@ from typing import (
 
 from pydantic import Field
 
+from .convertor import reduce_stm
 from .validators import (
     Column,
     Function,
@@ -23,27 +24,12 @@ from .validators import (
 )
 
 
-def reduce_stm(stm: str, add_row_number: bool = False) -> str:
-    """Reduce statement and prepare statement if it wants to catch number of
-    result."""
-    _reduce_stm: str = " ".join(stm.replace("\t", " ").split()).strip()
-    if add_row_number:
-        _split_stm: list = _reduce_stm.split(";")
-        _last_stm: str = _split_stm.pop(-1)
-        if "select count(*) as row_number " not in _last_stm:
-            _last_stm: str = (
-                f"with row_table as ({_last_stm} returning 1 ) "
-                f"select count(*) as row_number from row_table"
-            )
-        _split_stm.append(_last_stm)
-        return "; ".join(_split_stm)
-    return _reduce_stm
-
-
 def reduce_value(value: Union[str, int]) -> str:
     if isinstance(value, list):
         return f"({', '.join([reduce_value(_) for _ in value])})"
-    return value if value in {"null", "true", "false", "*"} else f"'{value}'"
+    elif value is None:
+        return "null"
+    return value if value in ("null", "true", "false", "*") else f"'{value}'"
 
 
 def reduce_value_pairs(value_pairs: dict) -> dict:
@@ -63,21 +49,23 @@ def filter_not_null(datatype: str) -> bool:
     return all(not re.search(word, datatype) for word in ["default", "serial"])
 
 
-class CatalogValidateError(ValueError):
-    """Error for validation process of catalog."""
-
-
 class ColumnStatement(Column):
     """Column Model which enhance with generator method for any Postgres
     statement.
 
     Examples:
-        >>> col = Column( ... )
+        >>> col = ColumnStatement(...)
         ... col_stm = ColumnStatement.parse_obj(col)
         ... col_stm.statement()
     """
 
-    def statement(self, pk: bool = True, fk: bool = False) -> str:
+    def statement(
+        self,
+        *,
+        name: bool = True,
+        pk: bool = True,
+        fk: bool = False,
+    ) -> str:
         """Return string statement of column value."""
         pk_stm: str = " PRIMARY KEY " if pk and self.pk else " "
         fk_stm: str = (
@@ -87,7 +75,7 @@ class ColumnStatement(Column):
             else ""
         )
         return (
-            f"{self.name} {self.datatype} "
+            f"{(f'{self.name} ' if name else '')}{self.datatype} "
             f"{'NULL' if self.nullable else 'NOT NULL'} "
             f"{'UNIQUE' if self.unique else ''}"
             f"{pk_stm}"
@@ -157,6 +145,15 @@ class ProfileStatement(Profile):
             if (prim := self.primary_key)
             else ""
         )
+
+    def to_mapping(self, pk: bool = False) -> dict[str, ColumnStatement]:
+        """Return list of column name and its datatype."""
+        _columns: list[str] = [feature.name for feature in self.features]
+        if pk:
+            _columns: list[str] = list(
+                filter(lambda x: x not in self.primary_key, _columns)
+            )
+        return {col.name: col for col in self.features if col.name in _columns}
 
 
 class TableStatement(Table):
@@ -301,10 +298,11 @@ class TableStatement(Table):
         """
         conflict: str = (
             (
-                f" ON CONFLICT ( {pk} ) DO UPDATE SET {self.conflict_set()}"
+                f" ON CONFLICT ( {', '.join(pk)} ) DO UPDATE "
+                f"SET {self.conflict_set()} "
                 f"WHERE {self.shortname}.update_date <= excluded.update_date"
             )
-            if (pk := self.profile.statement_pk())
+            if (pk := self.profile.primary_key)
             else ""
         )
         return reduce_stm(

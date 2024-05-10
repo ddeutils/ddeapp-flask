@@ -61,7 +61,7 @@ celery==5.3.6
 # Redis==4.4.0
 
 # - Model for data class management
-pydantic==1.10.8
+pydantic==1.10.15
 python-dotenv==1.0.0
 
 # - Others

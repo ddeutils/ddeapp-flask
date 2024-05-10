@@ -37,7 +37,7 @@ from .utils.reusables import (
     must_list,
 )
 
-params = Params(param_name="parameters.yaml")
+PARAMS = Params(param_name="parameters.yaml")
 registers = Params(param_name="registers.yaml")
 logger = logging.getLogger(__name__)
 CATALOGS: list = ["catalog", "pipeline", "function"]
@@ -48,7 +48,7 @@ def sort_by_priority(
 ) -> Union[list, dict]:
     """Sorted list by string prefix priority."""
     priority_dict: dict = {
-        k: i for i, k in enumerate(priority_lists or params.list_tbl_priority)
+        k: i for i, k in enumerate(priority_lists or PARAMS.list_tbl_priority)
     }
 
     def priority_getter(value):
@@ -70,7 +70,8 @@ def sort_by_priority(
 
 
 def get_run_date(
-    date_type: str = "str", fmt: str = "%Y-%m-%d"
+    date_type: str = "str",
+    fmt: str = "%Y-%m-%d",
 ) -> Union[str, datetime, date]:
     """Get run_date value from now datetime.
 
@@ -129,7 +130,7 @@ def get_process_date(
         '2022-01-17'
     """
     run_type: str = (
-        run_type if run_type in params.map_tbl_ps_date.keys() else "daily"
+        run_type if run_type in PARAMS.map_tbl_ps_date.keys() else "daily"
     )
     run_date_ts: date = (
         date.fromisoformat(run_date) if isinstance(run_date, str) else run_date
@@ -184,7 +185,7 @@ def get_cal_date(
         )
     _result: date = getattr(operator, mode)(
         data_date,
-        relativedelta(**{params.map_tbl_ps_date[run_type]: cal_value}),
+        relativedelta(**{PARAMS.map_tbl_ps_date[run_type]: cal_value}),
     )
     return _result.strftime(fmt) if date_type == "str" else _result
 

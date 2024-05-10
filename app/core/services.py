@@ -16,10 +16,13 @@ from typing import (
     Union,
 )
 
-from pydantic import Field, validator
+from pydantic import Field, root_validator, validator
 from typing_extensions import Self
 
+from conf.settings import settings
+
 from .base import (
+    PARAMS,
     get_plural,
     get_run_date,
     registers,
@@ -27,16 +30,19 @@ from .base import (
 )
 from .connections import (
     query_execute,
+    query_execute_row,
     query_insert_from_csv,
     query_select,
     query_select_check,
     query_select_one,
     query_select_row,
 )
+from .convertor import Value
 from .errors import (
     ControlProcessNotExists,
     ControlTableValueError,
     DatabaseProcessError,
+    ObjectBaseError,
     TableArgumentError,
     TableNotImplement,
 )
@@ -48,6 +54,7 @@ from .models import (
     TaskMode,
     reduce_text,
 )
+from .schemas import ControlWatermark
 from .statements import (
     ControlStatement,
     FunctionStatement,
@@ -58,20 +65,22 @@ from .statements import (
     reduce_value,
     reduce_value_pairs,
 )
-from .utils import ptext
-from .utils.config import (
+from .utils import (
     AI_APP_PATH,
     Environs,
-)
-from .utils.logging_ import logging
-from .utils.reusables import (
+    hash_string,
+    logging,
     must_list,
+    ptext,
+    split_iterable,
+)
+from .validators import (
+    FrameworkParameter,
+    MapParameter,
+    ReleaseDate,
 )
 from .validators import (
     Pipeline as PipelineCatalog,
-)
-from .validators import (
-    ReleaseDate,
 )
 from .validators import (
     Task as BaseTask,
@@ -86,6 +95,7 @@ __all__ = (
     "ActionQuery",
     "Node",
     "NodeLocal",
+    "NodeIngest",
     "Pipeline",
     "Task",
     "Control",
@@ -94,6 +104,35 @@ __all__ = (
 
 def null_or_str(value: str) -> Optional[str]:
     return None if value == "None" else value
+
+
+def get_time_checkpoint(
+    date_type: Optional[str] = None,
+) -> Union[dt.datetime, dt.date]:
+    return get_run_date(date_type=(date_type or "date_time"))
+
+
+class MapParameterService(MapParameter):
+
+    @validator("ext_params", always=True)
+    def prepare_ext_params(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return Control.params() | value
+
+    @validator("fwk_params", pre=True, always=True)
+    def prepare_fwk_params(
+        cls,
+        value: Union[dict[str, Any], FrameworkParameter],
+    ) -> FrameworkParameter:
+        if isinstance(value, dict):
+            return FrameworkParameter.parse(
+                {
+                    "run_id": hash_string(get_run_date(fmt="%Y%m%d%H%M%S%f")),
+                    "run_date": get_run_date(fmt="%Y-%m-%d"),
+                    "run_mode": "undefined",
+                }
+                | value
+            )
+        return value
 
 
 class Schema(SchemaStatement):
@@ -131,16 +170,7 @@ class Action(FunctionStatement):
         query_execute(self.statement_create(), parameters=True)
 
 
-class ActionQuery(QueryStatement):
-
-    ext_parameters: dict = Field(
-        default_factory=dict,
-        description="ActionQuery parameters from the application framework",
-    )
-
-    @validator("ext_parameters", always=True)
-    def __prepare_ext_params(cls, value: dict[str, Any]):
-        return Control.params() | value
+class ActionQuery(MapParameterService, QueryStatement):
 
     def push(self, params: dict[str, Any]):
         """Push down the query to target database."""
@@ -153,17 +183,36 @@ class ActionQuery(QueryStatement):
         )
 
 
-class BaseNode(TableStatement):
+class BaseNode(MapParameterService, TableStatement):
     """Base Node Service Model."""
 
-    ext_parameters: dict = Field(
-        default_factory=dict,
-        description="Node parameters from the View Form on API",
-    )
+    @classmethod
+    def start(
+        cls,
+        name: str,
+        fwk_params: dict[str, Any],
+        ext_params: dict[str, Any],
+    ) -> Self:
+        return cls.parse_name(
+            name,
+            additional={"fwk_params": fwk_params, "ext_params": ext_params},
+        )
 
-    @validator("ext_parameters", always=True)
-    def __prepare_ext_params(cls, value: dict[str, Any]):
-        return Control.params() | value
+    @root_validator()
+    def re_create_table(cls, values):
+        return values
+
+    @property
+    def run_type(self) -> str:
+        run_types: dict = PARAMS.map_tbl_run_type.copy()
+        return next(
+            (
+                run_types[col]
+                for col in self.profile.columns(pk_included=True)
+                if col in run_types
+            ),
+            "daily",
+        )
 
     def exists(self) -> bool:
         """Push exists statement to target database."""
@@ -176,9 +225,53 @@ class BaseNode(TableStatement):
 
     def drop(self): ...
 
-    def log_push(self): ...
+    def make_log(self, values: Optional[dict] = None):
+        return Control("ctr_data_logging").create(
+            values=(
+                {
+                    "table_name": self.name,
+                    "data_date": self.fwk_params.run_date.strftime("%Y-%m-%d"),
+                    "run_date": self.fwk_params.run_date.strftime("%Y-%m-%d"),
+                    "action_type": "common",
+                    "row_record": 0,
+                    "process_time": 0,
+                }
+                | (values or {})
+            )
+        )
 
-    def log_fetch(self): ...
+    def log(self, values: Optional[dict] = None):
+        return Control("ctr_data_logging").push(
+            values=(
+                {
+                    "table_name": self.name,
+                    "run_date": self.fwk_params.run_date.strftime("%Y-%m-%d"),
+                    "action_type": "common",
+                }
+                | (values or {})
+            )
+        )
+
+    def make_watermark(self, values: Optional[dict] = None):
+        return Control("ctr_data_pipeline").create(
+            values=(
+                {
+                    "system_type": PARAMS.map_tbl_sys.get(
+                        self.prefix, "undefined"
+                    ),
+                    "table_name": self.name,
+                    "table_type": "undefined",
+                    "data_date": self.fwk_params.run_date.strftime("%Y-%m-%d"),
+                    "run_date": self.fwk_params.run_date.strftime("%Y-%m-%d"),
+                    "run_type": self.run_type,
+                    "run_count_now": 0,
+                    "run_count_max": 0,
+                    "rtt_value": 0,
+                    "rtt_column": "undefined",
+                }
+                | (values or {})
+            )
+        )
 
     def push(self, values: Optional[dict[str, Any]] = None) -> int:
         """Update logging watermark to Control Pipeline."""
@@ -194,8 +287,24 @@ class BaseNode(TableStatement):
 
 
 class Node(BaseNode):
-    """"""
 
+    watermark: ControlWatermark = Field(
+        default_factory=dict,
+        description="Node watermark data from Control Pipeline",
+    )
+
+    @validator("watermark", pre=True, always=True)
+    def prepare_watermark(cls, value: dict[str, Any], values):
+        try:
+            wtm: dict[str, Any] = Control("ctr_data_pipeline").pull(
+                pm_filter=[values["name"]]
+            )
+        except DatabaseProcessError:
+            wtm = {}
+        return ControlWatermark.parse_obj(wtm | value)
+
+
+class ManageNode(Node):
     def backup(self): ...
 
     def retention(self): ...
@@ -237,18 +346,122 @@ class NodeLocal(BaseNode):
         return rows
 
 
-class NodeIngest(BaseNode):
+class NodeIngest(Node):
     """Node for Ingestion."""
 
     @property
     def ingest_action(self) -> Literal["insert", "update"]:
-        return self.ext_parameters.get("ingest_action", "insert")
+        return self.ext_params.get("ingest_action", "insert")
 
     @property
     def ingest_mode(self) -> Literal["common", "merge"]:
-        return self.ext_parameters.get("ingest_mode", "common")
+        return self.ext_params.get("ingest_mode", "common")
 
-    def ingest(self):
+    @property
+    def ingest_payloads(self) -> list:
+        _payloads: Union[dict, list] = self.ext_params.get("payloads", [])
+        return [_payloads] if isinstance(_payloads, dict) else _payloads
+
+    def __ingest(
+        self,
+        payloads: list,
+        mode: str,
+        action: str,
+        update_date: dt.datetime,
+    ) -> tuple[int, int]:
+        ps_row_success: int = 0
+        ps_row_failed: int = 0
+        _start_time: dt.datetime = get_time_checkpoint()
+        self.make_log(
+            values={
+                "data_date": update_date.strftime("%Y-%m-%d"),
+                "update_date": update_date.strftime("%Y-%m-%d %H:%M:%S"),
+                "action_type": "ingestion",
+            }
+        )
+
+        # Note: Chuck size for merge mode will be split from the first level
+        # of payloads.
+        for index, data in enumerate(
+            split_iterable(payloads, settings.APP_INGEST_CHUCK),
+            start=1,
+        ):
+            try:
+                cols, values = Value(
+                    values=data,
+                    update_date=update_date.strftime("%Y-%m-%d %H:%M:%S"),
+                    mode=mode,
+                    action=action,
+                    expected_cols=self.profile.to_mapping(pk=True),
+                    expected_pk=self.profile.primary_key,
+                ).generate()
+                row_ingest: int = (
+                    query_execute_row(
+                        self.statement_update(suffix="UD"),
+                        parameters={
+                            "string_columns": ", ".join(cols),
+                            "string_columns_pairs": ", ".join(
+                                [
+                                    (
+                                        f"{col.name} = {self.shortname}_UD."
+                                        f"{col.name}::{col.datatype}"
+                                    )
+                                    for col in self.profile.features
+                                    if col.name not in self.profile.primary_key
+                                ]
+                            ),
+                            "string_values": values,
+                        },
+                    )
+                    if action == "update"
+                    else query_execute_row(
+                        self.statement_insert(),
+                        parameters={
+                            "string_columns": ", ".join(cols),
+                            "string_values": values,
+                        },
+                    )
+                )
+                _failed: int = 0
+                if row_ingest != (_row_generate := (values.count("), (") + 1)):
+                    _failed: int = _row_generate - row_ingest
+                    ps_row_failed += _failed
+                ps_row_success += row_ingest
+                logger.info(
+                    f"Ingest chunk {index:02d}: "
+                    f"(success: {row_ingest} row{get_plural(row_ingest)},"
+                    f"false: {_failed} row{get_plural(_failed)})"
+                )
+                self.log(
+                    values={
+                        "action_type": "ingestion",
+                        "row_record": {1: ps_row_success, 2: ps_row_failed},
+                        "process_time": round(
+                            (
+                                get_time_checkpoint() - _start_time
+                            ).total_seconds()
+                        ),
+                        "status": 0,
+                    }
+                )
+            except ObjectBaseError as err:
+                self.log(
+                    values={
+                        "action_type": "ingestion",
+                        "row_record": {1: ps_row_success, 2: ps_row_failed},
+                        "process_time": round(
+                            (
+                                get_time_checkpoint() - _start_time
+                            ).total_seconds()
+                        ),
+                        "status": 1,
+                    }
+                )
+                logger.error(f"Error: {err.__class__.__name__}: {str(err)}")
+                raise err
+        return ps_row_success, ps_row_failed
+
+    def ingest(self) -> tuple[int, int]:
         """Ingest Data from the input payload."""
         if self.ingest_mode not in (
             "common",
@@ -261,16 +474,16 @@ class NodeIngest(BaseNode):
             )
         _update_date: dt.datetime = (
             dt.datetime.fromisoformat(_update)
-            if (_update := self.node_tbl_params.get("update_date"))
+            if (_update := self.ext_params.get("update_date"))
             else get_run_date("datetime")
         )
-        if self.tbl_ctr_data_date > _update_date.date():
+        if self.watermark.data_date > _update_date.date():
             raise ControlTableValueError(
                 f"Please check value of `update_date`, which less than "
                 f"the current control data date: "
-                f"'{self.tbl_ctr_data_date:'%Y-%m-%d'}'"
+                f"'{self.watermark.data_date:'%Y-%m-%d'}'"
             )
-        _row_record: tuple[int, int] = self.push_tbl_ingestion(
+        _row_record: tuple[int, int] = self.__ingest(
             payloads=self.ingest_payloads,
             mode=self.ingest_mode,
             action=self.ingest_action,
@@ -313,7 +526,7 @@ class Task(BaseTask):
 
         >>> task: Task = Task.make(module="demo_docstring")
         ... task.start()
-        ... print("Do Something")
+        ... "Do Something"
         ... task.finish()
     """
 
@@ -431,8 +644,8 @@ class Control(ControlStatement):
         self.defaults: dict[str, Union[str, int]] = {
             "update_date": get_run_date(fmt="%Y-%m-%d %H:%M:%S"),
             "process_time": 0,
-            "status": 2,
-        } | params
+            "status": Status.WAITING.value,
+        } | (params or {})
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.name})"
@@ -461,15 +674,13 @@ class Control(ControlStatement):
         proportion_inc_curr_m: str = _results.get(
             "proportion_inc_current_month_flag", "N"
         )
-        window_end: int = 1 if proportion_inc_curr_m == "N" else 0
-        window_start: int = (
-            proportion_value
-            if proportion_inc_curr_m == "N"
-            else (proportion_value - 1)
-        )
         return {
-            "window_start": window_start,
-            "window_end": window_end,
+            "window_start": (
+                proportion_value
+                if proportion_inc_curr_m == "N"
+                else (proportion_value - 1)
+            ),
+            "window_end": (1 if proportion_inc_curr_m == "N" else 0),
             **_results,
         }
 
@@ -604,8 +815,7 @@ class Control(ControlStatement):
         _pm_filter_stm: str = " and ".join(
             [f"{pk} in ({_pm_filter[pk]})" for pk in self.pk]
         )
-        _query: callable = query_select if all_flag else query_select_one
-        return _query(
+        return (query_select if all_flag else query_select_one)(
             self.statement_pull(),
             parameters={
                 "select_columns": ", ".join(

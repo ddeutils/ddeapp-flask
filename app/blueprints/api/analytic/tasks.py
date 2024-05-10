@@ -53,11 +53,11 @@ def get_operation_process(process_id: str) -> Result:
             update_date=_update_date,
         )
     result.percent = (
-        float(task.status.value) if task.status != Status.WAITING else 0.0
+        float(task.status) if task.status != Status.WAITING else 0.0
     )
     result.logging = task.message
     return result.update(
-        f"Process was {Status(task.status).name.lower()} " f"at {_update_date}"
+        f"Process was {Status(task.status).name.lower()} at {_update_date}"
     )
 
 

@@ -190,6 +190,7 @@ def check_ai_exists() -> bool:
     return check_schema_exists(schema_name=env.get("AI_SCHEMA", "ai"))
 
 
+# [x] Migrate to ./services
 def get_time_checkpoint(
     date_type: Optional[str] = None,
 ) -> Union[dt.datetime, dt.date]:
@@ -859,6 +860,7 @@ class TblProcess(TblCatalog):
 
     def push_tbl_create_partition(self): ...
 
+    # [x] Migrate to NodeIngest services with ``NodeIngest.__ingest``
     def push_tbl_insert(self, columns: list, value: str) -> int:
         """Push Insert values to target table :warning: columns must have
         primary key."""
@@ -870,9 +872,13 @@ class TblProcess(TblCatalog):
             },
         )
 
+    # [x] Migrate to NodeIngest services with ``NodeIngest.__ingest``
     def push_tbl_update(self, columns: list, value: str) -> int:
-        """Push Update values to target table :warning: columns must have
-        primary key."""
+        """Push Update values to target table.
+
+        Warning:
+            columns must have primary key.
+        """
         _map_columns_type: dict = {
             col: attrs["datatype"]
             for col, attrs in self.get_tbl_columns(
@@ -897,6 +903,7 @@ class TblProcess(TblCatalog):
             },
         )
 
+    # [x] Migrate to NodeIngest services with ``NodeIngest.__ingest``
     def push_tbl_ingestion(
         self,
         payloads: list,
@@ -1404,6 +1411,7 @@ class TblProcess(TblCatalog):
             raise err
         return _rtt_row
 
+    # [x] Migrate to modern style by `Node.create`
     def push_tbl_to_ctr_logging(self, push_values: Optional[dict] = None):
         """Push data information to the Control Data Logging."""
         _push_values: dict = merge_dicts(
@@ -1419,6 +1427,7 @@ class TblProcess(TblCatalog):
         )
         return Control("ctr_data_logging").push(push_values=_push_values)
 
+    # [x] Migrate to modern style by `Node.log`
     def update_tbl_to_ctr_logging(self, update_values: Optional[dict] = None):
         """Update data information to the Control Data Logging."""
         _update_values: dict = merge_dicts(
@@ -1431,6 +1440,7 @@ class TblProcess(TblCatalog):
         )
         return Control("ctr_data_logging").update(update_values=_update_values)
 
+    # [x] Migrate to Node services with ``Node.make_watermark``
     def push_tbl_to_ctr_pipeline(self, push_values: Optional[dict] = None):
         """Push data information to the Control Data Logging."""
         _push_values: dict = merge_dicts(
@@ -1452,7 +1462,7 @@ class TblProcess(TblCatalog):
         )
         return Control("ctr_data_pipeline").push(push_values=_push_values)
 
-    # [x] Migrate to Node services with ``.push``
+    # [x] Migrate to Node services with ``Node.push``
     def update_tbl_to_ctr_pipeline(
         self,
         update_values: Optional[dict] = None,
@@ -1487,6 +1497,7 @@ class TblProcess(TblCatalog):
         )
         return {param: _full_parameters[param] for param in parameters}
 
+    # [x] Migrate to Node services with ``Node.run_type``
     def _generate_run_type(self) -> str:
         run_types: dict = params.map_tbl_run_type.copy()
         return next(

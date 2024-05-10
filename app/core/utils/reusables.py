@@ -152,12 +152,12 @@ def chunks(dataframe, n):
 
 
 def rows(f, chunk_size=1024, sep="|"):
-    """
-    Read a file where the row separator is '|' lazily
-    usage:
-        >> with open('big.csv') as f:
-        >>     for r in rows(f):
-        >>         process(r)
+    """Read a file where the row separator is '|' lazily.
+
+    Examples:
+        >>> with open('big.csv') as f:
+        ...     for r in rows(f):
+        ...         process(r)
     """
     row = ""
     while (chunk := f.read(chunk_size)) != "":  # End of file
