@@ -1589,6 +1589,7 @@ class FuncProcess(FuncCatalog):
         func_name: str,
         func_type: str,
         func_run_date: Optional[str] = None,
+        # NOTE: this value come from (external_parameters + Control params)
         fwk_parameters: Optional[dict] = None,
         func_auto_create: Union[bool, str] = True,
         func_auto_drop: Union[bool, str] = False,
@@ -1721,6 +1722,7 @@ class FuncProcess(FuncCatalog):
                 f"with statement type {stm.stm_type!r}"
             )
 
+    # [x] Migrate to `MapParameterService` services with ``.filter_params``
     def _generate_params(
         self, parameters: list, additional: Optional[dict] = None
     ) -> dict:

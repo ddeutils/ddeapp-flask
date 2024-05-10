@@ -10,7 +10,6 @@ import builtins
 import datetime as dt
 from collections.abc import Iterator
 from typing import (
-    Any,
     Literal,
     Optional,
     Union,
@@ -21,6 +20,7 @@ from typing_extensions import Self
 
 from conf.settings import settings
 
+from .__types import DictKeyStr
 from .base import (
     PARAMS,
     get_plural,
@@ -39,6 +39,7 @@ from .connections import (
 )
 from .convertor import Value
 from .errors import (
+    CatalogArgumentError,
     ControlProcessNotExists,
     ControlTableValueError,
     DatabaseProcessError,
@@ -115,13 +116,13 @@ def get_time_checkpoint(
 class MapParameterService(MapParameter):
 
     @validator("ext_params", always=True)
-    def prepare_ext_params(cls, value: dict[str, Any]) -> dict[str, Any]:
-        return Control.params() | value
+    def __prepare_ext_params(cls, value: DictKeyStr) -> DictKeyStr:
+        return value | Control.params()
 
     @validator("fwk_params", pre=True, always=True)
-    def prepare_fwk_params(
+    def __prepare_fwk_params(
         cls,
-        value: Union[dict[str, Any], FrameworkParameter],
+        value: Union[DictKeyStr, FrameworkParameter],
     ) -> FrameworkParameter:
         if isinstance(value, dict):
             return FrameworkParameter.parse(
@@ -133,6 +134,34 @@ class MapParameterService(MapParameter):
                 | value
             )
         return value
+
+    def add_ext_params(self, params: DictKeyStr) -> Self:
+        logger.debug("Add more external parameters ...")
+        self.__dict__["ext_params"] = self.ext_params | params
+        return self
+
+    def ext_params_refresh(self) -> Self:
+        """Refresh External parameters."""
+        self.__dict__["ext_params"] = self.ext_params | Control.params()
+        return self
+
+    def filter_params(
+        self,
+        params: list[str],
+        additional: Optional[DictKeyStr] = None,
+    ) -> DictKeyStr:
+        _full_params: DictKeyStr = (
+            self.fwk_params.dict(by_alias=False)
+            | self.ext_params
+            | (additional or {})
+            | {"update_date": get_run_date(fmt="%Y-%m-%d %H:%M:%S")}
+        )
+        try:
+            return {param: _full_params[param] for param in params}
+        except KeyError as k:
+            raise CatalogArgumentError(
+                f"Catalog does not map config parameter for {k!r}"
+            ) from k
 
 
 class Schema(SchemaStatement):
@@ -172,14 +201,11 @@ class Action(FunctionStatement):
 
 class ActionQuery(MapParameterService, QueryStatement):
 
-    def push(self, params: dict[str, Any]):
+    def push(self):
         """Push down the query to target database."""
         query_execute(
             self.statement(),
-            parameters={
-                "update_date": self.tag.ts.strftime("%Y-%m-%d %H:%M:%S"),
-                **params,
-            },
+            parameters=self.filter_params(self.profile.parameter),
         )
 
 
@@ -190,8 +216,8 @@ class BaseNode(MapParameterService, TableStatement):
     def start(
         cls,
         name: str,
-        fwk_params: dict[str, Any],
-        ext_params: dict[str, Any],
+        fwk_params: DictKeyStr,
+        ext_params: DictKeyStr,
     ) -> Self:
         return cls.parse_name(
             name,
@@ -273,7 +299,7 @@ class BaseNode(MapParameterService, TableStatement):
             )
         )
 
-    def push(self, values: Optional[dict[str, Any]] = None) -> int:
+    def push(self, values: Optional[DictKeyStr] = None) -> int:
         """Update logging watermark to Control Pipeline."""
         _values: dict = {"table_name": self.name} | (values or {})
         try:
@@ -294,9 +320,9 @@ class Node(BaseNode):
     )
 
     @validator("watermark", pre=True, always=True)
-    def prepare_watermark(cls, value: dict[str, Any], values):
+    def __prepare_watermark(cls, value: DictKeyStr, values):
         try:
-            wtm: dict[str, Any] = Control("ctr_data_pipeline").pull(
+            wtm: DictKeyStr = Control("ctr_data_pipeline").pull(
                 pm_filter=[values["name"]]
             )
         except DatabaseProcessError:
@@ -322,7 +348,7 @@ class NodeLocal(BaseNode):
         truncate: bool = False,
         compress: Optional[str] = None,
     ) -> int:
-        file_props: dict[str, Any] = {
+        file_props: DictKeyStr = {
             "filepath": AI_APP_PATH / f"{registers.path.data}/{filename}",
             "table": self.name,
             "props": {
@@ -654,7 +680,7 @@ class Control(ControlStatement):
         return self.name
 
     @classmethod
-    def params(cls, module: Optional[str] = None) -> dict[str, Any]:
+    def params(cls, module: Optional[str] = None) -> DictKeyStr:
         logger.debug("Loading params from `ctr_data_parameter` by Control ...")
         _results: dict = {
             value["param_name"]: (
@@ -713,7 +739,7 @@ class Control(ControlStatement):
         _ctr_columns = filter(
             lambda _col: _col not in {"primary_id"}, self.cols
         )
-        _add_column: dict[str, Any] = self.defaults | {
+        _add_column: DictKeyStr = self.defaults | {
             "tracking": "SUCCESS",
             "active_flg": "Y",
         }
@@ -755,7 +781,7 @@ class Control(ControlStatement):
 
     def push(
         self,
-        values: dict[str, Any],
+        values: DictKeyStr,
         condition: Optional[str] = None,
     ) -> int:
         _add_column: dict = self.defaults | {"tacking": "PROCESSING"}
@@ -794,7 +820,7 @@ class Control(ControlStatement):
         *,
         active_flag: Optional[str] = None,
         all_flag: Optional[bool] = False,
-    ) -> dict[str, Any]:
+    ) -> DictKeyStr:
         """Pull data from the control table."""
         if len(self.pk) > 1 and isinstance(pm_filter, list):
             raise TableNotImplement(

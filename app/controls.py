@@ -173,15 +173,17 @@ def push_ctr_stop_running() -> None:
     try:
         logger.info("Start update message and status to in-progress tasks.")
         (
-            ActionQuery.parse_name(fullname="query:query_shutdown").push(
+            ActionQuery.parse_name(fullname="query:query_shutdown")
+            .add_ext_params(
                 params={
                     "status": 1,
                     "process_message": (
                         "Error: RuntimeError: Server shutdown while "
                         "process was running in background"
                     ),
-                }
+                },
             )
+            .push()
         )
     except (OperationalError, PsycopgOperationalError):
         logger.warning("... Target database does not connectable.")
@@ -304,9 +306,23 @@ def push_testing() -> None:
     Schema().create()
 
     logger.info("Start Testing ...")
-    with Task.make(module="demo_docstring"):
+    with Task.make(module="demo_docstring") as task:
         for _, _ctr_prop in enumerate(registers.control_frameworks, start=1):
             node: Node = Node.parse_name(fullname=_ctr_prop["name"])
             if node.exists():
                 print(node.profile.to_mapping(pk=True))
             break
+        task.status = Status.WAITING
+    (
+        ActionQuery.parse_name(fullname="query:query_shutdown")
+        .add_ext_params(
+            params={
+                "status": 1,
+                "process_message": (
+                    "Error: RuntimeError: Server shutdown while "
+                    "process was running in background"
+                ),
+            },
+        )
+        .push()
+    )

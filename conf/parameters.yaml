@@ -41,7 +41,7 @@ map_func_types: {
 }
 map_func:
     desc: ["description", "descriptions"]
-    create: ['create', 'statement', 'function', 'functions', 'query']
+    create: ['create', 'statement', 'function', 'functions', 'query', 'profile']
     param: ['parameter', 'param', 'parameters', 'params']
     stm: ['statement', 'statements']
     input: ['input', 'input_df']

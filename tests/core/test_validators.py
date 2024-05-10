@@ -68,7 +68,7 @@ class ColumnValidatorTestCase(unittest.TestCase):
     def test_compare_01_and_02(self):
         _result_01: Column = Column.parse_obj(self.input_01)
         _result_02: Column = Column.parse_obj(self.input_02)
-        self.assertTrue(_result_01 == _result_02)
+        self.assertEqual(_result_01, _result_02)
 
     def test_raise_with_null(self):
         with self.assertRaises(ValidationError) as context:
@@ -76,7 +76,7 @@ class ColumnValidatorTestCase(unittest.TestCase):
         error_wrapper: ValidationError = context.exception
         errors: list = error_wrapper.errors()
         print(errors)
-        self.assertTrue(len(errors) == 1)
+        self.assertEqual(len(errors), 1)
         self.assertEqual("__root__", errors[0]["loc"][0])
         self.assertTrue(
             "datatype does not contain in values" in errors[0]["msg"]
@@ -87,7 +87,7 @@ class ColumnValidatorTestCase(unittest.TestCase):
             Column.parse_obj({"name": "no_datatype"})
         error_wrapper: ValidationError = context.exception
         errors: list = error_wrapper.errors()
-        self.assertTrue(len(errors) == 1)
+        self.assertEqual(len(errors), 1)
         self.assertEqual("__root__", errors[0]["loc"][0])
         self.assertTrue(
             "datatype does not contain in values" in errors[0]["msg"]

@@ -1066,7 +1066,7 @@ class Function(BaseUpdatableModel):
         ):
             raise ValueError(
                 "Catalog does not found any key represent "
-                "`create`/`function`/`statement`"
+                "`create`/`statement`/`function`/`functions`/`query`"
             )
         return {
             "name": name,
@@ -1641,10 +1641,10 @@ def process(model):
 @process.register
 def _(model: Pipeline):
     """Handle pipeline model."""
-    print(f"Pipeline: {model}")
+    logger.info(f"Process pipeline: {model}")
 
 
 @process.register
 def _(model: Table):
     """Handle table model."""
-    print(f"Table: {model}")
+    logger.info(f"Process table: {model}")
