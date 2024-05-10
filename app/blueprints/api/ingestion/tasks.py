@@ -85,6 +85,7 @@ def ingestion_foreground(module: str, external_parameters: dict) -> Result:
                     "run_mode": task.parameters.others.get(
                         "run_mode", "ingestion"
                     ),
+                    "task_params": task.parameters,
                 },
                 ext_params=external_parameters,
             )

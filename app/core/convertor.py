@@ -301,8 +301,8 @@ class Value:
         self.vl_values: Union[dict, list] = values
         self.vl_mode: str = mode or "common"  # merge
         self.vl_action: str = action or "insert"  # update
-        self.expected_cols: [dict] = expected_cols or {}
-        self.vl_expected_pk: [list] = expected_pk or []
+        self.expected_cols: dict[str, Any] = expected_cols or {}
+        self.vl_expected_pk: list[str] = expected_pk or []
         self.vl_update_date: str = (
             update_date
             if isinstance(update_date, str)
@@ -480,7 +480,7 @@ class Value:
         }
         """
         _cols_expected: list = [
-            k for k, v in self.expected_cols.items() if v.default is not None
+            k for k, v in self.expected_cols.items() if v.default is None
         ]
         _cols: list = list(values)
 
@@ -638,7 +638,7 @@ class Value:
         }
         """
         _cols_expected: list = [
-            k for k, v in self.expected_cols.items() if v.default is not None
+            k for k, v in self.expected_cols.items() if v.default is None
         ]
 
         def merge_with_key(

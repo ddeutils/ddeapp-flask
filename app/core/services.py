@@ -15,7 +15,7 @@ from typing import (
     Union,
 )
 
-from pydantic import Field, root_validator, validator
+from pydantic import Field, validator
 from typing_extensions import Self
 
 from conf.settings import settings
@@ -71,6 +71,7 @@ from .utils import (
     Environs,
     hash_string,
     logging,
+    must_bool,
     must_list,
     ptext,
     split_iterable,
@@ -224,9 +225,14 @@ class BaseNode(MapParameterService, TableStatement):
             additional={"fwk_params": fwk_params, "ext_params": ext_params},
         )
 
-    @root_validator()
-    def re_create_table(cls, values):
-        return values
+    def __init__(self, **data):
+        super().__init__(**data)
+        if not self.exists() and must_bool(
+            self.fwk_params.task_params.others.get("auto_create", "Y"),
+            force_raise=True,
+        ):
+            logger.info(f"Auto create table {self.name} ...")
+            self.create()
 
     @property
     def run_type(self) -> str:

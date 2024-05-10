@@ -1458,6 +1458,10 @@ class FrameworkParameter(BaseUpdatableModel):
     run_id: int
     run_date: date
     run_mode: str
+    task_params: Parameter = Field(
+        default_factory=Parameter,
+        description="Task parameters",
+    )
 
 
 class MapParameter(BaseUpdatableModel):

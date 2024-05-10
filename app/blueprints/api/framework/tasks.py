@@ -9,7 +9,9 @@ import queue
 from typing import Callable
 
 from ....core.__legacy.objects import (
-    Node,
+    Node as LegacyNode,
+)
+from ....core.__legacy.objects import (
     ObjectType,
     Pipeline,
 )
@@ -34,12 +36,12 @@ from ....core.utils.logging_ import logging
 logger = logging.getLogger(__name__)
 registers = Params(param_name="registers.yaml")
 ObjectMap = {
-    "table": Node,
+    "table": LegacyNode,
     "pipeline": Pipeline,
 }
 
 
-def run_tbl_setup(node: Node, task: Task) -> Result:
+def run_tbl_setup(node: LegacyNode, task: Task) -> Result:
     """Run Setup process node together with task model This function will
     control write process log to Control Data Pipeline table."""
     result: Result = CommonResult()
@@ -69,7 +71,7 @@ def run_tbl_setup(node: Node, task: Task) -> Result:
     return result
 
 
-def run_tbl_data(node: Node, task: Task) -> Result:
+def run_tbl_data(node: LegacyNode, task: Task) -> Result:
     """Run Data process node together with task model This function will
     control write process log to Control Data Pipeline table."""
     result: Result = CommonResult()
@@ -96,7 +98,7 @@ def run_tbl_data(node: Node, task: Task) -> Result:
     return result
 
 
-def run_tbl_retention(node: Node, task: Task) -> Result:
+def run_tbl_retention(node: LegacyNode, task: Task) -> Result:
     """Run Retention process node together with task model This function will
     control write process log to Control Data Pipeline table."""
     _ = task

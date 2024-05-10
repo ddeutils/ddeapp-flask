@@ -525,7 +525,7 @@ class TblCatalog:
             for col, feature in self.tbl_profile["features"].items()
         }
 
-    # [x] Migrate to modern style
+    # [x] Migrate to modern style to validators `validate_name_flag`
     def validate_tbl_with_flag(self, flag: Optional[Union[str, bool]]) -> bool:
         try:
             return must_bool(flag, force_raise=True)
@@ -535,7 +535,7 @@ class TblCatalog:
                 for _ in flag
             )
 
-    # [x] Migrate to modern style
+    # [x] Migrate to modern style to validators `validate_columns`
     def validate_tbl_columns(
         self, columns: Union[list, dict], raise_error: bool = False
     ) -> Optional[list]:
