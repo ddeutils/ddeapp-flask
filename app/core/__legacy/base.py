@@ -1200,7 +1200,7 @@ class PipeCatalog:
     def __str__(self):
         return self.pipe_name
 
-    # [x] Migrate to modern style
+    # [x] Migrate to modern style `PiplineFrontend`
     @property
     def catalog(self) -> dict:
         return {

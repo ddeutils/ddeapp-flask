@@ -341,6 +341,11 @@ class TableStatement(Table):
             f"FROM {{database_name}}.{{ai_schema_name}}.{self.name})"
         )
 
+    def statement_vacuum(self, option: str) -> str:
+        return reduce_stm(
+            f"vacuum {option} {{database_name}}.{{ai_schema_name}}.{self.name}"
+        )
+
     def conflict_set(
         self,
         excluded: Optional[list] = None,

@@ -124,6 +124,7 @@ def get_time_checkpoint(
     return get_run_date(date_type=(date_type or "date_time"))
 
 
+# [x] Migrate to Node.split_choose
 def split_choose(choose: Union[str, list]) -> tuple[list, list]:
     processes: list = (
         list(set(choose)) if isinstance(choose, list) else [choose]
@@ -679,6 +680,7 @@ class TblProcess(TblCatalog):
             date_type="date",
         )
 
+    # [x] Migrate to modern on service `Node.profile.features`
     def pull_tbl_columns_datatype(self) -> dict:
         """Pull name and data type of all columns of table in database."""
         return {
@@ -907,6 +909,7 @@ class TblProcess(TblCatalog):
         #     'mapping_select': ', '.join(mapping_col_select)
         # })
 
+    # [x] Migrate to `NodeManage.vacuum`
     def push_tbl_vacuum(self, option: Optional[list] = None) -> None:
         _option: str = ", ".join(option) if option else "full"
         return query_execute(
@@ -914,6 +917,7 @@ class TblProcess(TblCatalog):
             parameters={"table_name": self.tbl_name, "option": _option},
         )
 
+    # [x] Migrate to modern on service `Node.delete_with_condition`
     def push_tbl_del_with_condition(self, condition: str) -> int:
         return query_select_row(
             reduce_stm(
@@ -1470,16 +1474,16 @@ class Node(TblProcess):
             tbl_auto_init=auto_init,
             verbose=verbose,
         )
+
+        # [x] Migrate to Node.split_choose
         self.node_tbl_ps_included: list = (
             [_ for _ in self.tbl_process.keys() if _ in _node_tbl_ps_included]
             if _node_tbl_ps_included
             else list(self.tbl_process.keys())
         )
+
         self.node_start_datetime: dt.datetime = get_time_checkpoint()
-        self.node_tbl_run_check: bool = (
-            self.tbl_ctr_run_count_now < self.tbl_ctr_run_count_max
-            or self.tbl_ctr_run_count_max == 0
-        )
+
         # [x] Migrate to Node.__validate_quota
         if (
             self.tbl_run_date < self.tbl_ctr_run_date
@@ -1639,10 +1643,12 @@ class Node(TblProcess):
             )
         return _row_record
 
+    # [x] Migrate to modern on service `Node.ext_params`
     @property
     def retention_mode(self) -> str:
         return self.node_tbl_params.get("data_retention_mode", "data_date")
 
+    # [x] Migrate to modern on service `Node.retention_date`
     @property
     def retention_date(self) -> dt.date:
         return self.pull_tbl_retention_date(rtt_mode=self.retention_mode)

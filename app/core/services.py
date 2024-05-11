@@ -87,6 +87,7 @@ from .utils import (
     split_iterable,
 )
 from .validators import (
+    Choose,
     FrameworkParameter,
     MapParameter,
     ReleaseDate,
@@ -497,7 +498,7 @@ class BaseNode(MapParameterService, TableStatement):
 
 class Node(BaseNode):
 
-    choose: list[str] = Field(default_factory=list)
+    choose: list[str] = Field(default_factory=list, description="Node choose")
     watermark: ControlWatermark = Field(
         default_factory=dict,
         description="Node watermark data from Control Pipeline",
@@ -550,6 +551,24 @@ class Node(BaseNode):
                 f"running date: {self.watermark.run_date:'%Y-%m-%d'}"
             )
 
+    @property
+    def split_choose(self) -> Choose:
+        _process: dict[str, list[str]] = {"reject": [], "filter": []}
+        for process in self.choose:
+            if process.startswith("!"):
+                _process["reject"].append(process.split("!")[-1])
+            else:
+                _process["filter"].append(process)
+        _filter: list[str] = _process["filter"]
+        return Choose(
+            included=(
+                [_ for _ in self.process.keys() if _ in _filter]
+                if _filter
+                else list(self.process.keys())
+            ),
+            excluded=_process["reject"],
+        )
+
     @validator("watermark", pre=True, always=True)
     def __prepare_watermark(cls, value: DictKeyStr, values):
         try:
@@ -559,6 +578,10 @@ class Node(BaseNode):
         except DatabaseProcessError:
             wtm = WTM_DEFAULT
         return ControlWatermark.parse_obj(wtm | value)
+
+    @validator("choose", pre=True, always=True)
+    def __prepare_choose(cls, value: Union[str, list[str]]) -> list[str]:
+        return list(set(value)) if isinstance(value, list) else [value]
 
     def watermark_refresh(self):
         logger.debug("Add more external parameters ...")
@@ -572,6 +595,14 @@ class Node(BaseNode):
             self.fwk_params.run_date,
             self.watermark.run_type,
             date_type="date",
+        )
+
+    def delete_with_condition(self, condition: str) -> int:
+        return query_select_row(
+            reduce_stm(
+                PARAMS.ps_stm.push_del_with_condition, add_row_number=False
+            ),
+            parameters={"table_name": self.name, "condition": condition},
         )
 
     def delete_with_date(
@@ -838,7 +869,7 @@ class Node(BaseNode):
         )
         return _run_date, _data_date
 
-    def process_run_count(self, row_record: dict):
+    def process_run_count(self, row_record: dict) -> int:
         return (
             int(float(self.watermark.run_count_now)) + 1
             if (
@@ -848,9 +879,9 @@ class Node(BaseNode):
             else 0
         )
 
-    def process_count(self):
-        _excluded: list = self.node_tbl_ps_excluded
-        if _included := self.node_tbl_ps_included:
+    def process_count(self) -> int:
+        _excluded: list = self.split_choose.excluded
+        if _included := self.split_choose.included:
             return len(_included) - len(
                 set(_included).intersection(set(_excluded))
             )
@@ -872,8 +903,8 @@ class Node(BaseNode):
             )
         _run_date, _data_date = self._prepare_before_rerun(sla=_ps_sla)
         _row_record: dict[int, int] = self.execute(
-            included=self.node_tbl_ps_included,
-            excluded=self.node_tbl_ps_excluded,
+            included=self.split_choose.included,
+            excluded=self.split_choose.excluded,
             act_type=self.fwk_params.run_mode,
             params=(
                 _additional
@@ -1055,6 +1086,10 @@ class NodeManage(Node):
                 rtt_mode=self.ext_params.get("data_retention_mode", "data_date")
             )
         )
+
+    def vacuum(self, options: Optional[list[str]] = None) -> None:
+        _option: str = ", ".join(options) if options else "full"
+        return query_execute(self.statement_vacuum(_option), parameters=True)
 
 
 class NodeLocal(Node):

@@ -75,6 +75,7 @@ __all__ = (
     "ReleaseDate",
     "Task",
     "MapParameter",
+    "Choose",
     "FrameworkParameter",
 )
 
@@ -1507,6 +1508,11 @@ class FrameworkParameter(BaseUpdatableModel):
     @staticmethod
     def checkpoint(date_type: Optional[str] = None):
         return get_run_date(date_type=(date_type or "date_time"))
+
+
+class Choose(BaseUpdatableModel):
+    included: list[str]
+    excluded: list[str]
 
 
 class MapParameter(BaseUpdatableModel):
