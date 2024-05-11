@@ -64,7 +64,12 @@ from .models import (
     TaskMode,
     reduce_text,
 )
-from .schemas import WTM_DEFAULT, ControlWatermark
+from .schemas import (
+    SCH_DEFAULT,
+    WTM_DEFAULT,
+    ControlSchedule,
+    ControlWatermark,
+)
 from .statements import (
     ControlStatement,
     FunctionStatement,
@@ -260,10 +265,18 @@ class BaseAction(MapParameterService, FunctionStatement):
     def create(self) -> None:
         """Push create statement to target database."""
         if self.type not in ("func", "view", "mview"):
-            raise ValueError(
+            raise FuncRaiseError(
                 f"Function type {self.type!r} does not support create"
             )
         query_execute(self.statement(), parameters=True)
+
+    def drop(self) -> None:
+        if self.type == "func":
+            query_execute(self.statement_func_drop(), parameters=True)
+        else:
+            raise FuncRaiseError(
+                f"Function type {self.type!r} does not support drop"
+            )
 
     def explain(self):
         if self.type != "query":
@@ -361,7 +374,7 @@ class BaseNode(MapParameterService, TableStatement):
         cascade: bool = False,
     ) -> Self:
         """Execute create statement to target database."""
-        statements: list = [self.statement_create()]
+        statements: list[str] = [self.statement_create()]
         if force_drop:
             rows: int = self.count()
             log: str = f"with {rows} row{get_plural(rows)} " if rows > 0 else ""
@@ -380,8 +393,6 @@ class BaseNode(MapParameterService, TableStatement):
             )
         query_transaction(statements, parameters=True)
         return self
-
-    def create_backup(self): ...
 
     def create_partition(self): ...
 
@@ -511,20 +522,22 @@ class Node(BaseNode):
 
     def __validate_create(self) -> None:
         _auto_create: bool = must_bool(
-            self.fwk_params.task_params.others.get("auto_create", "Y"),
+            self.fwk_params.task_params.others.get("auto_create", "N"),
+            force_raise=True,
+        )
+        _auto_init: bool = must_bool(
+            self.fwk_params.task_params.others.get("auto_init", "N"),
             force_raise=True,
         )
         if not self.exists():
             if not _auto_create:
                 raise TableNotFound(
-                    "Please set `tbl_auto_create` be True or setup "
-                    "this table with API."
+                    "Please set `auto_create` be True or setup via API."
                 )
-            logger.info(
-                f"Auto create {self.name!r} in database because "
-                f"`auto_create` was set be True"
-            )
+            logger.info(f"Auto create {self.name!r} because set auto flag")
             self.create()
+            if _auto_init:
+                self.init()
         if (
             self.watermark.table_name == UNDEFINED
             and self.fwk_params.run_mode != TaskComponent.RECREATED
@@ -610,6 +623,10 @@ class Node(BaseNode):
         del_date: str,
         del_mode: Optional[str] = None,
     ) -> int:
+        if len(self.watermark.rtt_column) > 1:
+            raise CatalogArgumentError(
+                "Delete with date does not support for multi rtt columns."
+            )
         _primary_key: list[str] = self.profile.primary_key
         _primary_key_group: str = ",".join(
             [str(_) for _ in range(1, len(_primary_key) + 1)]
@@ -629,7 +646,6 @@ class Node(BaseNode):
         return query_select_row(
             _stm,
             parameters={
-                # TODO: rtt_column must be list of 1 column value
                 "ctr_rtt_col": self.watermark.rtt_column[0],
                 "ctr_rtt_value": self.watermark.rtt_value,
                 "del_operation": ("<" if del_mode == "rtt" else ">="),
@@ -665,20 +681,8 @@ class Node(BaseNode):
             ).get("max_date", _default_value)
         )
 
-    def create(
-        self,
-        force_drop: bool = False,
-        cascade: bool = False,
-    ) -> Self:
-        super().create(force_drop, cascade=cascade)
-        if (
-            must_bool(
-                self.fwk_params.task_params.others.get("auto_init", "N"),
-                force_raise=True,
-            )
-            and force_drop
-            and (init := self.initial)
-        ):
+    def init(self) -> Self:
+        if init := self.initial:
             _start_time: datetime = self.fwk_params.checkpoint()
             rows: int = self.__execute(init, force_sql=True)
             self.make_log(
@@ -1254,20 +1258,76 @@ class NodeIngest(Node):
         return _rs
 
 
-class Pipeline(PipelineCatalog):
+class BasePipeline(MapParameterService, PipelineCatalog):
     """Pipeline Service Model."""
 
+    watermark: ControlSchedule = Field(
+        default_factory=dict,
+        description="Pipeline watermark data from Control Task Schedule",
+    )
+
+    @validator("watermark", pre=True, always=True)
+    def __prepare_watermark(cls, value: DictKeyStr, values):
+        try:
+            wtm: DictKeyStr = SCH_DEFAULT | cls.pull_watermarks(
+                pipe_id=values["name"]
+            )
+        except DatabaseProcessError:
+            wtm = SCH_DEFAULT
+        return ControlSchedule.parse_obj(wtm | value)
+
     def nodes(self): ...
-
-    def log_push(self): ...
-
-    def log_fetch(self): ...
 
     def check_triggered(self): ...
 
     def check_scheduled(self): ...
 
-    def push(self): ...
+    @classmethod
+    def pull_watermarks(
+        cls,
+        pipe_id: Optional[str] = None,
+        included_cols: Optional[list] = None,
+        all_flag: bool = False,
+    ):
+        """Pull tacking data from the Control Task Schedule."""
+        if pipe_id:
+            _pipe_id: str = pipe_id
+        elif all_flag:
+            _pipe_id: str = "*"
+        else:
+            raise ObjectBaseError(
+                "Pull Task Schedule should pass pipeline id or check all flag."
+            )
+        return Control("ctr_task_schedule").pull(
+            pm_filter={"pipeline_id": _pipe_id},
+            included=included_cols,
+            all_flag=all_flag,
+        )
+
+    def make_watermark(self, values: Optional[dict] = None):
+        return Control("ctr_task_schedule").create(
+            values=(
+                {
+                    "pipeline_id": self.id,
+                    "pipeline_name": self.name,
+                    "pipeline_type": self.schedule,
+                    "tracking": "SUCCESS",
+                    "active_flg": "true",
+                }
+                | (values or {})
+            )
+        )
+
+    def push(self, values: Optional[dict] = None):
+        """Update tacking information to the Control Task Schedule."""
+        return Control("ctr_task_schedule").push(
+            values=(
+                {"pipeline_id": self.id, "tracking": "SUCCESS"} | (values or {})
+            )
+        )
+
+
+class Pipeline(BasePipeline): ...
 
 
 class Task(BaseTask):
@@ -1417,20 +1477,29 @@ class Control(ControlStatement):
     @classmethod
     def params(cls, module: Optional[str] = None) -> DictKeyStr:
         logger.debug("Loading params from `ctr_data_parameter` by Control ...")
-        _results: dict = {
-            value["param_name"]: (
-                ast.literal_eval(value["param_value"])
-                if value["param_type"] in {"list", "dict"}
-                else getattr(builtins, value["param_type"])(
-                    value["param_value"]
+        _results: dict[str, Any] = {}
+        try:
+            _results: dict[str, Any] = {
+                value["param_name"]: (
+                    ast.literal_eval(value["param_value"])
+                    if value["param_type"] in ("list", "dict")
+                    else getattr(builtins, value["param_type"])(
+                        value["param_value"]
+                    )
                 )
+                for value in query_select(
+                    cls.statement_params(),
+                    parameters=reduce_value_pairs(
+                        {"module_type": (module or "*")}
+                    ),
+                )
+            }
+        except DatabaseProcessError:
+            logger.warning(
+                "Control Data Parameter does not exists, so, it will use empty."
             )
-            for value in query_select(
-                cls.statement_params(),
-                parameters=reduce_value_pairs({"module_type": (module or "*")}),
-            )
-        }
-        # Calculate special parameters that logic was provided by vendor.
+
+        # NOTE: Calculate special parameters that logic was provided by vendor.
         proportion_value: int = _results.get("proportion_value", 3)
         proportion_inc_curr_m: str = _results.get(
             "proportion_inc_current_month_flag", "N"

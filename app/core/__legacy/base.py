@@ -1236,6 +1236,7 @@ class PipeCatalog:
     def pipe_trigger(self) -> list:
         return self.pipe_catalog["trigger"]
 
+    # [x] Migrate to PipelineCatalog.schedule_type
     @property
     def pipe_schedule_type(self) -> str:
         _result: str = ""
@@ -1245,6 +1246,7 @@ class PipeCatalog:
             _result += "|schedule" if _result else "schedule"
         return _result
 
+    # [x] Migrate to PipelineCatalog.nodes
     @property
     def pipe_nodes(self) -> dict:
         return self.pipe_catalog["nodes"]

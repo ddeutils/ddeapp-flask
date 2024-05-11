@@ -65,3 +65,24 @@ WTM_DEFAULT: dict[str, Any] = {
     "rtt_column": UNDEFINED,
     "active_flg": "N",
 }
+
+
+class ControlSchedule(BaseUpdatableModel):
+    pipeline_id: str
+    pipeline_name: str
+    pipeline_type: str
+    tracking: str
+    update_date: datetime
+    active_flg: bool
+    primary_id: int
+
+
+SCH_DEFAULT: dict[str, Any] = {
+    "pipeline_id": UNDEFINED,
+    "pipeline_name": UNDEFINED,
+    "pipeline_type": UNDEFINED,
+    "tracking": UNDEFINED,
+    "update_date": "1990-01-01 00:00:00",
+    "active_flg": "false",
+    "primary_id": "-1",
+}

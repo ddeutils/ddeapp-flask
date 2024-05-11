@@ -26,8 +26,8 @@ control_frameworks:
     - name: 'sql:ctr_task_schedule'
 
     # Frontend control tables
-    - name: 'sql:ctr_web_user'
-    - name: 'sql:ctr_web_role'
+#    - name: 'sql:ctr_web_user'
+#    - name: 'sql:ctr_web_role'
 #    - name: 'sql:ctr_web_user_role'
 #    - name: 'sql:ctr_web_group'
 #    - name: 'sql:ctr_web_group_to_group'

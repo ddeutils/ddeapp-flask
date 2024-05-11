@@ -102,7 +102,12 @@ def migrate(condition: str, debug: bool):
     name="init",
     short_help="run initial setup to target database",
 )
-def init():
+@click.option(
+    "--force-drop",
+    is_flag=True,
+    help="Force drop the Control tables before create",
+)
+def init(force_drop: bool = False):
     """Run initial setup to target database."""
     from app.controls import (
         push_ctr_setup,
@@ -112,8 +117,8 @@ def init():
 
     click.echo("Start Initial create tables to target database ...")
     push_schema_setup()
-    push_func_setup()
-    push_ctr_setup()
+    push_func_setup(force_drop=force_drop)
+    push_ctr_setup(force_drop=force_drop)
 
 
 @click.command(
@@ -142,11 +147,11 @@ def runserver(
 
     Example:
 
-        ..> $ python manage.py run --debug=true --server=True
+        $ python manage.py run --debug=true --server=True
 
     Note:
         - Re-loader will be True if run server in debug mode
-            > app.run(use_reloader=False)
+            >> app.run(use_reloader=False)
     """
     os.environ["DEBUG"] = str(debug).capitalize()
 

@@ -64,7 +64,10 @@ def push_schema_setup() -> None:
         logger.info("Success: Create Schema to target database.")
 
 
-def push_func_setup(task: Optional[Task] = None) -> None:
+def push_func_setup(
+    task: Optional[Task] = None,
+    force_drop: bool = False,
+) -> None:
     """Run Setup function in `register.yaml`"""
     task: Task = task or Task.make(module="function_setup")
     for idx, _func_prop in enumerate(registers.functions, start=1):
@@ -76,10 +79,18 @@ def push_func_setup(task: Optional[Task] = None) -> None:
                 f"Success: Setup {_func.name} "
                 f"with logging value {task.duration()} sec"
             )
+        elif force_drop:
+            _func.drop()
+            _func.create()
+            logger.info(
+                f"Success: Delete and Setup {_func.name} "
+                f"with logging value {task.duration()} sec"
+            )
 
 
 def push_ctr_setup(
     task: Optional[Task] = None,
+    force_drop: bool = False,
 ) -> None:
     """Run Setup Control Framework table in `register.yaml`"""
     task: Task = task or Task.make(module="control_setup")
@@ -91,13 +102,17 @@ def push_ctr_setup(
                 "run_id": task.id,
                 "run_date": f"{task.start_time:%Y-%m-%d}",
                 "run_mode": TaskComponent.RECREATED,
-                "task_params": task.parameters.add_others({"auto_init": "Y"}),
+                "task_params": task.parameters.add_others(
+                    {
+                        "auto_create": True,
+                        "auto_init": True,
+                    }
+                ),
             },
         )
+        if force_drop:
+            _node.create(force_drop=force_drop).init()
         logger.info(f"START {idx:02d}: {f'{_node.name} ':~<50}")
-        # NOTE: Create without logging.
-        if not _node.exists():
-            _node.create()
         logger.info(
             f"Success create {_ctr_prop['name']!r} "
             f"after app start with status {status.value}"
@@ -290,22 +305,25 @@ def push_initialize_frontend(): ...
 
 
 def push_testing() -> None:
+    from .core.services import Pipeline
+
     Schema().create()
     push_func_setup()
     logger.info("Start Testing ...")
-    task = Task.make(module="demo_docstring").add_param_others(
-        {"auto_init": "Y"}
-    )
+    task = Task.make(module="demo_docstring").add_param_others({"dummy": "Y"})
     _node = Node.parse_task(
         name="ctr_data_parameter",
         fwk_params={
             "run_id": task.id,
             "run_date": f"{task.start_time:%Y-%m-%d}",
             "run_mode": TaskComponent.RECREATED,
-            "task_params": task.parameters.add_others({"auto_init": "Y"}),
+            "task_params": task.parameters.add_others(
+                {"auto_init": True, "auto_drop": True, "auto_create": True}
+            ),
         },
     )
-    _node.create(force_drop=True)
+    _pipeline = Pipeline.parse_name("ctr_all")
+    print(_pipeline)
     # (
     #     ActionQuery.parse_name(fullname="query:query_shutdown")
     #     .add_ext_params(

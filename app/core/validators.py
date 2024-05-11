@@ -1162,8 +1162,8 @@ class Pipeline(BaseUpdatableModel):
 
     id: str = Field(..., description="Pipeline ID")
     priority: int = Field(default=0)
-    schedule: list = Field(default_factory=list)
-    trigger: Union[list, set] = Field(default_factory=list)
+    schedule: list[str] = Field(default_factory=list)
+    trigger: Union[list[str], set] = Field(default_factory=list)
     alert: list = Field(default_factory=list)
     nodes: dict[Union[int, float], dict] = Field(default_factory=dict)
 
@@ -1172,6 +1172,10 @@ class Pipeline(BaseUpdatableModel):
 
     @classmethod
     def parse_name(cls, name: str):
+        # if name == "control_search":
+        #     ...
+        # elif name == "retention_search":
+        #     ...
         obj = LoadCatalog(
             name=name,
             prefix="",
@@ -1414,6 +1418,14 @@ class Pipeline(BaseUpdatableModel):
                 ) from e
         return value
 
+    def schedule_type(self) -> str:
+        _result: str = ""
+        if self.trigger:
+            _result += "trigger"
+        if self.schedule:
+            _result += "|schedule" if _result else "schedule"
+        return _result
+
     class Config:
         pipe_cond_and: str = "&"
         pipe_cond_or: str = "|"
@@ -1523,6 +1535,7 @@ class MapParameter(BaseUpdatableModel):
 
     ext_params: dict = Field(
         default_factory=dict,
+        repr=False,
         description="External Parameters from the application framework",
     )
 

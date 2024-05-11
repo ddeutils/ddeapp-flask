@@ -173,13 +173,6 @@ ps_stm:
                                  ) then 'True'
                         else 'False' end as check_exists
             "
-        schema: "
-            select    case when exists( select from {database_name}.information_schema.schemata
-                                   where schema_name = '{schema_name}'
-                                 )
-                        then 'True'
-                        else 'False' end as check_exists
-            "
     push_drop: "
         drop table if exists {database_name}.{ai_schema_name}.{table_name} {cascade}
         "

@@ -402,7 +402,7 @@ class FunctionStatement(Function):
         """Return function profile statement."""
         return reduce_stm(self.profile.statement)
 
-    def statement_drop(self, cascade: bool = False) -> str:
+    def statement_func_drop(self, cascade: bool = False) -> str:
         """Generate drop statement.
 
         :statement:

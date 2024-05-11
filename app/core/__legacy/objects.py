@@ -1938,6 +1938,7 @@ class PipeProcess(PipeCatalog):
             self.pipe_ctr_schedule: dict = self.pull_pipe_from_ctr_schedule()
         return True
 
+    # [x] Migrate to `Pipeline.pull_schedule`
     def pull_pipe_from_ctr_schedule(
         self,
         pipe_id: Optional[str] = None,
@@ -1952,6 +1953,7 @@ class PipeProcess(PipeCatalog):
             all_flag=all_flag,
         )
 
+    # [x] Migrate to `Pipeline.make_watermark`
     def push_pipe_to_ctr_schedule(self, push_values: Optional[dict] = None):
         """Push data information to the Control Data Logging."""
         _push_values: dict = merge_dicts(
@@ -1966,6 +1968,7 @@ class PipeProcess(PipeCatalog):
         )
         return Control("ctr_task_schedule").push(push_values=_push_values)
 
+    # [x] Migrate to `Pipeline.push`
     def update_pipe_to_ctr_schedule(self, update_values: Optional[dict] = None):
         """Update tacking information to the Control Task Schedule."""
         _update_values: dict = merge_dicts(
