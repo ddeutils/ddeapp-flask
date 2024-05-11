@@ -2,6 +2,47 @@
 
 ## Latest Changes
 
+## 0.3.0
+
+### :sparkles: Features
+
+- :dart: feat: migrate pipeline objects to service. (_2024-05-11_)
+- :dart: feat: migrate legacy node to service without diff check. (_2024-05-11_)
+- :dart: feat: migrate backup process to NodeMigrate. (_2024-05-11_)
+- :dart: feat: migrate old node initial and rename execute func. (_2024-05-10_)
+- :dart: feat: add validate table on target database after do any process. (_2024-05-10_)
+- :dart: feat: add auto create table on node init process. (_2024-05-10_)
+- :dart: feat: migrate legacy out on ingestion task. (_2024-05-10_)
+- :dart: feat: add add external parameters on MapParameterService. (_2024-05-10_)
+- :dart: feat: migrate ingest method from legacy and add convertor to core. (_2024-05-10_)
+- :dart: feat: migrate Control from legacy successful. (_2024-05-09_)
+- :dart: feat: add push and create control data. (_2024-05-09_)
+- :dart: feat: add pull control data. (_2024-05-09_)
+- :dart: feat: add enter and exit override method to Task. (_2024-05-08_)
+- :dart: feat: add test task for create custome task logging to table. (_2024-05-08_)
+- :dart: feat: add control statement that will use instead LegacyControl. (_2024-05-08_)
+- :dart: feat: add NodeLocal for loading csv file to target database. (_2024-05-07_)
+
+### :black_nib: Code Changes
+
+- :construction: refactored: remove legacy code from main. (_2024-05-11_)
+- :construction: refactored: migrated code from legacy Node to core. (_2024-05-10_)
+- :construction: refactored: remove Action and Function from legacy. (_2024-05-10_)
+- :construction: refactored: refactore code and rewrite return list to iterator. (_2024-05-09_)
+- :construction: refactored: remove html code that not uses. (_2024-05-07_)
+
+### :bug: Fix Bugs
+
+- :gear: fixed: auto create from control setup. (_2024-05-11_)
+- :gear: fixed: remove condition that filter out column to ingest. (_2024-05-10_)
+- :gear: fixed: default passed from serial does not valid value. (_2024-05-10_)
+- :gear: fixed: remove merge_dicts from core. (_2024-05-09_)
+- :gear: fixed: fix testcase that change statement. (_2024-05-07_)
+
+### :postbox: Dependencies
+
+- :pushpin: deps: remove strenum package and use inherite from str. (_2024-05-08_)
+
 ## 0.2.2
 
 ### :sparkles: Features
