@@ -82,12 +82,8 @@ def push_ctr_setup(
     task: Optional[Task] = None,
 ) -> None:
     """Run Setup Control Framework table in `register.yaml`"""
-
     task: Task = task or Task.make(module="control_setup")
-    for idx, _ctr_prop in enumerate(
-        registers.control_frameworks,
-        start=1,
-    ):
+    for idx, _ctr_prop in enumerate(registers.control_frameworks, start=1):
         status: Status = SUCCESS
         _node = Node.parse_task(
             name=_ctr_prop["name"],
@@ -95,9 +91,7 @@ def push_ctr_setup(
                 "run_id": task.id,
                 "run_date": f"{task.start_time:%Y-%m-%d}",
                 "run_mode": TaskComponent.RECREATED,
-            },
-            ext_params={
-                "auto_init": "Y",
+                "task_params": task.parameters.add_others({"auto_init": "Y"}),
             },
         )
         logger.info(f"START {idx:02d}: {f'{_node.name} ':~<50}")
@@ -297,20 +291,31 @@ def push_initialize_frontend(): ...
 
 def push_testing() -> None:
     Schema().create()
-
+    push_func_setup()
     logger.info("Start Testing ...")
-    with Task.make(module="demo_docstring"):
-        Node.parse_name(fullname="imp_min_max_service_level")
-    (
-        ActionQuery.parse_name(fullname="query:query_shutdown")
-        .add_ext_params(
-            params={
-                "status": 1,
-                "process_message": (
-                    "Error: RuntimeError: Server shutdown while "
-                    "process was running in background"
-                ),
-            },
-        )
-        .execute()
+    task = Task.make(module="demo_docstring").add_param_others(
+        {"auto_init": "Y"}
     )
+    _node = Node.parse_task(
+        name="ctr_data_parameter",
+        fwk_params={
+            "run_id": task.id,
+            "run_date": f"{task.start_time:%Y-%m-%d}",
+            "run_mode": TaskComponent.RECREATED,
+            "task_params": task.parameters.add_others({"auto_init": "Y"}),
+        },
+    )
+    _node.create(force_drop=True)
+    # (
+    #     ActionQuery.parse_name(fullname="query:query_shutdown")
+    #     .add_ext_params(
+    #         params={
+    #             "status": 1,
+    #             "process_message": (
+    #                 "Error: RuntimeError: Server shutdown while "
+    #                 "process was running in background"
+    #             ),
+    #         },
+    #     )
+    #     .execute()
+    # )

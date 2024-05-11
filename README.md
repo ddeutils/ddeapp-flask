@@ -73,7 +73,7 @@ For the first time, you should create all tables to database:
 
 ```shell
 $ python .\manage.py init
-$ python .\manage.py run --api --debug --recreated
+$ python .\manage.py run --api --debug
 ```
 
 ### Components

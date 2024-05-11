@@ -7,13 +7,11 @@ from __future__ import annotations
 
 import ast
 import builtins
+import inspect
 from collections.abc import Iterator
 from datetime import date, datetime
 from itertools import takewhile
-from typing import (
-    Optional,
-    Union,
-)
+from typing import Any, Optional, Union
 
 from pydantic import Field, validator
 from typing_extensions import Self
@@ -37,8 +35,10 @@ from .connections import (
     query_insert_from_csv,
     query_select,
     query_select_check,
+    query_select_df,
     query_select_one,
     query_select_row,
+    query_transaction,
 )
 from .convertor import Statement, Value
 from .errors import (
@@ -82,6 +82,7 @@ from .utils import (
     logging,
     must_bool,
     must_list,
+    only_one,
     ptext,
     split_iterable,
 )
@@ -353,9 +354,30 @@ class BaseNode(MapParameterService, TableStatement):
         """Push exists statement to target database."""
         return query_select_check(self.statement_check(), parameters=True)
 
-    def create(self) -> Self:
+    def create(
+        self,
+        force_drop: bool = False,
+        cascade: bool = False,
+    ) -> Self:
         """Execute create statement to target database."""
-        query_execute(self.statement_create(), parameters=True)
+        statements: list = [self.statement_create()]
+        if force_drop:
+            rows: int = self.count()
+            log: str = f"with {rows} row{get_plural(rows)} " if rows > 0 else ""
+            statements.insert(0, self.statement_drop(cascade=cascade))
+            logger.info(
+                f"Drop table {self.name!r} {log}before create successful"
+            )
+            self.push(
+                values={
+                    "data_date": (
+                        Control.params(module="framework").get(
+                            "data_setup_initial_date", "2018-10-31"
+                        )
+                    ),
+                }
+            )
+        query_transaction(statements, parameters=True)
         return self
 
     def create_backup(self): ...
@@ -381,19 +403,22 @@ class BaseNode(MapParameterService, TableStatement):
     def drop_partition(self): ...
 
     def make_log(self, values: Optional[dict] = None):
-        return Control("ctr_data_logging").create(
-            values=(
-                {
-                    "table_name": self.name,
-                    "data_date": self.fwk_params.run_date.strftime("%Y-%m-%d"),
-                    "run_date": self.fwk_params.run_date.strftime("%Y-%m-%d"),
-                    "action_type": "common",
-                    "row_record": 0,
-                    "process_time": 0,
-                }
-                | (values or {})
+        try:
+            return Control("ctr_data_logging").create(
+                values=(
+                    {
+                        "table_name": self.name,
+                        "data_date": f"{self.fwk_params.run_date:%Y-%m-%d}",
+                        "run_date": f"{self.fwk_params.run_date:%Y-%m-%d}",
+                        "action_type": "common",
+                        "row_record": 0,
+                        "process_time": 0,
+                    }
+                    | (values or {})
+                )
             )
-        )
+        except DatabaseProcessError:
+            logger.warning("Cannot create log to `ctr_data_logging` ...")
 
     def pull_log(self, action_type: str, all_flag: bool = False):
         """Pull logging data from the Control Data Logging."""
@@ -411,16 +436,19 @@ class BaseNode(MapParameterService, TableStatement):
         )
 
     def log(self, values: Optional[dict] = None):
-        return Control("ctr_data_logging").push(
-            values=(
-                {
-                    "table_name": self.name,
-                    "run_date": self.fwk_params.run_date.strftime("%Y-%m-%d"),
-                    "action_type": "common",
-                }
-                | (values or {})
+        try:
+            return Control("ctr_data_logging").push(
+                values=(
+                    {
+                        "table_name": self.name,
+                        "run_date": f"{self.fwk_params.run_date:%Y-%m-%d}",
+                        "action_type": "common",
+                    }
+                    | (values or {})
+                )
             )
-        )
+        except DatabaseProcessError:
+            logger.warning("Cannot update log to `ctr_data_logging` ...")
 
     def make_watermark(self, values: Optional[dict] = None):
         return Control("ctr_data_pipeline").create(
@@ -431,8 +459,8 @@ class BaseNode(MapParameterService, TableStatement):
                     ),
                     "table_name": self.name,
                     "table_type": UNDEFINED,
-                    "data_date": self.fwk_params.run_date.strftime("%Y-%m-%d"),
-                    "run_date": self.fwk_params.run_date.strftime("%Y-%m-%d"),
+                    "data_date": f"{self.fwk_params.run_date:%Y-%m-%d}",
+                    "run_date": f"{self.fwk_params.run_date:%Y-%m-%d}",
                     "run_type": self.run_type,
                     "run_count_now": 0,
                     "run_count_max": 0,
@@ -466,8 +494,6 @@ class BaseNode(MapParameterService, TableStatement):
             )
         return query_select_row(self.statement_count(), parameters={})
 
-    def init(self): ...
-
 
 class Node(BaseNode):
 
@@ -482,7 +508,7 @@ class Node(BaseNode):
         self.__validate_create()
         self.__validate_quota()
 
-    def __validate_create(self):
+    def __validate_create(self) -> None:
         _auto_create: bool = must_bool(
             self.fwk_params.task_params.others.get("auto_create", "Y"),
             force_raise=True,
@@ -514,7 +540,15 @@ class Node(BaseNode):
             self.make_watermark()
             self.watermark_refresh()
 
-    def __validate_quota(self): ...
+    def __validate_quota(self) -> None:
+        if (
+            self.fwk_params.run_date < self.watermark.run_date
+            and self.fwk_params.run_mode == "common"
+        ):
+            raise ControlTableValueError(
+                f"Please check the `run_date`, which less than the current "
+                f"running date: {self.watermark.run_date:'%Y-%m-%d'}"
+            )
 
     @validator("watermark", pre=True, always=True)
     def __prepare_watermark(cls, value: DictKeyStr, values):
@@ -538,34 +572,6 @@ class Node(BaseNode):
             self.fwk_params.run_date,
             self.watermark.run_type,
             date_type="date",
-        )
-
-
-class NodeManage(Node):
-
-    def backup(self): ...
-
-    def pull_max_data_date(self, default: bool = True) -> Optional[date]:
-        """Pull max data date that use the retention column for sorting."""
-        _default_value: Optional[date] = (
-            datetime.strptime("1990-01-01", "%Y-%m-%d").date()
-            if default
-            else None
-        )
-        if any(col == "undefined" for col in self.watermark.rtt_column):
-            return _default_value
-        elif len(self.watermark.rtt_column) > 1:
-            raise CatalogArgumentError(
-                "Pull max data date does not support for composite rtt columns"
-            )
-        return date.fromisoformat(
-            query_select_one(
-                PARAMS.ps_stm.pull_max_data_date,
-                parameters={
-                    "table_name": self.name,
-                    "ctr_rtt_col": self.watermark.rtt_column[0],
-                },
-            ).get("max_date", _default_value)
         )
 
     def delete_with_date(
@@ -603,6 +609,374 @@ class NodeManage(Node):
                 "primary_key_mark_a": _primary_key_mark_a,
                 "primary_key_join_a_and_b": _primary_key_join_a_and_b,
             },
+        )
+
+    def pull_max_data_date(self, default: bool = True) -> Optional[date]:
+        """Pull max data date that use the retention column for sorting."""
+        _default_value: Optional[date] = (
+            datetime.strptime("1990-01-01", "%Y-%m-%d").date()
+            if default
+            else None
+        )
+        if any(col == "undefined" for col in self.watermark.rtt_column):
+            return _default_value
+        elif len(self.watermark.rtt_column) > 1:
+            raise CatalogArgumentError(
+                "Pull max data date does not support for composite rtt columns"
+            )
+        return date.fromisoformat(
+            query_select_one(
+                PARAMS.ps_stm.pull_max_data_date,
+                parameters={
+                    "table_name": self.name,
+                    "ctr_rtt_col": self.watermark.rtt_column[0],
+                },
+            ).get("max_date", _default_value)
+        )
+
+    def create(
+        self,
+        force_drop: bool = False,
+        cascade: bool = False,
+    ) -> Self:
+        super().create(force_drop, cascade=cascade)
+        if (
+            must_bool(
+                self.fwk_params.task_params.others.get("auto_init", "N"),
+                force_raise=True,
+            )
+            and force_drop
+            and (init := self.initial)
+        ):
+            _start_time: datetime = self.fwk_params.checkpoint()
+            rows: int = self.__execute(init, force_sql=True)
+            self.make_log(
+                values={
+                    "action_type": "initial",
+                    "row_record": rows,
+                    "process_time": self.fwk_params.duration(_start_time),
+                    "status": 0,
+                }
+            )
+            self.log(
+                values={"data_date": f"{self.pull_max_data_date():%Y-%m-%d}"}
+            )
+            logger.info(
+                f"Success initial value after create with {rows} row"
+                f"{get_plural(rows)}"
+            )
+        return self
+
+    def __execute(
+        self,
+        process: dict,
+        force_sql: bool = False,
+        additional: Optional[dict] = None,
+    ) -> int:
+        import pandas as pd
+
+        _add: dict = additional or {}
+        parameters: dict = self.filter_params(
+            process["parameter"], additional=_add
+        )
+
+        if (self.type == "sql") or force_sql:
+            # Push table process with `sql` type
+            return query_select_row(
+                statement=process["statement"], parameters=parameters
+            )
+
+        # Push table process with `func` type
+        _func: callable = process.get("function")
+        _func_params: list = list(inspect.signature(_func).parameters.keys())
+
+        if not (
+            _key := only_one(_func_params, PARAMS.map_func.input, default=False)
+        ):
+            raise TableNotImplement(
+                f"Process function: {_func.__name__} of {self.name!r} "
+                f"does not have input argument like `input_df`"
+            )
+        _input_df: pd.DataFrame = query_select_df(
+            statement=process["load"]["statement"],
+            parameters=self.filter_params(
+                process["load"]["parameter"], additional=_add
+            ),
+        )
+        if _input_df.empty:
+            logger.warning("Input DataFrame of function was empty")
+            return 0
+        _func_value: str = self.__validate_func_output_type(
+            _func(**{_key: _input_df}, **parameters)
+        )
+        if not _func_value:
+            logger.warning("Output string of `function_value` was empty")
+            return 0
+        return query_select_row(
+            statement=process["save"]["statement"],
+            parameters=self.filter_params(
+                process["save"]["parameter"],
+                additional=_add | {"function_value": _func_value},
+            ),
+        )
+
+    def execute(
+        self,
+        included: list,
+        excluded: list,
+        act_type: str,
+        params: Optional[dict] = None,
+        raise_if_error: bool = True,
+    ) -> dict[int, int]:
+        """Push all table processes to target database."""
+        _rs: dict[int, int] = {1: 0}
+        _start_time: datetime = self.fwk_params.checkpoint()
+        _run_date: str = f"{self.fwk_params.run_date:%Y-%m-%d}"
+        self.make_log(
+            values={
+                "run_date": params.get("run_date", _run_date),
+                "data_date": params.get("data_date", _run_date),
+                "action_type": act_type,
+            }
+        )
+        ext_filter_mock: bool = must_bool(
+            self.ext_params.get("data_normal_common_filter_mockup", "N"),
+            force_raise=True,
+        )
+        for index, (name, ps) in enumerate(self.process.items(), start=1):
+            if (
+                (name.lower().startswith("mockup_data") and ext_filter_mock)
+                or name in excluded
+                or name not in included
+            ):
+                logger.warning(f"Filter {self.type.upper()} process: {name!r}")
+                _rs[index] = 0
+                continue
+            logger.info(
+                f"Priority {index:02d}: {self.type.upper()} process: {name!r}"
+            )
+            try:
+                _rs[index] = self.__execute(ps.dict(), additional=params)
+                logger.info(
+                    f"Success with running process with {_rs[index]} "
+                    f"row{get_plural(_rs[index])}"
+                )
+                self.log(
+                    values={
+                        "run_date": params.get("run_date", _run_date),
+                        "action_type": act_type,
+                        "row_record": reduce_text(str(_rs)),
+                        "process_time": self.fwk_params.duration(_start_time),
+                        "status": Status.SUCCESS.value,
+                    }
+                )
+            except DatabaseProcessError as err:
+                _rs[index] = 0
+                self.log(
+                    values={
+                        "run_date": params.get("run_date", _run_date),
+                        "action_type": act_type,
+                        "row_record": reduce_text(str(_rs)),
+                        "process_time": self.fwk_params.duration(_start_time),
+                        "status": Status.FAILED.value,
+                    }
+                )
+                if raise_if_error:
+                    raise err
+                logger.error(f"Error: {err.__class__.__name__}: {str(err)}")
+                break
+        return _rs
+
+    def __validate_func_output_type(self, value: Any) -> str:
+        import pandas as pd
+
+        if isinstance(value, str):
+            return value
+        elif isinstance(value, pd.DataFrame):
+            raise TableNotImplement(
+                f"Output of process function in {self.name!r} "
+                f"does not support for DataFrame type yet."
+            )
+        raise TableArgumentError(
+            f"Output of process function in {self.name!r} "
+            f"does not support for {type(value)!r} type."
+        )
+
+    def _prepare_before_rerun(self, sla: int) -> tuple[date, date]:
+        _run_date: date = (
+            self.fwk_params.run_date
+            if self.fwk_params.run_mode == "common"
+            else self.process_date
+        )
+        _data_date: date = self.watermark.data_date
+        if self.fwk_params.run_mode == "common":
+            return _run_date, _data_date
+
+        if self.fwk_params.run_date < self.watermark.data_date:
+            _run_date: date = self.process_date
+            _data_date: date = get_cal_date(
+                data_date=self.process_date,
+                mode="sub",
+                run_type=self.watermark.run_type,
+                cal_value=(1 + sla),
+                date_type="date",
+            )
+        if (
+            self.ext_params.get("data_normal_rerun_reset_data", "N") == "Y"
+            and self.watermark.table_type == "transaction"
+        ):
+            del_record: int = self.delete_with_date(
+                del_date=f"{_run_date:%Y-%m-%d}",
+                del_mode=self.fwk_params.run_mode,
+            )
+            logger.info(f"Delete current data transaction: {del_record} rows")
+        logger.info(
+            f"Reset (data_date, run_date) from "
+            f"({self.watermark.data_date:%Y-%m-%d}, "
+            f"{self.fwk_params.run_date:%Y-%m-%d}) to "
+            f"({_data_date:%Y-%m-%d}, {_run_date:%Y-%m-%d})"
+        )
+        return _run_date, _data_date
+
+    def process_run_count(self, row_record: dict):
+        return (
+            int(float(self.watermark.run_count_now)) + 1
+            if (
+                self.fwk_params.run_date == self.watermark.run_date
+                and max(row_record.values(), default=0) != 0
+            )
+            else 0
+        )
+
+    def process_count(self):
+        _excluded: list = self.node_tbl_ps_excluded
+        if _included := self.node_tbl_ps_included:
+            return len(_included) - len(
+                set(_included).intersection(set(_excluded))
+            )
+        return self.process_max - len(_excluded)
+
+    def process_start(self) -> dict[int, int]:
+        _additional: dict[str, Any] = self.ext_params.copy()
+        if self.ext_params.get("data_normal_rerun_reset_sla", "N") == "Y":
+            _ps_sla: int = 0
+            for key, value in _additional.items():
+                if key in PARAMS.map_tbl_ps_sla.values() and isinstance(
+                    value, int
+                ):
+                    _additional[key] = 0
+                logger.warning(f"Reset `{key}` parameter values to 0")
+        else:
+            _ps_sla: int = _additional.get(
+                PARAMS.map_tbl_ps_sla[self.watermark.run_type], 1
+            )
+        _run_date, _data_date = self._prepare_before_rerun(sla=_ps_sla)
+        _row_record: dict[int, int] = self.execute(
+            included=self.node_tbl_ps_included,
+            excluded=self.node_tbl_ps_excluded,
+            act_type=self.fwk_params.run_mode,
+            params=(
+                _additional
+                | {
+                    "run_date": _run_date.strftime("%Y-%m-%d"),
+                    "data_date": _data_date.strftime("%Y-%m-%d"),
+                }
+            ),
+        )
+        if self.fwk_params.run_mode == "common":
+            self.push(
+                values={
+                    "data_date": f"{self.pull_max_data_date():%Y-%m-%d}",
+                    "run_date": f"{self.fwk_params.run_date:%Y-%m-%d}",
+                    "run_count_now": self.process_run_count(
+                        row_record=_row_record
+                    ),
+                }
+            )
+        else:
+            self.push(
+                values={
+                    "data_date": f"{self.pull_max_data_date():%Y-%m-%d}",
+                }
+            )
+        return _row_record
+
+
+class NodeManage(Node):
+
+    @property
+    def name_backup(self) -> tuple[str, str]:
+        _bk_name: bool = must_bool(
+            self.ext_params.get("backup_table"), force_raise=True
+        )
+        _bk_schema: bool = must_bool(
+            self.ext_params.get("backup_schema"), force_raise=True
+        )
+        return (
+            f"{self.name}_bk" if _bk_name else None,
+            f"{env.AI_SCHEMA}_bk" if _bk_schema else None,
+        )
+
+    def __backup(
+        self,
+        backup_name: str,
+        backup_schema: Optional[str] = None,
+        raise_if_error: bool = True,
+    ) -> int:
+        _start_time: datetime = self.fwk_params.checkpoint()
+        self.make_log(values={"action_type": "backup"})
+        _stm_all: list = [
+            self.statement_backup(name=backup_name),
+            self.statement_transfer(name=backup_name),
+        ]
+        _schema_name_bk: str = env.get("AI_SCHEMA", "ai")
+        if backup_schema and ((backup_schema or "") != _schema_name_bk):
+            _schema = Schema(name=_schema_name_bk)
+            if _schema.exists():
+                logger.info(f"Create backup schema: {_schema_name_bk!r}")
+                _stm_all.insert(0, _schema.statement_create())
+            _schema_name_bk: str = backup_schema
+        logger.info(f"Create backup table: '{_schema_name_bk}.{backup_name}'")
+        try:
+            _rs: int = query_transaction(
+                _stm_all,
+                parameters={"ai_schema_backup": _schema_name_bk},
+            )
+            logger.info(
+                f"Backup {self.name} to '{_schema_name_bk}.{backup_name}' "
+                f"successful with {_rs} row{get_plural(_rs)}"
+            )
+            self.log(
+                values={
+                    "action_type": "backup",
+                    "row_record": _rs,
+                    "process_time": self.fwk_params.duration(_start_time),
+                    "status": 0,
+                }
+            )
+        except DatabaseProcessError as err:
+            _rs: int = 0
+            self.log(
+                values={
+                    "action_type": "backup",
+                    "process_time": self.fwk_params.duration(_start_time),
+                    "status": 1,
+                }
+            )
+            if raise_if_error:
+                raise err
+            logger.error(f"Error: {err.__class__.__name__}: {str(err)}")
+        return _rs
+
+    def backup(self) -> int:
+        backup_name, backup_schema = self.name_backup
+        if any(backup_name == x["table_name"] for x in Control.tables()):
+            raise TableNotImplement(
+                f"default backup table name {backup_name!r} was "
+                f"duplicated with any table in catalog"
+            )
+        return self.__backup(
+            backup_name=backup_name, backup_schema=backup_schema
         )
 
     def retention_date(
@@ -812,7 +1186,7 @@ class NodeIngest(Node):
                 raise err
         return ps_row_success, ps_row_failed
 
-    def execute(self) -> tuple[int, int]:
+    def ingest(self) -> tuple[int, int]:
         """Ingest Data from the input payload."""
         _action: str = self.ext_params.get("ingest_action", "insert")
         if (_mode := self.ext_params.get("ingest_mode", "common")) not in (
@@ -835,14 +1209,14 @@ class NodeIngest(Node):
                 f"'{self.watermark.data_date:'%Y-%m-%d'}'"
             )
         _payloads: Union[dict, list] = self.ext_params.get("payloads", [])
-        _row_record: tuple[int, int] = self.__ingest(
+        _rs: tuple[int, int] = self.__ingest(
             payloads=[_payloads] if isinstance(_payloads, dict) else _payloads,
             mode=_mode,
             action=_action,
             update_date=_update_date,
         )
         self.push(values={"data_date": _update_date.strftime("%Y-%m-%d")})
-        return _row_record
+        return _rs
 
 
 class Pipeline(PipelineCatalog):

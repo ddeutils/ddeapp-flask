@@ -30,7 +30,7 @@ def ingest_payload(node: NodeIngest, task: Task) -> Result:
     """Run Ingest process node together with process object."""
     result: CommonResult = CommonResult()
     try:
-        ps_row_success, ps_row_failed = node.execute()
+        ps_row_success, ps_row_failed = node.ingest()
         result.message = (
             f"Success: Load data to {node.name!r} with logging value "
             f"(success {ps_row_success} row{get_plural(ps_row_success)}, "

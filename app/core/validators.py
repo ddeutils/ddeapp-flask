@@ -144,9 +144,8 @@ def filter_ps_type(
     default: str = "sql",
 ) -> tuple[str, str]:
     if ":" in ps_name_full:
-        _name_split: list = ps_name_full.split(":")
-        _type: str = _name_split.pop(0)
-        return _type, _name_split[-1].split(".")[-1]
+        _type, _name_split = ps_name_full.split(":", maxsplit=1)
+        return _type, _name_split.split(".")[-1]
     return default, ps_name_full
 
 
@@ -714,7 +713,36 @@ class PYProcess(BaseProcess):
         return get_function(value)
 
 
+class ValueProcess(BaseProcess):
+    """..."""
+
+    values: list[str]
+
+
+class FileProcess(BaseProcess):
+    """..."""
+
+
 Process = Union[SQLProcess, PYProcess]
+
+
+class BaseInit(BaseUpdatableModel):
+    """..."""
+
+    parameter: list[str] = Field(
+        default_factory=list, description="List of process's parameter"
+    )
+
+    @root_validator(pre=True)
+    def prepare_base_values(cls, values):
+        """Prepare value before."""
+        logger.debug("Base Init: Start validate pre-root ...")
+        return {
+            "parameter": sorted_set(
+                values.pop(only_one(list(values), params.map_tbl.param), [])
+            ),
+            **values,
+        }
 
 
 class Table(BaseUpdatableModel):
@@ -726,6 +754,8 @@ class Table(BaseUpdatableModel):
         >>> import yaml
         ... with open('<filename>.yaml') as f:
         ...     model = Table.parse_obj(yaml.load(f))
+
+        >>> model = Table.parse_name('table-fullname')
 
     This class include the statement generator methods
     """
@@ -817,7 +847,7 @@ class Table(BaseUpdatableModel):
         if _initial_key := only_one(
             values, params.map_tbl.initial, default=False
         ):
-            _initial: Any = values.pop(_initial_key)
+            _initial: dict[str, Any] = values.pop(_initial_key)
 
         # Make new mapping to model
         return {
@@ -952,10 +982,10 @@ class Table(BaseUpdatableModel):
         _columns: list = [
             feature.name
             for feature in profile.features
-            if all(_ not in feature.datatype for _ in {"default", "serial"})
+            if all(_ not in feature.datatype for _ in ("default", "serial"))
         ]
 
-        if _value_key in {"file", "files"}:
+        if _value_key in ("file", "files"):
             _values = load_json_to_values(value[_value_key], schema=_columns)
         else:
             _values = value[_value_key]
@@ -1015,6 +1045,10 @@ class Table(BaseUpdatableModel):
             stm: Statement = Statement(attrs.statement)
             _result[ps] = stm.mapping()
         return _result
+
+    @property
+    def process_max(self) -> int:
+        return len(self.process)
 
 
 class Function(BaseUpdatableModel):
@@ -1445,6 +1479,10 @@ class Parameter(BaseUpdatableModel):
     def is_table(self) -> bool:
         return self.type == ParameterType.TABLE
 
+    def add_others(self, value: dict[str, Any]) -> Self:
+        self.__dict__["others"] = self.others | value
+        return self
+
 
 class FrameworkParameter(BaseUpdatableModel):
     run_id: int
@@ -1525,7 +1563,10 @@ class Task(BaseUpdatableModel):
     release: ReleaseDate = Field(default_factory=ReleaseDate)
 
     @classmethod
-    def make(cls, module: str) -> Task:
+    def make(
+        cls,
+        module: str,
+    ) -> Task:
         return cls(module=module)
 
     @root_validator(pre=True)
@@ -1601,6 +1642,10 @@ class Task(BaseUpdatableModel):
 
     def is_failed(self) -> bool:
         return self.status == Status.FAILED
+
+    def add_param_others(self, value: dict[str, Any]) -> Self:
+        self.__dict__["parameters"] = self.parameters.add_others(value)
+        return self
 
 
 class TableFrontend(Table):

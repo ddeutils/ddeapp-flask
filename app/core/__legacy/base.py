@@ -908,13 +908,6 @@ class TblCatalog:
             )
         return self.tbl_catalog
 
-    def _generate_property(
-        self,
-        properties: dict,
-    ):
-        """Generate property from configuration to standard mapping."""
-        pass
-
     # [x] Migrate to modern style
     def _generate_profile(
         self,

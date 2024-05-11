@@ -10,9 +10,10 @@ from .reusables import (
     hash_string,
     must_bool,
     must_list,
+    only_one,
     split_iterable,
 )
 
 
 def ptext(text: str, _indent=None) -> str:
-    return indent(dedent(text), " | (WARNING) ... ")
+    return indent(dedent(text), "   | (WARNING) ... ")

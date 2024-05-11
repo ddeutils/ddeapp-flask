@@ -22,7 +22,6 @@ from collections.abc import Iterator
 import pandas as pd
 from sqlalchemy.exc import ProgrammingError
 
-from app.core.base import get_catalogs
 from app.core.connections.postgresql import (
     query_execute,
     query_execute_row,
@@ -736,6 +735,7 @@ class TblProcess(TblCatalog):
             return self.get_tbl_stm_drop(cascade=cascade)
         query_execute(self.get_tbl_stm_drop(cascade=cascade), parameters=True)
 
+    # [x] Migrate to `BaseNode.create` and `Node.create`
     def push_tbl_create(
         self,
         force_drop: bool = False,
@@ -957,6 +957,7 @@ class TblProcess(TblCatalog):
             },
         )
 
+    # [x] Migrate to modern style by `Node.__execute`
     def push_tbl_process(
         self,
         process: dict,
@@ -1014,6 +1015,7 @@ class TblProcess(TblCatalog):
             ),
         )
 
+    # [x] Migrate to modern style by `Node.__validate_func_output_type`
     def validate_func_output_type(self, value: Any) -> str:
         if isinstance(value, str):
             return value
@@ -1027,6 +1029,7 @@ class TblProcess(TblCatalog):
             f"does not support for {type(value)!r} type."
         )
 
+    # [x] Migrate to modern style by `Node.execute`
     def push_tbl_processes(
         self,
         ps_included: list,
@@ -1126,6 +1129,7 @@ class TblProcess(TblCatalog):
                 break
         return _row_record
 
+    # [x] Migrate to NodeManage.__backup
     def push_tbl_backup(
         self,
         backup_name: str,
@@ -1304,6 +1308,7 @@ class TblProcess(TblCatalog):
             )
             return 0
 
+    # [x] Migrate to modern `MapParameterService.filter_params`
     def _generate_params(
         self, parameters: list, additional: Optional[dict] = None
     ) -> dict:
@@ -1475,6 +1480,7 @@ class Node(TblProcess):
             self.tbl_ctr_run_count_now < self.tbl_ctr_run_count_max
             or self.tbl_ctr_run_count_max == 0
         )
+        # [x] Migrate to Node.__validate_quota
         if (
             self.tbl_run_date < self.tbl_ctr_run_date
             and self.node_tbl_run_mode == "common"
@@ -1490,10 +1496,12 @@ class Node(TblProcess):
             end="=",
         )
 
+    # [x] Migrate to Node
     @property
     def name(self) -> str:
         return self.tbl_name
 
+    # [x] Migrate to WatermarkParam
     @property
     def run_date(self):
         return self.tbl_run_date
@@ -1516,18 +1524,14 @@ class Node(TblProcess):
             self.node_tbl_params.get("permission_force_delete", "N") == "Y"
         )
 
-    @property
-    def quota(self) -> bool:
-        return not self.node_tbl_run_check and (
-            self.tbl_run_date == self.tbl_ctr_run_date
-        )
-
+    # [x] Migrate to modern on service `FrameworkParameter.duration`
     @property
     def process_time(self) -> int:
         return round(
             (get_time_checkpoint() - self.node_start_datetime).total_seconds()
         )
 
+    # [x] Migrate to modern on service `Node.process_count`
     @property
     def process_count(self) -> int:
         _excluded: list = self.node_tbl_ps_excluded
@@ -1537,6 +1541,7 @@ class Node(TblProcess):
             )
         return self.tbl_process_count - len(_excluded)
 
+    # [x] Migrate to modern on service `Node.retention`
     def _prepare_before_rerun(self, sla: int) -> tuple[dt.date, dt.date]:
         _run_date: dt.date = (
             self.tbl_run_date
@@ -1573,6 +1578,7 @@ class Node(TblProcess):
         )
         return _run_date, _data_date
 
+    # [x] Migrate to modern on service `Node.retention`
     def process_run_count(self, row_record: dict):
         return (
             int(float(self.tbl_ctr_run_count_now)) + 1
@@ -1583,6 +1589,7 @@ class Node(TblProcess):
             else 0
         )
 
+    # [x] Migrate to modern on service `Node.retention`
     def process_start(self) -> dict:
         _additional: dict = self.node_tbl_params.copy()
         if self.node_tbl_params.get("data_normal_rerun_reset_sla", "N") == "Y":
@@ -1656,6 +1663,7 @@ class Node(TblProcess):
         _rtt_row: int = self.push_tbl_retention(rtt_date=self.retention_date)
         return _rtt_row
 
+    # [x] Migrate to NodeManage.name_backup
     @property
     def backup_name(self) -> Optional[str]:
         _bk_name: Optional[str] = self.node_tbl_params.get("backup_table")
@@ -1668,6 +1676,7 @@ class Node(TblProcess):
         except ValueError:
             return _bk_name
 
+    # [x] Migrate to NodeManage.name_backup
     @property
     def backup_schema(self) -> Optional[str]:
         _bk_name: Optional[str] = self.node_tbl_params.get("backup_schema")
@@ -1680,6 +1689,7 @@ class Node(TblProcess):
         except ValueError:
             return _bk_name
 
+    # [x] Migrate to NodeManage.backup
     def backup_start(self) -> int:
         if any(self.backup_name == x["table_name"] for x in Control.tables()):
             raise TableNotImplement(
@@ -1690,6 +1700,7 @@ class Node(TblProcess):
             backup_name=self.backup_name, backup_schema=self.backup_schema
         )
 
+    # Migrate to NodeIngest.ingest
     @property
     def ingest_payloads(self) -> list:
         _payloads_raw = self.node_tbl_params.get("payloads", [])

@@ -173,11 +173,7 @@ class TableStatement(Table):
             f") THEN 'True' ELSE 'False' END AS check_exists"
         )
 
-    def statement_create(
-        self,
-        bk: bool = False,
-        bk_name: Optional[str] = None,
-    ) -> str:
+    def statement_create(self) -> str:
         """Generate create statement.
 
         :statement:
@@ -190,24 +186,12 @@ class TableStatement(Table):
                 CONSTRAINTS
             )
         """
-        create_stm: str = reduce_stm(
+        return reduce_stm(
             f"CREATE TABLE IF NOT EXISTS "
             f"{{database_name}}.{{ai_schema_name}}.{self.name}"
             f"( {self.profile.statement_features()} "
             f"{self.profile.statement_pk()} )"
             f"{self.profile.partition.statement()}"
-        )
-        return (
-            re.sub(
-                r"{{database_name}\.{ai_schema_name}\.\w+",
-                (
-                    f"{{database_name}}.{{ai_schema_name_backup}}."
-                    f"{bk_name or f'{self.name}_bk'}"
-                ),
-                create_stm,
-            )
-            if bk
-            else create_stm
         )
 
     def statement_create_partition(
@@ -336,6 +320,25 @@ class TableStatement(Table):
             f"SELECT COUNT(1) AS row_number "
             f"FROM {{database_name}}.{{ai_schema_name}}.{self.name} "
             f"WHERE {{condition}}"
+        )
+
+    def statement_backup(self, name: Optional[str] = None) -> str:
+        name: str = name or f"{self.name}_bk"
+        return reduce_stm(
+            re.sub(
+                r"{database_name}\.{ai_schema_name}\.\w+",
+                f"{{database_name}}.{{ai_schema_backup}}.{name}",
+                self.statement_create(),
+            )
+        )
+
+    def statement_transfer(self, name: Optional[str] = None) -> str:
+        name: str = name or f"{self.name}_bk"
+        return reduce_stm(
+            f"TRUNCATE TABLE {{database_name}}.{{ai_schema_backup}}.{name};"
+            f"INSERT INTO {{database_name}}.{{ai_schema_backup}}.{name} "
+            f"(SELECT {', '.join(self.profile.columns(pk_included=True))} "
+            f"FROM {{database_name}}.{{ai_schema_name}}.{self.name})"
         )
 
     def conflict_set(
