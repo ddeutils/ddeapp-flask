@@ -6,15 +6,8 @@
 from __future__ import annotations
 
 import queue
-from typing import Callable
+from typing import Callable, Union
 
-from app.core.__legacy.objects import (
-    Node as LegacyNode,
-)
-from app.core.__legacy.objects import (
-    ObjectType,
-    Pipeline,
-)
 from app.core.errors import (
     ObjectBaseError,
     ProcessStatusError,
@@ -27,6 +20,8 @@ from app.core.models import (
     TaskMode,
 )
 from app.core.services import (
+    NodeManage,
+    Pipeline,
     Schema,
     Task,
 )
@@ -35,33 +30,36 @@ from app.core.utils.config import Params
 
 logger = logging.getLogger(__name__)
 registers = Params(param_name="registers.yaml")
+ObjectType = Union[NodeManage, Pipeline]
 ObjectMap = {
-    "table": LegacyNode,
+    "table": NodeManage,
     "pipeline": Pipeline,
 }
 
 
-def run_tbl_setup(node: LegacyNode, task: Task) -> Result:
+def run_tbl_setup(node: NodeManage, task: Task) -> Result:
     """Run Setup process node together with task model This function will
     control write process log to Control Data Pipeline table."""
     result: Result = CommonResult()
     try:
         record_stm: str = ""
         if task.parameters.drop_table:
-            node.push_tbl_drop(cascade=task.parameters.cascade)
-            record_stm = f" with drop table in {node.process_time} sec"
+            node.drop(cascade=task.parameters.cascade)
+            record_stm = f" with drop table in {node.fwk_params.duration()} sec"
         else:
-            if node.name in ("ctr_data_pipeline", "ctr_data_parameter"):
-                node.auto_init = True
-            row_record: int = node.push_tbl_create(
-                force_drop=node.auto_drop,
-                cascade=task.parameters.cascade,
-            )
-            if node.auto_init:
-                record_stm: str = (
-                    f" with logging value "
-                    f"({row_record} rows, {node.process_time} sec)"
+            if node.exists() and node.validate_name_flag(
+                task.parameters.others.get("initial_data", "N")
+            ):
+                node.create(
+                    force_drop=True,
+                    cascade=task.parameters.cascade,
                 )
+                if node.initial:
+                    row_record: int = node.count()
+                    record_stm: str = (
+                        f" with logging value "
+                        f"({row_record} rows, {node.fwk_params.duration()} sec)"
+                    )
         result.message = f"Success: Setup {node.name!r}{record_stm}"
     except ObjectBaseError as err:
         result.update(f"Error: {err.__class__.__name__}: {str(err)}", FAILED)
@@ -69,12 +67,12 @@ def run_tbl_setup(node: LegacyNode, task: Task) -> Result:
     return result
 
 
-def run_tbl_data(node: LegacyNode, task: Task) -> Result:
+def run_tbl_data(node: NodeManage, task: Task) -> Result:
     """Run Data process node together with task model This function will
     control write process log to Control Data Pipeline table."""
     result: Result = CommonResult()
     try:
-        if node.quota:
+        if node.has_quota:
             logger.warning(
                 f"the running quota of {node.name!r} has been reached"
             )
@@ -86,7 +84,7 @@ def run_tbl_data(node: LegacyNode, task: Task) -> Result:
             result.message = (
                 f"Success: Running {node.name!r} in {task.parameters.mode} "
                 f"mode with logging value "
-                f"({ps_row} rows, {node.process_time} sec)"
+                f"({ps_row} rows, {node.fwk_params.duration()} sec)"
             )
     except ObjectBaseError as err:
         result.update(f"Error: {err.__class__.__name__}: {str(err)}", FAILED)
@@ -94,7 +92,7 @@ def run_tbl_data(node: LegacyNode, task: Task) -> Result:
     return result
 
 
-def run_tbl_retention(node: LegacyNode, task: Task) -> Result:
+def run_tbl_retention(node: NodeManage, task: Task) -> Result:
     """Run Retention process node together with task model This function will
     control write process log to Control Data Pipeline table."""
     _ = task
@@ -102,19 +100,12 @@ def run_tbl_retention(node: LegacyNode, task: Task) -> Result:
     try:
         msg: list = []
         msg_row: list = []
-        if node.backup_name:
-            ps_bk_row: int = node.backup_start()
+        if (bk := node.name_backup)[0]:
+            ps_bk_row: int = node.backup()
             if ps_bk_row > 0:
-                msg.append(
-                    f"Backup {node.name!r} to "
-                    f"'{node.backup_schema}.{node.backup_name}' "
-                )
+                msg.append(f"Backup {node.name!r} to '{bk[0]}.{bk[1]}' ")
                 msg_row.append(f"{ps_bk_row} row")
-        elif node.backup_schema:
-            logger.warning(
-                "Backup process does not support for put backup scheme only"
-            )
-        ps_rtt_row: int = node.retention_start()
+        ps_rtt_row: int = node.retention()
         ps_rtt_msg: str = ""
         if ps_rtt_row > 0:
             ps_rtt_msg = f"less than '{node.retention_date:%Y-%m-%d}' "
@@ -123,7 +114,7 @@ def run_tbl_retention(node: LegacyNode, task: Task) -> Result:
         result.message = (
             f"Success: Retention {node.name!r} {'and '.join(msg)}"
             f"with logging value "
-            f"({', '.join(msg_row)}, {node.process_time} sec)"
+            f"({', '.join(msg_row)}, {node.fwk_params.duration()} sec)"
         )
     except ObjectBaseError as err:
         result.update(f"Error: {err.__class__.__name__}: {str(err)}", FAILED)
@@ -158,29 +149,34 @@ MAP_MODULE_FUNC: dict[str, Callable] = {
 
 
 def _task_gateway(task: Task, obj: ObjectType) -> Task:
-    """Task Gateway for running task with difference `ps_obj` type (Node nor
-    Pipeline)."""
+    """Task Gateway for running task with difference `ps_obj` type (NodeManage
+    nor Pipeline)."""
     logger.info(f"START {task.release.index:02d}: {f'{obj.name} ':~<50}'")
     if task.parameters.is_table():
+        obj: NodeManage
         task.push(
-            values={"process_name_get": obj.name, "run_date_get": obj.run_date}
+            values={
+                "process_name_get": obj.name,
+                "run_date_get": obj.fwk_params.run_date,
+            }
         )
         task.receive(MAP_MODULE_FUNC[task.module](node=obj, task=task))
         if task.is_failed():
             raise ProcessStatusError
     else:
-        obj.update_to_ctr_schedule({"tracking": "PROCESSING"})
-        for order, node in obj.nodes():
+        obj: Pipeline
+        obj.push({"tracking": "PROCESSING"})
+        for order, node in obj.process_nodes():
             task.push(
                 values={
                     "process_name_get": node.name,
                     "process_number_get": order,
-                    "run_date_get": obj.run_date,
+                    "run_date_get": obj.fwk_params.run_date,
                 }
             )
             task.receive(MAP_MODULE_FUNC[task.module](node=node, task=task))
             if task.is_failed():
-                obj.update_to_ctr_schedule({"tracking": "FAILED"})
+                obj.push({"tracking": "FAILED"})
                 raise ProcessStatusError
     return task
 
@@ -225,14 +221,15 @@ def foreground_tasks(
             return result.update(task.message, task.status)
         for _, run_date in task.runner():
             logger.info(f"{f'[ run_date: {run_date} ]':=<60}")
-            ps_obj: ObjectType = ObjectMap[task.parameters.type](
-                name=task.parameters.name,
-                process_id=task.id,
-                run_mode=task.parameters.others.get("run_mode", "common"),
-                run_date=run_date,
-                auto_init=task.parameters.others.get("initial_data", "N"),
-                auto_drop=task.parameters.others.get("drop_before_create", "N"),
-                external_parameters=external_parameters,
+            ps_obj: ObjectType = ObjectMap[task.parameters.type].parse_task(
+                task.parameters.name,
+                fwk_params={
+                    "run_id": task.id,
+                    "run_date": run_date,
+                    "run_mode": task.component,
+                    "task_params": task.parameters,
+                },
+                ext_params=external_parameters,
             )
             # TODO: add waiting process by queue
             task.start(ps_obj.process_count)

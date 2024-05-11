@@ -56,7 +56,7 @@ from .utils.reusables import (
     only_one,
 )
 
-params = Params(param_name="parameters.yaml")
+PARAMS = Params(param_name="parameters.yaml")
 logger = get_logger(__name__)
 
 
@@ -359,7 +359,7 @@ class Column(BaseUpdatableModel):
         """
         if not (
             datatype_key := only_one(
-                values, params.map_tbl.datatype, default=False
+                values, PARAMS.map_tbl.datatype, default=False
             )
         ):
             raise ValueError("datatype does not contain in values")
@@ -674,7 +674,7 @@ class BaseProcess(BaseUpdatableModel):
         return {
             "name": name,
             "parameter": sorted_set(
-                values.pop(only_one(list(values), params.map_tbl.param), [])
+                values.pop(only_one(list(values), PARAMS.map_tbl.param), [])
             ),
             **values,
         }
@@ -740,7 +740,7 @@ class BaseInit(BaseUpdatableModel):
         logger.debug("Base Init: Start validate pre-root ...")
         return {
             "parameter": sorted_set(
-                values.pop(only_one(list(values), params.map_tbl.param), [])
+                values.pop(only_one(list(values), PARAMS.map_tbl.param), [])
             ),
             **values,
         }
@@ -756,7 +756,7 @@ class Table(BaseUpdatableModel):
         ... with open('<filename>.yaml') as f:
         ...     model = Table.parse_obj(yaml.load(f))
 
-        >>> model = Table.parse_name('table-fullname')
+        >>> model = Table.parse_name('table-name')
 
     This class include the statement generator methods
     """
@@ -798,12 +798,12 @@ class Table(BaseUpdatableModel):
     @classmethod
     def parse_name(
         cls,
-        fullname: str,
+        name: str,
         *,
         additional: Optional[dict[str, Any]] = None,
     ) -> Self:
         """Parse name to Table Model."""
-        _type, name = filter_ps_type(fullname)
+        _type, name = filter_ps_type(name)
         obj = LoadCatalog(
             name=name,
             prefix=name.split("_")[0],
@@ -823,7 +823,7 @@ class Table(BaseUpdatableModel):
         if not (
             profile_key := only_one(
                 values,
-                params.map_tbl.profile,
+                PARAMS.map_tbl.profile,
                 default=False,
             )
         ):
@@ -834,10 +834,10 @@ class Table(BaseUpdatableModel):
         elif (
             not (
                 process_key := only_one(
-                    values, params.map_tbl.process, default=False
+                    values, PARAMS.map_tbl.process, default=False
                 )
             )
-            and prefix in params.list_tbl_prefix_must_have_process
+            and prefix in PARAMS.list_tbl_prefix_must_have_process
         ):
             raise ValueError(
                 "Catalog does not found any key represent "
@@ -846,7 +846,7 @@ class Table(BaseUpdatableModel):
 
         _initial: dict = {}
         if _initial_key := only_one(
-            values, params.map_tbl.initial, default=False
+            values, PARAMS.map_tbl.initial, default=False
         ):
             _initial: dict[str, Any] = values.pop(_initial_key)
 
@@ -855,14 +855,14 @@ class Table(BaseUpdatableModel):
             "name": name,
             "shortname": "".join(w[0] for w in name.split("_")),
             "prefix": prefix,
-            "type": values.get("type", params.list_tbl_types[0]),
+            "type": values.get("type", PARAMS.list_tbl_types[0]),
             "profile": values.pop(profile_key),
             "process": (values.pop(process_key) if process_key else {}),
             "initial": _initial,
             "tag": {
                 "version": values.pop("version", None),
                 "description": values.pop(
-                    only_one(values, params.map_tbl.desc),
+                    only_one(values, PARAMS.map_tbl.desc),
                     None,
                 ),
             },
@@ -893,7 +893,7 @@ class Table(BaseUpdatableModel):
         ):
             if (
                 ps_type := ps_details.get("type", values["type"])
-            ) not in params.list_tbl_types:
+            ) not in PARAMS.list_tbl_types:
                 raise ValueError(
                     f"framework does not support for process type {ps_type!r}"
                 )
@@ -901,7 +901,7 @@ class Table(BaseUpdatableModel):
                 "name": ps_name,
                 "parameter": sorted_set(
                     ps_details.get(
-                        only_one(list(ps_details), params.map_tbl.param),
+                        only_one(list(ps_details), PARAMS.map_tbl.param),
                         [],
                     )
                 ),
@@ -909,12 +909,12 @@ class Table(BaseUpdatableModel):
             }
             if ps_type == "sql":
                 _processes[ps_name]["statement"] = ps_details.get(
-                    only_one(list(ps_details), params.map_tbl.stm), ""
+                    only_one(list(ps_details), PARAMS.map_tbl.stm), ""
                 )
             elif ps_type == "py":
                 if not (
                     ps_func_key := only_one(
-                        list(ps_details), params.map_tbl.func, default=False
+                        list(ps_details), PARAMS.map_tbl.func, default=False
                     )
                 ):
                     raise ValueError(
@@ -930,14 +930,14 @@ class Table(BaseUpdatableModel):
                             sub_stage_details.get(
                                 only_one(
                                     list(sub_stage_details),
-                                    params.map_tbl.param,
+                                    PARAMS.map_tbl.param,
                                 ),
                                 [],
                             )
                         ),
                         "statement": sub_stage_details.get(
                             only_one(
-                                list(sub_stage_details), params.map_tbl.stm
+                                list(sub_stage_details), PARAMS.map_tbl.stm
                             ),
                             "",
                         ),
@@ -962,7 +962,7 @@ class Table(BaseUpdatableModel):
         logger.debug("Table: ... Start validate initial")
         _initial: dict = {
             "parameter": sorted_set(
-                value.get(only_one(list(value), params.map_tbl.param), [])
+                value.get(only_one(list(value), PARAMS.map_tbl.param), [])
             ),
         }
         if not value:
@@ -975,7 +975,7 @@ class Table(BaseUpdatableModel):
             )
         ):
             _initial["statement"]: str = Statement(
-                value.get(only_one(list(value), params.map_tbl.stm), "")
+                value.get(only_one(list(value), PARAMS.map_tbl.stm), "")
             ).generate()
             return _initial
 
@@ -1006,13 +1006,13 @@ class Table(BaseUpdatableModel):
         _initial["statement"]: str = reduce_stm(_stm, add_row_number=False)
         return _initial
 
-    def validate_name_flag(self, flag: Optional[Union[str, bool]]) -> bool:
-        """Validate flag of name."""
+    def validate_name_flag(self, flag: Union[str, bool]) -> bool:
+        """Validate flag of with table name."""
         try:
             return must_bool(flag, force_raise=True)
         except ValueError:
             return any(
-                self.name.startswith(params.map_tbl_flag.get(_)) for _ in flag
+                self.name.startswith(PARAMS.map_tbl_flag.get(_)) for _ in flag
             )
 
     def validate_columns(
@@ -1073,19 +1073,22 @@ class Function(BaseUpdatableModel):
     tag: Tag = Field(default_factory=dict, description="Tag of Function")
 
     @classmethod
-    def parse_name(cls, fullname: str):
+    def parse_name(
+        cls,
+        name: str,
+        *,
+        additional: Optional[dict[str, Any]] = None,
+    ):
         """Parse name to Function Model."""
-        _type, name = filter_ps_type(
-            fullname, default=params.list_func_types[0]
-        )
+        _type, name = filter_ps_type(name, default=PARAMS.list_func_types[0])
         obj = LoadCatalog(
             name=name,
             prefix="",
-            folder=params.map_func_types.get(_type, "function"),
+            folder=PARAMS.map_func_types.get(_type, "function"),
             prefix_file=_type,
         ).load()
         obj.update({"type": _type})
-        return cls.parse_obj(obj)
+        return cls.parse_obj(obj=(obj | {"additional": (additional or {})}))
 
     @root_validator(pre=True)
     def prepare_values(cls, values):
@@ -1096,7 +1099,7 @@ class Function(BaseUpdatableModel):
         prefix: str = name.split("_")[0]
         if not (
             profile_key := only_one(
-                values, params.map_func.create, default=False
+                values, PARAMS.map_func.create, default=False
             )
         ):
             raise ValueError(
@@ -1107,15 +1110,16 @@ class Function(BaseUpdatableModel):
             "name": name,
             "shortname": "".join(w[0] for w in name.split("_")),
             "prefix": prefix,
-            "type": values.get("type", params.list_func_types[0]),
+            "type": values.get("type", PARAMS.list_func_types[0]),
             "profile": values.pop(profile_key),
             "tag": {
                 "version": values.pop("version", None),
                 "description": values.pop(
-                    only_one(values, params.map_func.desc),
+                    only_one(values, PARAMS.map_func.desc),
                     None,
                 ),
             },
+            **values.get("additional", {}),
         }
 
     @validator("profile", pre=True)
@@ -1132,7 +1136,7 @@ class Function(BaseUpdatableModel):
                 "statement": value,
             }
         elif isinstance(value, dict):
-            if not (_stm_key := only_one(list(value), params.map_func.stm)):
+            if not (_stm_key := only_one(list(value), PARAMS.map_func.stm)):
                 raise ValueError(
                     "Function profile does not set statement while profile key "
                     "was dict type"
@@ -1140,7 +1144,7 @@ class Function(BaseUpdatableModel):
             return {
                 "name": name,
                 "parameter": sorted_set(
-                    value.get(only_one(list(value), params.map_func.param), [])
+                    value.get(only_one(list(value), PARAMS.map_func.param), [])
                 ),
                 "statement": value.get(_stm_key, ""),
             }
@@ -1164,14 +1168,19 @@ class Pipeline(BaseUpdatableModel):
     priority: int = Field(default=0)
     schedule: list[str] = Field(default_factory=list)
     trigger: Union[list[str], set] = Field(default_factory=list)
-    alert: list = Field(default_factory=list)
+    alert: list[str] = Field(default_factory=list)
     nodes: dict[Union[int, float], dict] = Field(default_factory=dict)
 
     # Tag metadata of catalog model
     tag: Tag = Field(default_factory=dict, description="Tag of Pipeline")
 
     @classmethod
-    def parse_name(cls, name: str):
+    def parse_name(
+        cls,
+        name: str,
+        *,
+        additional: Optional[dict[str, Any]] = None,
+    ):
         # if name == "control_search":
         #     ...
         # elif name == "retention_search":
@@ -1182,7 +1191,7 @@ class Pipeline(BaseUpdatableModel):
             folder="pipeline",
             prefix_file="pipeline",
         ).load()
-        return cls.parse_obj(obj)
+        return cls.parse_obj(obj=(obj | {"additional": (additional or {})}))
 
     @root_validator(pre=True)
     def prepare_values(cls, values):
@@ -1190,12 +1199,12 @@ class Pipeline(BaseUpdatableModel):
 
         if not (name := values.get("name")):
             raise ValueError("name does not set")
-        if not (pipe_id := only_one(values, params.map_pipe.id, default=False)):
+        if not (pipe_id := only_one(values, PARAMS.map_pipe.id, default=False)):
             raise ValueError(
                 "Catalog does not found any key represent `id`/`pipeline_id`"
             )
         if not (
-            node_key := only_one(values, params.map_pipe.nodes, default=False)
+            node_key := only_one(values, PARAMS.map_pipe.nodes, default=False)
         ):
             raise ValueError(
                 "Catalog does not found any key represent `nodes`/`tables`"
@@ -1207,20 +1216,21 @@ class Pipeline(BaseUpdatableModel):
             "id": values.pop(pipe_id),
             "priority": values.pop("priority", None),
             "schedule": must_list(
-                values.get(only_one(values, params.map_pipe.schedule), [])
+                values.get(only_one(values, PARAMS.map_pipe.schedule), [])
             ),
             "trigger": values.get(
-                only_one(values, params.map_pipe.trigger), []
+                only_one(values, PARAMS.map_pipe.trigger), []
             ),
             "alert": must_list(
-                values.get(only_one(values, params.map_pipe.alert), [])
+                values.get(only_one(values, PARAMS.map_pipe.alert), [])
             ),
             "nodes": values.pop(node_key),
             "tag": {
                 "description": values.get(
-                    only_one(values, params.map_pipe.desc), ""
+                    only_one(values, PARAMS.map_pipe.desc), ""
                 ),
             },
+            **values.get("additional", {}),
         }
 
     @validator("trigger", pre=True)
@@ -1379,10 +1389,10 @@ class Pipeline(BaseUpdatableModel):
         elif isinstance(node_props, dict):
             _priority: float = round(node_props.get("priority") or priority, 2)
             _choose: str = only_one(
-                list(node_props), params.map_pipe.choose, default=True
+                list(node_props), PARAMS.map_pipe.choose, default=True
             )
             _type: str = only_one(
-                list(node_props), params.map_pipe.type, default=True
+                list(node_props), PARAMS.map_pipe.type, default=True
             )
             if not node_name:
                 node_name: str = node_props["name"]
@@ -1411,7 +1421,7 @@ class Pipeline(BaseUpdatableModel):
         name = values["name"]
         for _priority, v in value.items():
             try:
-                Table.parse_name(fullname=v["name"])
+                Table.parse_name(name=v["name"])
             except ValidationError as e:
                 raise ValueError(
                     f"From {name}, node name {v['name']} does not exists"

@@ -3,18 +3,15 @@
 # Licensed under the MIT License. See LICENSE in the project root for
 # license information.
 # ------------------------------------------------------------------------------
+from __future__ import annotations
+
 import os
-from typing import (
-    Optional,
-)
+from typing import Optional
 
 from psycopg2 import OperationalError as PsycopgOperationalError
 from sqlalchemy.exc import OperationalError
 
 from app.blueprints.api.framework.tasks import foreground_tasks
-from app.core.__legacy.objects import (
-    Pipeline as LegacyPipeline,
-)
 from app.core.base import get_catalogs
 from app.core.errors import (
     CatalogBaseError,
@@ -32,6 +29,7 @@ from app.core.services import (
     Control,
     Node,
     NodeLocal,
+    PipelineManage,
     Schema,
     Task,
 )
@@ -71,7 +69,7 @@ def push_func_setup(
     """Run Setup function in `register.yaml`"""
     task: Task = task or Task.make(module="function_setup")
     for idx, _func_prop in enumerate(registers.functions, start=1):
-        _func: Action = Action.parse_name(fullname=_func_prop["name"])
+        _func: Action = Action.parse_name(name=_func_prop["name"])
         logger.info(f"START {idx:02d}: {f'{_func.name} ':~<50}")
         if not _func.exists():
             _func.create()
@@ -158,13 +156,13 @@ def pull_ctr_check_process() -> tuple[int, ...]:
 
 def pull_migrate_tables():
     """Check migrate table process."""
-    pipe_cnt = LegacyPipeline(
+    pipe_cnt: PipelineManage = PipelineManage.parse_task(
         name="control_search",
         auto_create=False,
         verbose=False,
     )
-    for _order, node in pipe_cnt.nodes():
-        node.push_tbl_diff()
+    for _order, node in pipe_cnt.process_nodes():
+        node.diff()
 
 
 def push_ctr_stop_running() -> None:
@@ -175,7 +173,7 @@ def push_ctr_stop_running() -> None:
     try:
         logger.info("Start update message and status to in-progress tasks.")
         (
-            ActionQuery.parse_name(fullname="query:query_shutdown")
+            ActionQuery.parse_name(name="query:query_shutdown")
             .add_ext_params(
                 params={
                     "status": 1,
@@ -202,8 +200,8 @@ def push_trigger_schedule() -> int:
         priority_sorted=True,
     ).items():
         try:
-            pipeline: LegacyPipeline = LegacyPipeline(pipe_name)
-            if pipeline.check_pipe_trigger():
+            pipeline: PipelineManage = PipelineManage.parse_name(pipe_name)
+            if pipeline.check_triggered():
                 logger.info(
                     f"Start trigger schedule "
                     f"for data pipeline: {pipeline.name!r}"
@@ -237,8 +235,8 @@ def push_cron_schedule(group_name: str, waiting_process: int = 300) -> int:
         priority_sorted=True,
     ):
         try:
-            pipeline: LegacyPipeline = LegacyPipeline(pipe_name)
-            if pipeline.check_pipe_schedule(
+            pipeline: PipelineManage = PipelineManage.parse_name(pipe_name)
+            if pipeline.check_scheduled(
                 group=group_name,
                 waiting_process=waiting_process,
             ):
@@ -301,18 +299,26 @@ def push_load_file_to_db(
     return rs
 
 
-def push_initialize_frontend(): ...
-
-
 def push_testing() -> None:
     from .core.services import Pipeline
 
-    Schema().create()
-    push_func_setup()
+    # Schema().create()
+    # push_func_setup()
     logger.info("Start Testing ...")
     task = Task.make(module="demo_docstring").add_param_others({"dummy": "Y"})
-    _node = Node.parse_task(
-        name="ctr_data_parameter",
+    # _node = Node.parse_task(
+    #     name="ctr_data_parameter",
+    #     fwk_params={
+    #         "run_id": task.id,
+    #         "run_date": f"{task.start_time:%Y-%m-%d}",
+    #         "run_mode": TaskComponent.RECREATED,
+    #         "task_params": task.parameters.add_others(
+    #             {"auto_init": True, "auto_drop": True, "auto_create": True}
+    #         ),
+    #     },
+    # )
+    _pipeline = Pipeline.parse_task(
+        name="after_sync_sales_order",
         fwk_params={
             "run_id": task.id,
             "run_date": f"{task.start_time:%Y-%m-%d}",
@@ -322,10 +328,11 @@ def push_testing() -> None:
             ),
         },
     )
-    _pipeline = Pipeline.parse_name("ctr_all")
-    print(_pipeline)
+    for order, node in _pipeline.process_nodes():
+        print(f"Node {order}: ", node.name)
+        break
     # (
-    #     ActionQuery.parse_name(fullname="query:query_shutdown")
+    #     ActionQuery.parse_name(name="query:query_shutdown")
     #     .add_ext_params(
     #         params={
     #             "status": 1,

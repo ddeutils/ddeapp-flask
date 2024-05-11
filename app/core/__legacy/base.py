@@ -546,7 +546,8 @@ class TblCatalog:
         if len(_filter) != len(columns) and raise_error:
             _filter_out: set = set(columns).difference(set(_filter))
             raise TableValidatorError(
-                f"Column validate does not exists in {self.tbl_name} from {list(_filter_out)}"
+                f"Column validate does not exists in {self.tbl_name} from "
+                f"{list(_filter_out)}"
             )
         return (
             _filter
@@ -1223,7 +1224,7 @@ class PipeCatalog:
         return self.pipe_catalog["alert"]
 
     @property
-    def pipe_alert_inc(self):
+    def pipe_alert_inc(self) -> list:
         _alert: list = self.pipe_alert.copy()
         _alert.insert(0, self.pipe_id)
         return _alert

@@ -77,7 +77,6 @@ def start_framework():
         )
         return output
 
-    # -------------------------- run with thread
     thread = ThreadWithControl(
         target=background_tasks_demo,
         args=(
@@ -90,22 +89,13 @@ def start_framework():
         daemon=True,
     )
     thread.start()
-    # threader.threadList.append(thread)
-    # -------------------------- run with process
-    # process = multiprocessing.Process(
-    #     target=background_tasks_demo, args=input_args, kwargs=input_kwargs
-    # )
-    # process.start()
-
-    resp = jsonify(
+    return jsonify(
         {
             "message": "Start: Background task was running ...",
             "process_id": f"{bg_queue.get()}",
             "process_name": f"{thread.name}",
-        }
-    )
-    resp.status_code = HTTP_200_OK if bg_queue.get() else HTTP_401_UNAUTHORIZED
-    return resp
+        },
+    ), (HTTP_200_OK if bg_queue.get() else HTTP_401_UNAUTHORIZED)
 
 
 @frameworks.post("/setup")

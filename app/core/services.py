@@ -8,6 +8,7 @@ from __future__ import annotations
 import ast
 import builtins
 import inspect
+import time
 from collections.abc import Iterator
 from datetime import date, datetime
 from itertools import takewhile
@@ -43,6 +44,7 @@ from .connections import (
 from .convertor import Statement, Value
 from .errors import (
     CatalogArgumentError,
+    ControlPipelineNotExists,
     ControlProcessNotExists,
     ControlTableNotExists,
     ControlTableValueError,
@@ -71,6 +73,7 @@ from .schemas import (
     ControlWatermark,
 )
 from .statements import (
+    ColumnStatement,
     ControlStatement,
     FunctionStatement,
     SchemaStatement,
@@ -106,18 +109,6 @@ from .validators import (
 
 env = Environs(env_name=".env")
 logger = logging.getLogger(__name__)
-
-__all__ = (
-    "Schema",
-    "Action",
-    "ActionQuery",
-    "Node",
-    "NodeLocal",
-    "NodeIngest",
-    "Pipeline",
-    "Task",
-    "Control",
-)
 
 
 def null_or_str(value: str) -> Optional[str]:
@@ -172,6 +163,7 @@ class MapParameterService(MapParameter):
         cls,
         value: Union[DictKeyStr, FrameworkParameter],
     ) -> FrameworkParameter:
+        print("Prepare Framework Params: ", value)
         if isinstance(value, dict):
             return FrameworkParameter.parse(
                 {
@@ -181,6 +173,11 @@ class MapParameterService(MapParameter):
                 }
                 | value
             )
+        return value
+
+    @validator("fwk_params")
+    def ___post_fwk_params(cls, value):
+        print("Prepare Framework Params Post: ", value)
         return value
 
     def add_ext_params(self, params: DictKeyStr) -> Self:
@@ -506,6 +503,16 @@ class BaseNode(MapParameterService, TableStatement):
             )
         return query_select_row(self.statement_count(), parameters={})
 
+    def pull_metadata(self) -> dict[str, Any]:
+        return {
+            rows["column_name"]: {
+                "order": int(rows["ordinal_position"]),
+                "datatype": rows["data_type"],
+                "nullable": eval(rows["nullable"]),
+            }
+            for rows in query_select(self.statement_columns(), parameters=True)
+        }
+
 
 class Node(BaseNode):
 
@@ -517,18 +524,22 @@ class Node(BaseNode):
 
     def __init__(self, **data):
         super().__init__(**data)
+        # TODO: We should re-design this step
         self.__validate_create()
         self.__validate_quota()
 
     def __validate_create(self) -> None:
-        _auto_create: bool = must_bool(
-            self.fwk_params.task_params.others.get("auto_create", "N"),
-            force_raise=True,
+        _auto_create: bool = self.validate_name_flag(
+            self.fwk_params.task_params.others.get("auto_create", "N")
         )
-        _auto_init: bool = must_bool(
-            self.fwk_params.task_params.others.get("auto_init", "N"),
-            force_raise=True,
+        _auto_init: bool = self.validate_name_flag(
+            self.fwk_params.task_params.others.get("auto_init", "N")
         )
+        print(
+            "Validate Create Task Params Other: ",
+            self.fwk_params.task_params.others,
+        )
+        print("Validate Create auto_create: ", _auto_create)
         if not self.exists():
             if not _auto_create:
                 raise TableNotFound(
@@ -564,6 +575,10 @@ class Node(BaseNode):
                 f"running date: {self.watermark.run_date:'%Y-%m-%d'}"
             )
 
+    def filter(self, choose: list[str]) -> Self:
+        self.__dict__["choose"] = choose
+        return self
+
     @property
     def split_choose(self) -> Choose:
         _process: dict[str, list[str]] = {"reject": [], "filter": []}
@@ -581,6 +596,13 @@ class Node(BaseNode):
             ),
             excluded=_process["reject"],
         )
+
+    @property
+    def has_quota(self) -> bool:
+        return not (
+            self.watermark.run_count_now < self.watermark.run_count_max
+            or self.watermark.run_count_max == 0
+        ) and (self.fwk_params.run_date == self.watermark.run_date)
 
     @validator("watermark", pre=True, always=True)
     def __prepare_watermark(cls, value: DictKeyStr, values):
@@ -941,15 +963,11 @@ class NodeManage(Node):
 
     @property
     def name_backup(self) -> tuple[str, str]:
-        _bk_name: bool = must_bool(
-            self.ext_params.get("backup_table"), force_raise=True
-        )
-        _bk_schema: bool = must_bool(
-            self.ext_params.get("backup_schema"), force_raise=True
-        )
+        _bk_name: bool = must_bool(self.ext_params.get("backup_table"))
+        _bk_schema: bool = must_bool(self.ext_params.get("backup_schema"))
         return (
-            f"{self.name}_bk" if _bk_name else None,
-            f"{env.AI_SCHEMA}_bk" if _bk_schema else None,
+            f"{self.name}_bk" if _bk_name else "",
+            f"{env.AI_SCHEMA}_bk" if _bk_schema else "",
         )
 
     def __backup(
@@ -1094,6 +1112,186 @@ class NodeManage(Node):
     def vacuum(self, options: Optional[list[str]] = None) -> None:
         _option: str = ", ".join(options) if options else "full"
         return query_execute(self.statement_vacuum(_option), parameters=True)
+
+    def diff(self):
+        """Get mapping of different columns between config table and target
+        table."""
+        get_cols, pull_cols, compare, ctx = self.__gen_columns_diff()
+        merge_cols, ctx = self.__gen_columns_diff_map(get_cols, pull_cols, ctx)
+        try:
+            if ctx["col_update"]:
+                self.__diff_update(get_cols, compare["left"])
+            elif ctx["col_delete"]:
+                self.__diff_delete(compare["right"])
+            elif ctx["col_diff"]:
+                self.__diff_merge(merge_cols)
+            else:
+                logger.info(
+                    f"Dose not any change from configuration data "
+                    f"in table {self.name!r}"
+                )
+        except DatabaseProcessError as err:
+            logger.error(
+                f"Push different columns process of {self.name!r} "
+                f"failed with {err}"
+            )
+
+    def __diff_update(self, get_cols: dict, not_exists_cols: set):
+        """Update column properties of target table in database
+        TODO: ALTER [ COLUMN ] column { SET | DROP } NOT NULL
+        """
+        logger.info(
+            f"Update column properties or add new column"
+            f"{get_plural(len(not_exists_cols))}, "
+            f"{', '.join([repr(_) for _ in not_exists_cols])} of table "
+            f"{self.name!r} in database"
+        )
+        add_col_list = [
+            (name, props["datatype"])
+            for name, props in get_cols.items()
+            if name in not_exists_cols
+        ]
+        print(
+            ", ".join(f"add column {col[0]} {col[1]}" for col in add_col_list)
+        )
+        # query_execute(statement=params.ps_stm.alter, parameters={
+        #     'table_name': self.tbl_name,
+        #     'action': ', '.join(
+        #         f'add column {col[0]} {col[1]}'
+        #         for col in add_col_list
+        #     )
+        # })
+
+    def __diff_delete(self, exists_cols: set):
+        """Delete column in target table with not exists from configuration
+        data."""
+        logger.info(
+            f"Drop column{get_plural(len(exists_cols))}, "
+            f"{', '.join([repr(_) for _ in exists_cols])} of table "
+            f"{self.name!r} in database"
+        )
+        print(", ".join(f"drop column {col}" for col in exists_cols))
+        # query_execute(statement=params.ps_stm.alter, parameters={
+        #     'table_name': self.tbl_name,
+        #     'action': ', '.join(f'drop column {col}' for col in exists_cols)
+        # })
+
+    def __diff_merge(self, merge_cols: dict):
+        """Transfer full data from old table to new created table from merge
+        columns."""
+        mapping_col_insert: list = []
+        mapping_col_select: list = []
+        for col_name, col_attrs in merge_cols.items():
+            mapping_col_insert.append(col_name)
+            if _not_match := col_attrs["not_match"]:
+                stm_select: str = col_name
+
+                # Check nullable not match
+                if _nullable := _not_match.get("nullable"):
+                    # Generate default value with data-type
+                    if not _nullable[0] and _nullable[1]:
+                        # stm_select: str = f"coalesce({col_name}, {default})"
+                        raise TableNotImplement(
+                            f"Table column different merge process does not "
+                            f"support for change `null` to `not null` "
+                            f"with column: {col_name!r} in {self.name!r}"
+                        )
+
+                # Check data-type not match
+                if _datatype := _not_match.get("datatype"):
+                    stm_select: str = (
+                        f"{stm_select}::{_datatype[0]} as {col_name}"
+                    )
+
+                mapping_col_select.append(stm_select)
+                continue
+            mapping_col_select.append(col_name)
+
+        logger.info(
+            f"insert into {{database_name}}.{{ai_schema_name}}.{self.name} "
+            f"\n\t\t ( {', '.join(mapping_col_insert)} ) \n"
+            f"\t\t select {', '.join(mapping_col_select)} \n"
+            f"\t\t from {{database_name}}.{{ai_schema_name}}."
+            f"{self.name}_old;"
+        )
+        # NOTE:
+        # query_execute(statement=params.ps_stm.push_merge, parameters={
+        #     'table_name': self.tbl_name,
+        #     'mapping_insert': ', '.join(mapping_col_insert),
+        #     'mapping_select': ', '.join(mapping_col_select)
+        # })
+
+    def __gen_columns_diff(
+        self,
+    ) -> tuple[
+        dict[str, ColumnStatement], DictKeyStr, DictKeyStr, dict[str, bool]
+    ]:
+        context: dict[str, bool] = {
+            "col_not_equal": False,
+            "col_update": False,
+            "col_delete": False,
+            "col_diff": False,
+        }
+        _pull_cols: dict = self.pull_metadata()
+        _get_cols: dict[str, ColumnStatement] = self.profile.to_mapping(pk=True)
+
+        compare_diff: dict = {"left": set(), "right": set(), "all": set()}
+        compare_diff["left"].update(
+            set(_get_cols.keys()).difference(set(_pull_cols.keys()))
+        )
+        compare_diff["right"].update(
+            set(_pull_cols.keys()).difference(set(_get_cols.keys()))
+        )
+        compare_diff["all"].update(
+            set(_get_cols.keys()).intersection(set(_pull_cols.keys()))
+        )
+
+        if len(_get_cols) != len(_pull_cols) or sorted(
+            _get_cols.keys()
+        ) != sorted(_pull_cols.keys()):
+            context["col_not_equal"] = True
+            if not compare_diff["right"]:
+                context["col_update"] = True
+            elif not compare_diff["left"]:
+                context["col_delete"] = True
+
+        return _get_cols, _pull_cols, compare_diff, context
+
+    @staticmethod
+    def __gen_columns_diff_map(
+        _get_cols: DictKeyStr,
+        _pull_cols: DictKeyStr,
+        context: dict[str, bool],
+    ) -> tuple[DictKeyStr, dict[str, bool]]:
+        """Generate mapping of different matrix of column properties."""
+        results: dict = {}
+
+        if context["col_not_equal"]:
+            _get_cols: dict = {
+                k: _get_cols[k] for k in _get_cols if k in _pull_cols
+            }
+
+        for col_name, col_attrs in _get_cols.items():
+            result: dict = {"match": {}, "not_match": {}}
+            for _check in {"order", "datatype", "nullable"}:
+                if _pull_cols[col_name][_check] != col_attrs[_check]:
+                    context["col_diff"] = True
+                    if _check == "order":
+                        # Cannot use update or delete because order of column
+                        # does not align with config data
+                        context["col_update"] = False
+                        context["col_delete"] = False
+                    result["not_match"][_check] = (
+                        col_attrs[_check],
+                        _pull_cols[col_name][_check],
+                    )
+                else:
+                    result["match"][_check] = (
+                        col_attrs[_check],
+                        _pull_cols[col_name][_check],
+                    )
+                results[col_name]: dict = result
+        return results, context
 
 
 class NodeLocal(Node):
@@ -1261,26 +1459,21 @@ class NodeIngest(Node):
 class BasePipeline(MapParameterService, PipelineCatalog):
     """Pipeline Service Model."""
 
-    watermark: ControlSchedule = Field(
-        default_factory=dict,
-        description="Pipeline watermark data from Control Task Schedule",
-    )
-
-    @validator("watermark", pre=True, always=True)
-    def __prepare_watermark(cls, value: DictKeyStr, values):
-        try:
-            wtm: DictKeyStr = SCH_DEFAULT | cls.pull_watermarks(
-                pipe_id=values["name"]
-            )
-        except DatabaseProcessError:
-            wtm = SCH_DEFAULT
-        return ControlSchedule.parse_obj(wtm | value)
-
-    def nodes(self): ...
-
-    def check_triggered(self): ...
-
-    def check_scheduled(self): ...
+    @classmethod
+    def parse_task(
+        cls,
+        name: str,
+        fwk_params: DictKeyStr,
+        ext_params: Optional[DictKeyStr] = None,
+    ) -> Self:
+        """Parsing all parameters from Task before Running the Node."""
+        return cls.parse_name(
+            name,
+            additional={
+                "fwk_params": fwk_params,
+                "ext_params": (ext_params or {}),
+            },
+        )
 
     @classmethod
     def pull_watermarks(
@@ -1327,7 +1520,146 @@ class BasePipeline(MapParameterService, PipelineCatalog):
         )
 
 
-class Pipeline(BasePipeline): ...
+class Pipeline(BasePipeline):
+
+    watermark: ControlSchedule = Field(
+        default_factory=dict,
+        description="Pipeline watermark data from Control Task Schedule",
+    )
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.__validate_create()
+        if (
+            self.watermark.pipeline_id == UNDEFINED
+            and self.fwk_params.run_mode != TaskComponent.RECREATED
+        ):
+            ...
+
+    def __validate_create(self): ...
+
+    @property
+    def internal_gen(self) -> bool:
+        return self.name in ("retention_search", "control_search")
+
+    @validator("watermark", pre=True, always=True)
+    def __prepare_watermark(cls, value: DictKeyStr, values):
+        try:
+            wtm: DictKeyStr = SCH_DEFAULT | cls.pull_watermarks(
+                pipe_id=values["name"]
+            )
+        except DatabaseProcessError:
+            wtm = SCH_DEFAULT
+        return ControlSchedule.parse_obj(wtm | value)
+
+    def watermark_refresh(self):
+        logger.debug("Add more external parameters ...")
+        self.__dict__["watermark"] = ControlSchedule.parse_obj(
+            obj=self.pull_watermarks(pipe_id=self.id)
+        )
+        return self
+
+    def process_nodes(
+        self,
+        auto_update: bool = True,
+    ) -> Iterator[tuple[int, NodeManage]]:
+        """Node method for passing pipeline parameters to all node in the
+        pipeline."""
+        for order, node in self.nodes.items():
+            yield (
+                order,
+                NodeManage.parse_task(
+                    name=node["name"],
+                    fwk_params={
+                        "run_id": self.fwk_params.run_id,
+                        "run_date": f"{self.fwk_params.run_date:%Y-%m-%d}",
+                        "run_mode": self.fwk_params.run_mode,
+                        "task_params": self.fwk_params.task_params,
+                    },
+                    ext_params=self.ext_params,
+                ).filter(node.get("choose", [])),
+            )
+        if auto_update and not self.internal_gen:
+            self.push(values={"pipeline_id": [self.id, *self.alert]})
+
+
+class PipelineManage(Pipeline):
+    def __check_trigger_function(
+        self,
+        trigger: Union[str, list, set],
+        ctr_schedules: dict,
+    ):
+        if isinstance(trigger, str):
+            if not (pln_trigger := ctr_schedules.get(trigger, {})):
+                logger.warning(
+                    f"Pipeline ID: {trigger!r} does not exists in "
+                    f"`ctr_task_schedule` or active_flg equal 'N' "
+                    f"from `trigger` in '{self.name}'"
+                )
+                raise ControlPipelineNotExists(
+                    f"Pipeline ID: {trigger!r} does not exists in "
+                    f"`ctr_task_schedule` or active_flg equal 'N' "
+                    f"from `trigger` in '{self.name}'"
+                )
+            return (
+                (pln_trigger["update_date"] > self.watermark.update_date)
+                and (
+                    pln_trigger["tracking"]
+                    == self.watermark.tracking
+                    == "SUCCESS"
+                )
+            ) or (
+                (pln_trigger["update_date"] <= self.watermark.update_date)
+                and (
+                    pln_trigger["tracking"] == "SUCCESS"
+                    and self.watermark.tracking == "FAILED"
+                )
+            )
+        if run_flags := [
+            self.__check_trigger_function(_trigger, ctr_schedules)
+            for _trigger in trigger
+        ]:
+            return (
+                any(run_flags) if isinstance(trigger, set) else all(run_flags)
+            )
+        return False
+
+    def check_triggered(self) -> bool:
+        """Return True if pipeline ..."""
+        _triggers: Union[set, list] = self.trigger.copy()
+        _all_pipe_schedules: dict = {
+            _ctr_value["pipeline_id"]: {
+                "tracking": _ctr_value["tracking"],
+                "update_date": datetime.fromisoformat(
+                    _ctr_value["update_date"]
+                ),
+            }
+            for _ctr_value in self.pull_watermarks(
+                included_cols=["pipeline_id", "tracking", "update_date"],
+                all_flag=True,
+            )
+        }
+        return self.__check_trigger_function(_triggers, _all_pipe_schedules)
+
+    def check_scheduled(self, group: str, waiting_process: int = 300) -> bool:
+        if not self.schedule:
+            return False
+
+        if group not in self.schedule:
+            return False
+
+        if self.watermark.tracking == "FAILED":
+            logger.warning(
+                f"Pipeline ID: {self.id!r} was `FAILED` status, "
+                f"please check `ctr_task_process` with pipeline_name = "
+                f"{self.name!r}."
+            )
+            return False
+        while self.watermark.tracking == "PROCESSING":
+            logger.info(f"Waiting Pipeline ID: {self.id!r} processing ...")
+            time.sleep(waiting_process)
+            self.watermark_refresh()
+        return True
 
 
 class Task(BaseTask):
@@ -1664,3 +1996,18 @@ class Control(ControlStatement):
                 ),
             },
         )
+
+
+__all__ = (
+    "Schema",
+    "Action",
+    "ActionQuery",
+    "Node",
+    "NodeLocal",
+    "NodeIngest",
+    "NodeManage",
+    "Pipeline",
+    "PipelineManage",
+    "Task",
+    "Control",
+)

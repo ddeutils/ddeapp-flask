@@ -292,6 +292,7 @@ class TableValidatorTestCase(unittest.TestCase):
             "shortname": "tn",
             "prefix": "table",
             "type": "sql",
+            "process_max": 1,
             "profile": {
                 "features": [
                     {
@@ -373,6 +374,7 @@ class TableValidatorTestCase(unittest.TestCase):
             "shortname": "aasm",
             "prefix": "ai",
             "type": "sql",
+            "process_max": 1,
             "profile": {
                 "features": [
                     {
@@ -472,6 +474,7 @@ class TableValidatorTestCase(unittest.TestCase):
             "shortname": "aasm",
             "prefix": "ai",
             "type": "sql",
+            "process_max": 1,
             "profile": {
                 "features": [
                     {

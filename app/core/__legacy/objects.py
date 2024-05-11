@@ -680,7 +680,7 @@ class TblProcess(TblCatalog):
             date_type="date",
         )
 
-    # [x] Migrate to modern on service `Node.profile.features`
+    # [x] Migrate to `Node.pull_metadata`
     def pull_tbl_columns_datatype(self) -> dict:
         """Pull name and data type of all columns of table in database."""
         return {
@@ -800,6 +800,7 @@ class TblProcess(TblCatalog):
             )
         return row_num
 
+    # [x] Migrate to `NodeManage.diff`
     def push_tbl_diff(self):
         # Get mapping of different columns between config table
         # and target table.
@@ -825,6 +826,7 @@ class TblProcess(TblCatalog):
                 f"failed with {err}"
             )
 
+    # [x] Migrate to `NodeManage.__diff_update`
     def push_tbl_diff_update(self, get_cols: dict, not_exists_cols: set):
         """Update column properties of target table in database
         TODO: ALTER [ COLUMN ] column { SET | DROP } NOT NULL
@@ -851,6 +853,7 @@ class TblProcess(TblCatalog):
         #     )
         # })
 
+    # [x] Migrate to `NodeManage.__diff_delete`
     def push_tbl_diff_delete(self, exists_cols: set):
         """Delete column in target table with not exists from configuration
         data."""
@@ -865,6 +868,7 @@ class TblProcess(TblCatalog):
         #     'action': ', '.join(f'drop column {col}' for col in exists_cols)
         # })
 
+    # [x] Migrate to `NodeManage.__diff_merge`
     def push_tbl_diff_merge(self, merge_cols: dict):
         """Transfer full data from old table to new created table from merge
         columns."""
@@ -1545,7 +1549,7 @@ class Node(TblProcess):
             )
         return self.tbl_process_count - len(_excluded)
 
-    # [x] Migrate to modern on service `Node.retention`
+    # [x] Migrate to modern on service `Node._prepare_before_rerun`
     def _prepare_before_rerun(self, sla: int) -> tuple[dt.date, dt.date]:
         _run_date: dt.date = (
             self.tbl_run_date
@@ -1593,7 +1597,7 @@ class Node(TblProcess):
             else 0
         )
 
-    # [x] Migrate to modern on service `Node.retention`
+    # [x] Migrate to modern on service `Node.process_start`
     def process_start(self) -> dict:
         _additional: dict = self.node_tbl_params.copy()
         if self.node_tbl_params.get("data_normal_rerun_reset_sla", "N") == "Y":
@@ -1756,7 +1760,10 @@ class PipeProcess(PipeCatalog):
         self.pipe_node_auto_create: bool = schema_auto_create
         self.pipe_node_auto_drop: bool = node_auto_drop
         self.pipe_node_auto_init: bool = node_auto_init
+
+        # [x] Migrate to `Pipeline.internal_gen`
         self.pipe_node_generator: bool = True
+
         if pipe_name == "control_search":
             super().__init__(
                 pipe_name=pipe_name,
@@ -1807,6 +1814,7 @@ class PipeProcess(PipeCatalog):
             ),
         )
 
+        # [x] Migrate to `MapParameter.ext_params`
         self.pipe_params: dict = merge_dicts(
             Control.parameters(), (external_parameters or {})
         )
@@ -1835,18 +1843,22 @@ class PipeProcess(PipeCatalog):
             end="=",
         )
 
+    # [x] Migrate to Pipline.watermark
     @property
     def pipe_ctr_type(self) -> str:
         return self.pipe_ctr_schedule["pipeline_type"]
 
+    # [x] Migrate to Pipline.watermark
     @property
     def pipe_ctr_track(self) -> str:
         return self.pipe_ctr_schedule["tracking"]
 
+    # [x] Migrate to Pipline.watermark
     @property
     def pipe_ctr_update_date(self) -> dt.datetime:
         return dt.datetime.fromisoformat(self.pipe_ctr_schedule["update_date"])
 
+    # [x] Migrate to Pipline.process_nodes
     def pull_pipe_nodes(
         self, node_props: Optional[dict] = None, auto_update: bool = True
     ) -> Iterator[tuple[int, Node]]:
@@ -2020,6 +2032,7 @@ class Pipeline(PipeProcess):
         name."""
         return self.pipe_name
 
+    # [x] Migrate to FrameworkParameter.run_date
     @property
     def run_date(self):
         return self.pipe_run_date
@@ -2028,12 +2041,14 @@ class Pipeline(PipeProcess):
     def process_count(self):
         return self.pipe_nodes_count
 
+    # [x] Migrate to FrameworkParameter.duration
     @property
     def process_time(self) -> int:
         return round(
             (get_time_checkpoint() - self.pipe_start_datetime).total_seconds()
         )
 
+    # [x] Migrate to Pipline.process_nodes
     def nodes(self, auto_update: bool = True):
         """Node method for passing pipeline parameters to all node in the
         pipeline."""
@@ -2050,6 +2065,7 @@ class Pipeline(PipeProcess):
             auto_update=auto_update,
         )
 
+    # [x] Migrate to Pipline.push
     def update_to_ctr_schedule(self, update_values: Optional[dict] = None):
         _update_values: dict = merge_dicts(
             {"pipeline_id": self.pipe_alert_inc, "tracking": "SUCCESS"},

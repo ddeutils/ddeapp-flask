@@ -346,6 +346,29 @@ class TableStatement(Table):
             f"vacuum {option} {{database_name}}.{{ai_schema_name}}.{self.name}"
         )
 
+    def statement_columns(self):
+        return reduce_stm(
+            f"SELECT ordinal_position "
+            f", column_name "
+            f", CASE WHEN data_type = 'character varying' "
+            f"       THEN concat('varchar( ', character_maximum_length, ' )') "
+            f"       WHEN data_type = 'numeric' "
+            f"       THEN concat('numeric( ', numeric_precision, ', ', "
+            f"       numeric_scale, ' )') "
+            f"       WHEN data_type = 'integer' THEN 'int' "
+            f"       WHEN data_type = 'timestamp without time zone' "
+            f"       THEN 'timestamp' "
+            f"       ELSE data_type "
+            f"  END AS data_type "
+            f", CASE WHEN column_default is not null then 'False' "
+            f"       WHEN lower(is_nullable) = 'no' then 'False' "
+            f"       ELSE 'True' "
+            f"  END AS nullable "
+            f"FROM  {{database_name}}.information_schema.columns "
+            f"WHERE table_schema = '{{ai_schema_name}}' "
+            f"AND   table_name   = '{self.name}' "
+        )
+
     def conflict_set(
         self,
         excluded: Optional[list] = None,
@@ -442,7 +465,7 @@ class SchemaStatement(Schema):
 class ControlStatement:
 
     def __init__(self, name: str) -> None:
-        self.tbl: Table = Table.parse_name(fullname=name)
+        self.tbl: Table = Table.parse_name(name=name)
         self.name: str = self.tbl.name
         self.cols: list[str] = self.tbl.profile.columns(pk_included=True)
         self.cols_no_pk: list[str] = self.tbl.profile.columns(pk_included=False)
